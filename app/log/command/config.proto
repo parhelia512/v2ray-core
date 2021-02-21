@@ -10,8 +10,17 @@ message Config {}
 
 message RestartLoggerRequest {}
 
+message FollowLogRequest {}
+
+message FollowLogResponse {
+  string message = 1;
+}
+
 message RestartLoggerResponse {}
 
 service LoggerService {
   rpc RestartLogger(RestartLoggerRequest) returns (RestartLoggerResponse) {}
+
+  // Unstable interface
+  rpc FollowLog(FollowLogRequest) returns (stream FollowLogResponse) {}
 }

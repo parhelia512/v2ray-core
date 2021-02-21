@@ -52,9 +52,20 @@ func (s *statsServer) GetStats(ctx context.Context, request *GetStatsRequest) (*
 }
 
 func (s *statsServer) QueryStats(ctx context.Context, request *QueryStatsRequest) (*QueryStatsResponse, error) {
-	matcher, err := strmatcher.Substr.New(request.Pattern)
-	if err != nil {
-		return nil, err
+	mgroup := &strmatcher.LinearIndexMatcher{}
+	if request.Pattern != "" {
+		request.Patterns = append(request.Patterns, request.Pattern)
+	}
+	t := strmatcher.Substr
+	if request.Regexp {
+		t = strmatcher.Regex
+	}
+	for _, p := range request.Patterns {
+		m, err := t.New(p)
+		if err != nil {
+			return nil, err
+		}
+		mgroup.Add(m)
 	}
 
 	response := &QueryStatsResponse{}
@@ -65,7 +76,7 @@ func (s *statsServer) QueryStats(ctx context.Context, request *QueryStatsRequest
 	}
 
 	manager.VisitCounters(func(name string, c feature_stats.Counter) bool {
-		if matcher.Match(name) {
+		if mgroup.Size() == 0 || len(mgroup.Match(name)) > 0 {
 			var value int64
 			if request.Reset_ {
 				value = c.Set(0)

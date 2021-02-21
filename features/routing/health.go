@@ -28,7 +28,7 @@ type StrategyInfo struct {
 	Others      []*OutboundInfo // Other outbounds
 }
 
-// BalancingOverrideInfo holds balancing overridden information
+// BalancingOverrideInfo holds balancing override information
 type BalancingOverrideInfo struct {
 	Until   time.Time
 	Selects []string
