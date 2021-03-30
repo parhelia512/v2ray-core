@@ -18,31 +18,37 @@ import (
 	"github.com/v2fly/v2ray-core/v5/transport/pipe"
 )
 
+type dialerConf struct {
+	net.Destination
+	*internet.MemoryStreamConfig
+}
+
 var (
-	globalDialerMap    map[net.Destination]*http.Client
+	globalDialerMap    map[dialerConf]*http.Client
 	globalDialerAccess sync.Mutex
 )
 
 type dialerCanceller func()
 
-func getHTTPClient(ctx context.Context, dest net.Destination, tlsSettings *tls.Config, streamSettings *internet.MemoryStreamConfig) (*http.Client, dialerCanceller) {
+func getHTTPClient(ctx context.Context, dest net.Destination, streamSettings *internet.MemoryStreamConfig) (*http.Client, dialerCanceller) {
 	globalDialerAccess.Lock()
 	defer globalDialerAccess.Unlock()
 
 	canceller := func() {
 		globalDialerAccess.Lock()
 		defer globalDialerAccess.Unlock()
-		delete(globalDialerMap, dest)
+		delete(globalDialerMap, dialerConf{dest, streamSettings})
 	}
 
 	if globalDialerMap == nil {
-		globalDialerMap = make(map[net.Destination]*http.Client)
+		globalDialerMap = make(map[dialerConf]*http.Client)
 	}
 
-	if client, found := globalDialerMap[dest]; found {
+	if client, found := globalDialerMap[dialerConf{dest, streamSettings}]; found {
 		return client, canceller
 	}
 
+	tlsSettings := tls.ConfigFromStreamSettings(streamSettings)
 	transport := &http2.Transport{
 		DialTLS: func(network string, addr string, tlsConfig *gotls.Config) (net.Conn, error) {
 			rawHost, rawPort, err := net.SplitHostPort(addr)
@@ -86,7 +92,7 @@ func getHTTPClient(ctx context.Context, dest net.Destination, tlsSettings *tls.C
 		Transport: transport,
 	}
 
-	globalDialerMap[dest] = client
+	globalDialerMap[dialerConf{dest, streamSettings}] = client
 	return client, canceller
 }
 
@@ -97,7 +103,7 @@ func Dial(ctx context.Context, dest net.Destination, streamSettings *internet.Me
 	if tlsConfig == nil {
 		return nil, newError("TLS must be enabled for http transport.").AtWarning()
 	}
-	client, canceller := getHTTPClient(ctx, dest, tlsConfig, streamSettings)
+	client, canceller := getHTTPClient(ctx, dest, streamSettings)
 
 	opts := pipe.OptionsFromContext(ctx)
 	preader, pwriter := pipe.New(opts...)

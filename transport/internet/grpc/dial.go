@@ -39,22 +39,20 @@ func init() {
 
 type dialerCanceller func()
 
+type dialerConf struct {
+	net.Destination
+	*internet.MemoryStreamConfig
+}
+
 var (
-	globalDialerMap    map[net.Destination]*grpc.ClientConn
+	globalDialerMap    map[dialerConf]*grpc.ClientConn
 	globalDialerAccess sync.Mutex
 )
 
 func dialgRPC(ctx context.Context, dest net.Destination, streamSettings *internet.MemoryStreamConfig) (net.Conn, error) {
 	grpcSettings := streamSettings.ProtocolSettings.(*Config)
 
-	config := tls.ConfigFromStreamSettings(streamSettings)
-	dialOption := grpc.WithInsecure()
-
-	if config != nil {
-		dialOption = grpc.WithTransportCredentials(credentials.NewTLS(config.GetTLSConfig()))
-	}
-
-	conn, canceller, err := getGrpcClient(ctx, dest, dialOption, streamSettings)
+	conn, canceller, err := getGrpcClient(ctx, dest, streamSettings)
 	if err != nil {
 		return nil, newError("Cannot dial grpc").Base(err)
 	}
@@ -67,23 +65,30 @@ func dialgRPC(ctx context.Context, dest net.Destination, streamSettings *interne
 	return encoding.NewGunConn(gunService, nil), nil
 }
 
-func getGrpcClient(ctx context.Context, dest net.Destination, dialOption grpc.DialOption, streamSettings *internet.MemoryStreamConfig) (*grpc.ClientConn, dialerCanceller, error) {
+func getGrpcClient(ctx context.Context, dest net.Destination, streamSettings *internet.MemoryStreamConfig) (*grpc.ClientConn, dialerCanceller, error) {
 	globalDialerAccess.Lock()
 	defer globalDialerAccess.Unlock()
 
 	if globalDialerMap == nil {
-		globalDialerMap = make(map[net.Destination]*grpc.ClientConn)
+		globalDialerMap = make(map[dialerConf]*grpc.ClientConn)
 	}
 
 	canceller := func() {
 		globalDialerAccess.Lock()
 		defer globalDialerAccess.Unlock()
-		delete(globalDialerMap, dest)
+		delete(globalDialerMap, dialerConf{dest, streamSettings})
 	}
 
 	// TODO Should support chain proxy to the same destination
-	if client, found := globalDialerMap[dest]; found && client.GetState() != connectivity.Shutdown {
+	if client, found := globalDialerMap[dialerConf{dest, streamSettings}]; found && client.GetState() != connectivity.Shutdown {
 		return client, canceller, nil
+	}
+
+	dialOption := grpc.WithInsecure()
+
+	tlsConfig := tls.ConfigFromStreamSettings(streamSettings)
+	if tlsConfig != nil {
+		dialOption = grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig.GetTLSConfig()))
 	}
 
 	conn, err := grpc.Dial(
@@ -115,6 +120,6 @@ func getGrpcClient(ctx context.Context, dest net.Destination, dialOption grpc.Di
 			return internet.DialSystem(detachedContext, net.TCPDestination(address, port), streamSettings.SocketSettings)
 		}),
 	)
-	globalDialerMap[dest] = conn
+	globalDialerMap[dialerConf{dest, streamSettings}] = conn
 	return conn, canceller, err
 }
