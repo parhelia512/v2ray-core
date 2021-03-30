@@ -40,8 +40,13 @@ func init() {
 
 type dialerCanceller func()
 
+type dialerConf struct {
+	net.Destination
+	*internet.MemoryStreamConfig
+}
+
 var (
-	globalDialerMap    map[net.Destination]*grpc.ClientConn
+	globalDialerMap    map[dialerConf]*grpc.ClientConn
 	globalDialerAccess sync.Mutex
 )
 
@@ -80,17 +85,17 @@ func getGrpcClient(ctx context.Context, dest net.Destination, dialOption grpc.Di
 	defer globalDialerAccess.Unlock()
 
 	if globalDialerMap == nil {
-		globalDialerMap = make(map[net.Destination]*grpc.ClientConn)
+		globalDialerMap = make(map[dialerConf]*grpc.ClientConn)
 	}
 
 	canceller := func() {
 		globalDialerAccess.Lock()
 		defer globalDialerAccess.Unlock()
-		delete(globalDialerMap, dest)
+		delete(globalDialerMap, dialerConf{dest, streamSettings})
 	}
 
 	// TODO Should support chain proxy to the same destination
-	if client, found := globalDialerMap[dest]; found && client.GetState() != connectivity.Shutdown {
+	if client, found := globalDialerMap[dialerConf{dest, streamSettings}]; found && client.GetState() != connectivity.Shutdown {
 		return client, canceller, nil
 	}
 
@@ -123,6 +128,6 @@ func getGrpcClient(ctx context.Context, dest net.Destination, dialOption grpc.Di
 			return internet.DialSystem(detachedContext, net.TCPDestination(address, port), streamSettings.SocketSettings)
 		}),
 	)
-	globalDialerMap[dest] = conn
+	globalDialerMap[dialerConf{dest, streamSettings}] = conn
 	return conn, canceller, err
 }
