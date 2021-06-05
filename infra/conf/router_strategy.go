@@ -1,8 +1,6 @@
 package conf
 
 import (
-	"time"
-
 	"github.com/golang/protobuf/proto"
 
 	"github.com/v2fly/v2ray-core/v4/app/router"
@@ -26,20 +24,27 @@ func (v *strategyEmptyConfig) Build() (proto.Message, error) {
 }
 
 type strategyLeastLoadConfig struct {
-	// note the time values of the HealthCheck holds is not
-	// 'time.Duration' but plain number, sice they were parsed
-	// directly from json
-	HealthCheck *router.HealthPingSettings `json:"healthCheck,omitempty"`
+	// health check settings
+	HealthCheck *healthCheckSettings `json:"healthCheck,omitempty"`
 	// weight settings
 	Costs []*router.StrategyWeight `json:"costs,omitempty"`
-	// ping rtt baselines (ms)
-	Baselines []int `json:"baselines,omitempty"`
+	// ping rtt baselines
+	Baselines []Duration `json:"baselines,omitempty"`
 	// expected nodes count to select
 	Expected int32 `json:"expected,omitempty"`
-	// max acceptable rtt (ms), filter away high delay nodes. defalut 0
-	MaxRTT int `json:"maxRTT,omitempty"`
+	// max acceptable rtt, filter away high delay nodes. defalut 0
+	MaxRTT Duration `json:"maxRTT,omitempty"`
 	// acceptable failure rate
 	Tolerance float64 `json:"tolerance,omitempty"`
+}
+
+// healthCheckSettings holds settings for health Checker
+type healthCheckSettings struct {
+	Destination   string   `json:"destination"`
+	Connectivity  string   `json:"connectivity"`
+	Interval      Duration `json:"interval"`
+	SamplingCount int      `json:"sampling"`
+	Timeout       Duration `json:"timeout"`
 }
 
 // Build implements Buildable.
@@ -51,8 +56,8 @@ func (v *strategyLeastLoadConfig) Build() (proto.Message, error) {
 		config.HealthCheck = &router.HealthPingConfig{
 			Destination:   v.HealthCheck.Destination,
 			Connectivity:  v.HealthCheck.Connectivity,
-			Interval:      int64(v.HealthCheck.Interval * time.Second),
-			Timeout:       int64(v.HealthCheck.Timeout * time.Second),
+			Interval:      int64(v.HealthCheck.Interval),
+			Timeout:       int64(v.HealthCheck.Timeout),
 			SamplingCount: int32(v.HealthCheck.SamplingCount),
 		}
 	}
@@ -68,7 +73,7 @@ func (v *strategyLeastLoadConfig) Build() (proto.Message, error) {
 	if config.Expected < 0 {
 		config.Expected = 0
 	}
-	config.MaxRTT = int64(time.Duration(v.MaxRTT) * time.Millisecond)
+	config.MaxRTT = int64(v.MaxRTT)
 	if config.MaxRTT < 0 {
 		config.MaxRTT = 0
 	}
@@ -77,7 +82,7 @@ func (v *strategyLeastLoadConfig) Build() (proto.Message, error) {
 		if b <= 0 {
 			continue
 		}
-		config.Baselines = append(config.Baselines, int64(time.Duration(b)*time.Millisecond))
+		config.Baselines = append(config.Baselines, int64(b))
 	}
 	return config, nil
 }
