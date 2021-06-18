@@ -25,6 +25,15 @@ type LeastLoadStrategy struct {
 	ctx context.Context
 }
 
+func (l *LeastLoadStrategy) GetPrincipleTarget(strings []string) []string {
+	var ret []string
+	nodes := l.pickOutbounds(strings)
+	for _, v := range nodes {
+		ret = append(ret, v.Tag)
+	}
+	return ret
+}
+
 // NewLeastLoadStrategy creates a new LeastLoadStrategy with settings
 func NewLeastLoadStrategy(settings *StrategyLeastLoadConfig) *LeastLoadStrategy {
 	return &LeastLoadStrategy{
@@ -59,14 +68,19 @@ func (l *LeastLoadStrategy) InjectContext(ctx context.Context) {
 }
 
 func (l *LeastLoadStrategy) PickOutbound(candidates []string) string {
-	qualified := l.getNodes(candidates, time.Duration(l.settings.MaxRTT))
-	selects := l.selectLeastLoad(qualified)
+	selects := l.pickOutbounds(candidates)
 	count := len(selects)
 	if count == 0 {
 		// goes to fallbackTag
 		return ""
 	}
 	return selects[dice.Roll(count)].Tag
+}
+
+func (l *LeastLoadStrategy) pickOutbounds(candidates []string) []*node {
+	qualified := l.getNodes(candidates, time.Duration(l.settings.MaxRTT))
+	selects := l.selectLeastLoad(qualified)
+	return selects
 }
 
 // selectLeastLoad selects nodes according to Baselines and Expected Count.
