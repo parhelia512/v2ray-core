@@ -10,20 +10,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/v2fly/v2ray-core/v4/app/observatory/burst"
 	"github.com/v2fly/v2ray-core/v4/common/dice"
 	"github.com/v2fly/v2ray-core/v4/features/routing"
 )
 
-const (
-	rttFailed = time.Duration(math.MaxInt64 - iota)
-	rttUntested
-	rttUnqualified
-)
-
-// LeastLoadStrategy represents a random balancing strategy
+// LeastLoadStrategy represents a least load balancing strategy
 type LeastLoadStrategy struct {
-	*HealthPing
-
 	settings *StrategyLeastLoadConfig
 	costs    *WeightManager
 }
@@ -31,8 +24,7 @@ type LeastLoadStrategy struct {
 // NewLeastLoadStrategy creates a new LeastLoadStrategy with settings
 func NewLeastLoadStrategy(settings *StrategyLeastLoadConfig, dispatcher routing.Dispatcher) *LeastLoadStrategy {
 	return &LeastLoadStrategy{
-		HealthPing: NewHealthPing(settings.HealthCheck, dispatcher),
-		settings:   settings,
+		settings: settings,
 		costs: NewWeightManager(
 			settings.Costs, 1,
 			func(value, cost float64) float64 {
