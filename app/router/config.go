@@ -112,7 +112,7 @@ func (rr *RoutingRule) BuildCondition() (Condition, error) {
 // Build builds the balancing rule
 func (br *BalancingRule) Build(ohm outbound.Manager, dispatcher routing.Dispatcher) (*Balancer, error) {
 	switch br.Strategy {
-	case "leastPing":
+	case "leastping":
 		i, err := br.StrategySettings.GetInstance()
 		if err != nil {
 			return nil, err
@@ -126,7 +126,7 @@ func (br *BalancingRule) Build(ohm outbound.Manager, dispatcher routing.Dispatch
 			strategy:  &LeastPingStrategy{config: s},
 			ohm:       ohm,
 		}, nil
-	case "leastLoad":
+	case "leastload":
 		i, err := br.StrategySettings.GetInstance()
 		if err != nil {
 			return nil, err
@@ -143,11 +143,13 @@ func (br *BalancingRule) Build(ohm outbound.Manager, dispatcher routing.Dispatch
 		}, nil
 	case "random":
 		fallthrough
-	default:
+	case "":
 		return &Balancer{
 			selectors: br.OutboundSelector,
 			ohm:       ohm, fallbackTag: br.FallbackTag,
 			strategy: &RandomStrategy{},
 		}, nil
+	default:
+		return nil, newError("unrecognized balancer type")
 	}
 }
