@@ -24,8 +24,17 @@ func (c *configureLoadingEnvironment) GetGeoLoader() geodata.Loader {
 	return c.geoLoader
 }
 
-type ConfigureLoadingEnvironment interface {
+func (c *configureLoadingEnvironment) doNotImpl() {}
+
+type ConfigureLoadingEnvironmentCapabilitySet interface {
 	GetGeoLoader() geodata.Loader
+}
+
+type ConfigureLoadingEnvironment interface {
+	ConfigureLoadingEnvironmentCapabilitySet
+	doNotImpl()
+	// TODO environment.BaseEnvironmentCapabilitySet
+	// TODO environment.FileSystemCapabilitySet
 }
 
 func NewConfigureLoadingContext(ctx context.Context) context.Context {
