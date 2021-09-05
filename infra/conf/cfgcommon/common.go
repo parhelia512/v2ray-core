@@ -242,6 +242,14 @@ func (v *User) Build() *protocol.User {
 	}
 }
 
+type UidList []uint32 // nolint: stylecheck
+
+func (l UidList) Build() *net.UidList {
+	return &net.UidList{
+		Uid: l,
+	}
+}
+
 type PacketAddrType string
 
 func (v PacketAddrType) Build() packetaddr.PacketAddrType {
