@@ -14,7 +14,6 @@ require (
 	github.com/lucas-clemente/quic-go v0.24.0
 	github.com/marten-seemann/qtls-go1-17 v0.1.0
 	github.com/miekg/dns v1.1.43
-	github.com/pelletier/go-toml v1.9.4
 	github.com/pires/go-proxyproto v0.6.1
 	github.com/seiflotfy/cuckoofilter v0.0.0-20201222105146-bc6005554a0c
 	github.com/stretchr/testify v1.7.0
@@ -28,7 +27,6 @@ require (
 	golang.org/x/sys v0.0.0-20210903071746-97244b99971b
 	google.golang.org/grpc v1.42.0
 	google.golang.org/protobuf v1.27.1
-	gopkg.in/yaml.v2 v2.4.0
 	h12.io/socks v1.0.3
 	inet.af/netaddr v0.0.0-20210903134321-85fa6c94624e
 )
