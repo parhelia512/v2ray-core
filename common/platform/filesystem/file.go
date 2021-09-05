@@ -6,23 +6,18 @@ import (
 
 	"github.com/v2fly/v2ray-core/v4/common/buf"
 	"github.com/v2fly/v2ray-core/v4/common/platform"
+	"github.com/v2fly/v2ray-core/v4/common/platform/filesystem/fsifce"
 )
 
-type FileSeekerFunc func(path string) (io.ReadSeekCloser, error)
-
-type FileReaderFunc func(path string) (io.ReadCloser, error)
-
-type FileWriterFunc func(path string) (io.WriteCloser, error)
-
-var NewFileSeeker FileSeekerFunc = func(path string) (io.ReadSeekCloser, error) {
+var NewFileSeeker fsifce.FileSeekerFunc = func(path string) (io.ReadSeekCloser, error) {
 	return os.Open(path)
 }
 
-var NewFileReader FileReaderFunc = func(path string) (io.ReadCloser, error) {
+var NewFileReader fsifce.FileReaderFunc = func(path string) (io.ReadCloser, error) {
 	return os.Open(path)
 }
 
-var NewFileWriter FileWriterFunc = func(path string) (io.WriteCloser, error) {
+var NewFileWriter fsifce.FileWriterFunc = func(path string) (io.WriteCloser, error) {
 	return os.Create(path)
 }
 
