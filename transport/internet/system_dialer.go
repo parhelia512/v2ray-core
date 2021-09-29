@@ -60,7 +60,7 @@ func (d *DefaultSystemDialer) Dial(ctx context.Context, src net.Address, dest ne
 		}
 		return &PacketConnWrapper{
 			Conn: packetConn,
-			dest: destAddr,
+			Dest: destAddr,
 		}, nil
 	}
 	goStdKeepAlive := time.Duration(0)
@@ -99,9 +99,20 @@ func (d *DefaultSystemDialer) Dial(ctx context.Context, src net.Address, dest ne
 	return dialer.DialContext(ctx, dest.Network.SystemString(), dest.NetAddr())
 }
 
+func ApplySockopt(sockopt *SocketConfig, dest net.Destination, fd uintptr, ctx context.Context) {
+	if err := applyOutboundSocketOptions(dest.Network.String(), dest.Address.String(), fd, sockopt); err != nil {
+		newError("failed to apply socket options").Base(err).WriteToLog(session.ExportIDToError(ctx))
+	}
+	if dest.Network == net.Network_UDP && hasBindAddr(sockopt) {
+		if err := bindAddr(fd, sockopt.BindAddress, sockopt.BindPort); err != nil {
+			newError("failed to bind source address to ", sockopt.BindAddress).Base(err).WriteToLog(session.ExportIDToError(ctx))
+		}
+	}
+}
+
 type PacketConnWrapper struct {
 	Conn net.PacketConn
-	dest net.Addr
+	Dest net.Addr
 }
 
 func (c *PacketConnWrapper) Close() error {
@@ -113,11 +124,11 @@ func (c *PacketConnWrapper) LocalAddr() net.Addr {
 }
 
 func (c *PacketConnWrapper) RemoteAddr() net.Addr {
-	return c.dest
+	return c.Dest
 }
 
 func (c *PacketConnWrapper) Write(p []byte) (int, error) {
-	return c.Conn.WriteTo(p, c.dest)
+	return c.Conn.WriteTo(p, c.Dest)
 }
 
 func (c *PacketConnWrapper) Read(p []byte) (int, error) {
