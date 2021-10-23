@@ -113,14 +113,14 @@ func establishDomainRules(s *DNS, config *Config, nsClientMap map[int]int) error
 	matcherInfos := make([]DomainMatcherInfo, domainRuleCount+1)
 	var domainMatcher strmatcher.IndexMatcher
 	switch config.DomainMatcher {
-	case "mph", "hybrid":
-		newError("using mph domain matcher").AtDebug().WriteToLog()
-		domainMatcher = strmatcher.NewMphIndexMatcher()
 	case "linear":
-		fallthrough
-	default:
 		newError("using default domain matcher").AtDebug().WriteToLog()
 		domainMatcher = strmatcher.NewLinearIndexMatcher()
+	case "mph", "hybrid":
+		fallthrough
+	default:
+		newError("using mph domain matcher").AtDebug().WriteToLog()
+		domainMatcher = strmatcher.NewMphIndexMatcher()
 	}
 	for nsIdx, ns := range config.NameServer {
 		clientIdx := nsClientMap[nsIdx]
@@ -275,7 +275,7 @@ func (s *DNS) lookupIPInternal(domain string, option dns.IPOption) ([]net.IP, er
 	}
 
 	// Normalize the FQDN form query
-	domain = strings.TrimSuffix(domain, ".")
+	domain = strings.TrimSuffix(strings.ToLower(domain), ".")
 
 	// Static host lookup
 	switch addrs := s.hosts.Lookup(domain, option); {
@@ -398,7 +398,7 @@ func init() {
 		ctx = cfgcommon.NewConfigureLoadingContext(ctx)
 
 		geoloadername := platform.NewEnvFlag("v2ray.conf.geoloader").GetValue(func() string {
-			return "standard"
+			return "memconservative"
 		})
 
 		if loader, err := geodata.GetGeoDataLoader(geoloadername); err == nil {
