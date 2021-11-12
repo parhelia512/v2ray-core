@@ -4,10 +4,16 @@ go 1.20
 
 require (
 	github.com/adrg/xdg v0.4.0
+	github.com/aead/chacha20 v0.0.0-20180709150244-8b13a72661da
+	github.com/dgryski/go-camellia v0.0.0-20191119043421-69a8a13fb23d
+	github.com/dgryski/go-idea v0.0.0-20170306091226-d2fb45a411fb
+	github.com/dgryski/go-rc2 v0.0.0-20150621095337-8a9021637152
+	github.com/geeksbaek/seed v0.0.0-20180909040025-2a7f5fb92e22
 	github.com/golang/mock v1.6.0
 	github.com/golang/protobuf v1.5.3
 	github.com/google/go-cmp v0.6.0
 	github.com/gorilla/websocket v1.5.1
+	github.com/kierdavis/cfb8 v0.0.0-20180105024805-3a17c36ee2f8
 	github.com/lunixbochs/struc v0.0.0-20200707160740-784aaebc1d40
 	github.com/miekg/dns v1.1.57
 	github.com/mustafaturan/bus v1.0.2
@@ -45,6 +51,7 @@ require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/dgryski/go-metro v0.0.0-20211217172704-adc40b04c140 // indirect
 	github.com/ebfe/bcrypt_pbkdf v0.0.0-20140212075826-3c8d2dcb253a // indirect
+	github.com/ebfe/rc2 v0.0.0-20131011165748-24b9757f5521 // indirect
 	github.com/gaukas/godicttls v0.0.4 // indirect
 	github.com/go-task/slim-sprig v0.0.0-20230315185526-52ccab3ef572 // indirect
 	github.com/google/pprof v0.0.0-20230602150820-91b7bce49751 // indirect
