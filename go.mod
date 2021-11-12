@@ -4,6 +4,11 @@ go 1.20
 
 require (
 	github.com/adrg/xdg v0.4.0
+	github.com/aead/chacha20 v0.0.0-20180709150244-8b13a72661da
+	github.com/dgryski/go-camellia v0.0.0-20191119043421-69a8a13fb23d
+	github.com/dgryski/go-idea v0.0.0-20170306091226-d2fb45a411fb
+	github.com/dgryski/go-rc2 v0.0.0-20150621095337-8a9021637152
+	github.com/geeksbaek/seed v0.0.0-20180909040025-2a7f5fb92e22
 	github.com/go-chi/chi/v5 v5.0.10
 	github.com/go-chi/render v1.0.3
 	github.com/go-playground/validator/v10 v10.15.5
@@ -13,6 +18,7 @@ require (
 	github.com/google/gopacket v1.1.19
 	github.com/gorilla/websocket v1.5.0
 	github.com/jhump/protoreflect v1.15.3
+	github.com/kierdavis/cfb8 v0.0.0-20180105024805-3a17c36ee2f8
 	github.com/miekg/dns v1.1.56
 	github.com/mustafaturan/bus v1.0.2
 	github.com/pelletier/go-toml v1.9.5
@@ -51,6 +57,7 @@ require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/dgryski/go-metro v0.0.0-20211217172704-adc40b04c140 // indirect
 	github.com/ebfe/bcrypt_pbkdf v0.0.0-20140212075826-3c8d2dcb253a // indirect
+	github.com/ebfe/rc2 v0.0.0-20131011165748-24b9757f5521 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.2 // indirect
 	github.com/gaukas/godicttls v0.0.4 // indirect
 	github.com/go-playground/locales v0.14.1 // indirect
