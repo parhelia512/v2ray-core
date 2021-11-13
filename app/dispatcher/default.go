@@ -216,7 +216,7 @@ func (d *DefaultDispatcher) Dispatch(ctx context.Context, destination net.Destin
 		ctx = session.ContextWithContent(ctx, content)
 	}
 	sniffingRequest := content.SniffingRequest
-	if !sniffingRequest.Enabled {
+	if destination.Network == net.Network_TCP && !sniffingRequest.Enabled {
 		go d.routedDispatch(ctx, outbound, destination)
 	} else {
 		go func() {
@@ -224,7 +224,7 @@ func (d *DefaultDispatcher) Dispatch(ctx context.Context, destination net.Destin
 				reader: outbound.Reader.(*pipe.Reader),
 			}
 			outbound.Reader = cReader
-			result, err := sniffer(ctx, cReader, sniffingRequest.MetadataOnly, destination.Network)
+			result, err := sniffer(ctx, cReader, sniffingRequest.MetadataOnly, destination.Network, sniffingRequest.Enabled)
 			if err == nil {
 				content.Protocol = result.Protocol()
 			}
@@ -268,7 +268,7 @@ func (d *DefaultDispatcher) DispatchLink(ctx context.Context, destination net.De
 				reader: outbound.Reader.(*pipe.Reader),
 			}
 			outbound.Reader = cReader
-			result, err := sniffer(ctx, cReader, sniffingRequest.MetadataOnly, destination.Network)
+			result, err := sniffer(ctx, cReader, sniffingRequest.MetadataOnly, destination.Network, false)
 			if err == nil {
 				content.Protocol = result.Protocol()
 			}
@@ -288,7 +288,7 @@ func (d *DefaultDispatcher) DispatchLink(ctx context.Context, destination net.De
 	return nil
 }
 
-var sniffers = &Sniffer{
+var defaultSniffers = &Sniffer{
 	sniffer: []protocolSnifferWithMetadata{
 		{func(c context.Context, b []byte) (SniffResult, error) { return http.SniffHTTP(b) }, false, net.Network_TCP},
 		{func(c context.Context, b []byte) (SniffResult, error) { return tls.SniffTLS(b) }, false, net.Network_TCP},
@@ -300,7 +300,13 @@ var sniffers = &Sniffer{
 	},
 }
 
-func sniffer(ctx context.Context, cReader *cachedReader, metadataOnly bool, network net.Network) (SniffResult, error) {
+var udpOnlyDnsSniffers = &Sniffer{
+	sniffer: []protocolSnifferWithMetadata{
+		{func(c context.Context, b []byte) (SniffResult, error) { return dns.SniffDNS(b) }, false, net.Network_UDP},
+	},
+}
+
+func sniffer(ctx context.Context, cReader *cachedReader, metadataOnly bool, network net.Network, enabled bool) (SniffResult, error) {
 	payload := buf.New()
 	defer payload.Release()
 
@@ -318,6 +324,12 @@ func sniffer(ctx context.Context, cReader *cachedReader, metadataOnly bool, netw
 
 				cReader.Cache(payload)
 				if !payload.IsEmpty() {
+					var sniffers *Sniffer
+					if enabled {
+						sniffers = defaultSniffers
+					} else {
+						sniffers = udpOnlyDnsSniffers
+					}
 					result, err := sniffers.Sniff(ctx, payload.Bytes(), network)
 					if err != common.ErrNoClue {
 						return result, err
