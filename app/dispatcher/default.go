@@ -260,7 +260,7 @@ func (d *DefaultDispatcher) DispatchLink(ctx context.Context, destination net.De
 		ctx = session.ContextWithContent(ctx, content)
 	}
 	sniffingRequest := content.SniffingRequest
-	if !sniffingRequest.Enabled {
+	if destination.Network == net.Network_TCP && !sniffingRequest.Enabled {
 		go d.routedDispatch(ctx, outbound, destination)
 	} else {
 		go func() {
@@ -268,7 +268,7 @@ func (d *DefaultDispatcher) DispatchLink(ctx context.Context, destination net.De
 				reader: outbound.Reader.(*pipe.Reader),
 			}
 			outbound.Reader = cReader
-			result, err := sniffer(ctx, cReader, sniffingRequest.MetadataOnly, destination.Network, false)
+			result, err := sniffer(ctx, cReader, sniffingRequest.MetadataOnly, destination.Network, sniffingRequest.Enabled)
 			if err == nil {
 				content.Protocol = result.Protocol()
 			}
