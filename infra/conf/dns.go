@@ -132,7 +132,7 @@ var typeMap = map[router.Domain_Type]dns.DomainMatchingType{
 }
 
 // DNSConfig is a JSON serializable object for dns.Config.
-type DNSConfig struct {
+type DNSConfig struct { // nolint: revive
 	Servers                []*NameServerConfig     `json:"servers"`
 	Hosts                  map[string]*HostAddress `json:"hosts"`
 	ClientIP               *cfgcommon.Address      `json:"clientIp"`
