@@ -63,7 +63,6 @@ type Address interface {
 	IP() net.IP     // IP of this Address
 	Domain() string // Domain of this Address
 	Family() AddressFamily
-
 	String() string // String representation of this Address
 }
 
