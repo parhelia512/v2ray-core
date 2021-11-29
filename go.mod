@@ -30,7 +30,7 @@ require (
 	golang.org/x/crypto v0.0.0-20210921155107-089bfa567519
 	golang.org/x/net v0.0.0-20211020060615-d418f374d309
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
-	golang.org/x/sys v0.0.0-20211020174200-9d6173849985
+	golang.org/x/sys v0.0.0-20211124211545-fe61309f8881
 	golang.zx2c4.com/wireguard v0.0.0-20211026125340-e42c6c4bc2d0
 	google.golang.org/grpc v1.42.0
 	google.golang.org/protobuf v1.27.1
@@ -39,7 +39,7 @@ require (
 	inet.af/netaddr v0.0.0-20210903134321-85fa6c94624e
 )
 
-replace gvisor.dev/gvisor v0.0.0 => github.com/sagernet/gvisor v0.0.0-20211111093733-436c20060cc1
+replace gvisor.dev/gvisor v0.0.0 => github.com/sagernet/gvisor v0.0.0-20211126101120-87a0de4f8727
 
 require (
 	github.com/cheekybits/genny v1.0.0 // indirect
