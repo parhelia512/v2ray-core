@@ -307,6 +307,10 @@ var udpOnlyDnsSniffers = &Sniffer{
 }
 
 func sniffer(ctx context.Context, cReader *cachedReader, metadataOnly bool, network net.Network, enabled bool) (SniffResult, error) {
+	if metadataOnly && network == net.Network_TCP {
+		return nil, errUnknownContent
+	}
+
 	payload := buf.New()
 	defer payload.Release()
 
