@@ -2,13 +2,13 @@ package shadowsocks_test
 
 import (
 	"crypto/rand"
-	"github.com/v2fly/v2ray-core/v4/common/errors"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
 
 	"github.com/v2fly/v2ray-core/v4/common"
 	"github.com/v2fly/v2ray-core/v4/common/buf"
+	"github.com/v2fly/v2ray-core/v4/common/errors"
 	"github.com/v2fly/v2ray-core/v4/common/net"
 	"github.com/v2fly/v2ray-core/v4/common/protocol"
 	. "github.com/v2fly/v2ray-core/v4/proxy/shadowsocks"
