@@ -40,7 +40,7 @@ func SniffDNS(b []byte) (*SniffHeader, error) {
 		return nil, errNotDNS
 	}
 	domain := question.Name.String()
-	if question.Class != dnsmessage.ClassINET && (question.Type == dnsmessage.TypeA || question.Type == dnsmessage.TypeAAAA) && protocol.IsValidDomain(domain) {
+	if question.Class == dnsmessage.ClassINET && (question.Type == dnsmessage.TypeA || question.Type == dnsmessage.TypeAAAA) && protocol.IsValidDomain(domain) {
 		return &SniffHeader{domain}, nil
 	}
 	return nil, errNotWanted
