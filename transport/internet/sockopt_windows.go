@@ -1,34 +1,44 @@
 package internet
 
-import "syscall"
+import (
+	"encoding/binary"
+	"unsafe"
 
-const (
-	TCP_FASTOPEN = 15 // nolint: revive,stylecheck
+	"golang.org/x/sys/windows"
+
+	"github.com/v2fly/v2ray-core/v4/common/net"
 )
 
-func setTFO(fd syscall.Handle, settings SocketConfig_TCPFastOpenState) error {
+const (
+	TCP_FASTOPEN    = 15 // nolint: golint,stylecheck
+	IP_UNICAST_IF   = 31 // nolint: golint,stylecheck
+	IPV6_UNICAST_IF = 31 // nolint: golint,stylecheck
+)
+
+func setTFO(fd windows.Handle, settings SocketConfig_TCPFastOpenState) error {
 	switch settings {
 	case SocketConfig_Enable:
-		if err := syscall.SetsockoptInt(fd, syscall.IPPROTO_TCP, TCP_FASTOPEN, 1); err != nil {
+		if err := windows.SetsockoptInt(fd, windows.IPPROTO_TCP, TCP_FASTOPEN, 1); err != nil {
 			return err
 		}
 	case SocketConfig_Disable:
-		if err := syscall.SetsockoptInt(fd, syscall.IPPROTO_TCP, TCP_FASTOPEN, 0); err != nil {
+		if err := windows.SetsockoptInt(fd, windows.IPPROTO_TCP, TCP_FASTOPEN, 0); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func applyOutboundSocketOptions(network string, address string, fd uintptr, config *SocketConfig) error {
+func applyOutboundSocketOptions(network string, address string, fd uintptr, config *SocketConfig, dest net.Destination) error {
 	if isTCPSocket(network) {
-		if err := setTFO(syscall.Handle(fd), config.Tfo); err != nil {
+		if err := setTFO(windows.Handle(fd), config.Tfo); err != nil {
 			return err
 		}
-		if config.TcpKeepAliveInterval > 0 {
-			if err := syscall.SetsockoptInt(syscall.Handle(fd), syscall.SOL_SOCKET, syscall.SO_KEEPALIVE, 1); err != nil {
-				return newError("failed to set SO_KEEPALIVE", err)
-			}
+	}
+
+	if config.BindInterfaceIndex != 0 {
+		if err := bindInterface(fd, network, config.BindInterfaceIndex); err != nil {
+			return err
 		}
 	}
 
@@ -37,13 +47,8 @@ func applyOutboundSocketOptions(network string, address string, fd uintptr, conf
 
 func applyInboundSocketOptions(network string, fd uintptr, config *SocketConfig) error {
 	if isTCPSocket(network) {
-		if err := setTFO(syscall.Handle(fd), config.Tfo); err != nil {
+		if err := setTFO(windows.Handle(fd), config.Tfo); err != nil {
 			return err
-		}
-		if config.TcpKeepAliveInterval > 0 {
-			if err := syscall.SetsockoptInt(syscall.Handle(fd), syscall.SOL_SOCKET, syscall.SO_KEEPALIVE, 1); err != nil {
-				return newError("failed to set SO_KEEPALIVE", err)
-			}
 		}
 	}
 
@@ -51,6 +56,24 @@ func applyInboundSocketOptions(network string, fd uintptr, config *SocketConfig)
 }
 
 func bindAddr(fd uintptr, ip []byte, port uint32) error {
+	return nil
+}
+
+func bindInterface(fd uintptr, network string, interfaceIndex uint32) error {
+	switch network {
+	case "tcp4", "udp4":
+		var bytes [4]byte
+		binary.BigEndian.PutUint32(bytes[:], interfaceIndex)
+		interfaceIndex = *(*uint32)(unsafe.Pointer(&bytes[0]))
+		if err := windows.SetsockoptInt(windows.Handle(fd), windows.IPPROTO_IP, IP_UNICAST_IF, int(interfaceIndex)); err != nil {
+			return err
+		}
+	case "tcp6", "udp6":
+		if err := windows.SetsockoptInt(windows.Handle(fd), windows.IPPROTO_IPV6, IPV6_UNICAST_IF, int(interfaceIndex)); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 

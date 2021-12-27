@@ -2,6 +2,8 @@ package v4
 
 import (
 	"encoding/json"
+	gonet "net"
+	"runtime"
 	"strings"
 
 	"google.golang.org/protobuf/types/known/anypb"
@@ -10,6 +12,7 @@ import (
 	"github.com/v2fly/v2ray-core/v4/app/dispatcher"
 	"github.com/v2fly/v2ray-core/v4/app/proxyman"
 	"github.com/v2fly/v2ray-core/v4/app/stats"
+	"github.com/v2fly/v2ray-core/v4/common/net"
 	"github.com/v2fly/v2ray-core/v4/common/serial"
 	"github.com/v2fly/v2ray-core/v4/infra/conf/cfgcommon"
 	"github.com/v2fly/v2ray-core/v4/infra/conf/cfgcommon/loader"
@@ -19,6 +22,7 @@ import (
 	"github.com/v2fly/v2ray-core/v4/infra/conf/synthetic/dns"
 	"github.com/v2fly/v2ray-core/v4/infra/conf/synthetic/log"
 	"github.com/v2fly/v2ray-core/v4/infra/conf/synthetic/router"
+	"github.com/v2fly/v2ray-core/v4/transport/internet"
 )
 
 var (
@@ -212,6 +216,27 @@ type OutboundDetourConfig struct {
 	ProxySettings  *proxycfg.ProxyConfig `json:"proxySettings"`
 	MuxSettings    *muxcfg.MuxConfig     `json:"mux"`
 	DomainStrategy string                `json:"domainStrategy"`
+	// Name of the network interface to bind.
+	BindInterface string `json:"bindInterface"`
+
+	// Bind to an IPv4 address or the IPv4 address of an interface.
+	// When an interface is specified, the address is a domain.
+	Bind4 *cfgcommon.Address `json:"bind4"`
+
+	// Bind to an IPv6 address or the IPv6 address of an interface.
+	// When an interface is specified, the address is a domain.
+	Bind6 *cfgcommon.Address `json:"bind6"`
+
+	// LinuxBindInterfaceUDPUsePktinfo controls when binding a UDP socket to an interface,
+	// whether the IP(V6)_PKTINFO socket control message should be used instead of
+	// the SO_BINDTODEVICE socket option.
+	LinuxBindInterfaceUDPUsePktinfo bool `json:"linuxBindInterfaceUDPUsePktinfo"`
+
+	// DomainStrategy controls how domain dial targets are processed.
+	UpstreamDomainStrategy string `json:"upstreamDomainStrategy"`
+
+	// FallbackDelayMs controls the RFC 6555 happy eyeballs fast fallback delay in milliseconds.
+	FallbackDelayMs int32 `json:"fallbackDelayMs"`
 }
 
 // Build implements Buildable.
@@ -233,13 +258,131 @@ func (c *OutboundDetourConfig) Build() (*core.OutboundHandlerConfig, error) {
 		senderSettings.DomainStrategy = proxyman.DomainStrategy_AS_IS
 	}
 
-	if c.SendThrough != nil {
-		address := c.SendThrough
-		if address.Family().IsDomain() {
-			return nil, newError("unable to send through: " + address.String())
+	var bindInterfaceIndex uint32
+	var bindInterfaceName string
+	var bindInterfaceIP4 []byte
+	var bindInterfaceIP6 []byte
+
+	if c.BindInterface != "" {
+		iface, err := net.InterfaceByName(c.BindInterface)
+		if err != nil {
+			return nil, err
 		}
-		senderSettings.Via = address.Build()
+
+		// These platforms have syscalls that can bind to a specific interface.
+		if runtime.GOOS == "linux" || runtime.GOOS == "darwin" || runtime.GOOS == "windows" {
+			bindInterfaceIndex = uint32(iface.Index)
+			bindInterfaceName = iface.Name
+			newError("Outbound ", c.Tag, " bound to interface index ", bindInterfaceIndex, " name ", bindInterfaceName).AtInfo().WriteToLog()
+		}
+
+		// On other platforms, or Linux with PKTINFO, retrieve interface IP addresses.
+		if (c.LinuxBindInterfaceUDPUsePktinfo || runtime.GOOS != "linux") && runtime.GOOS != "darwin" && runtime.GOOS != "windows" {
+			addrs, err := iface.Addrs()
+			if err != nil {
+				return nil, err
+			}
+
+			newError(c.BindInterface, " has ", len(addrs), " IP address(es)").AtInfo().WriteToLog()
+
+			for _, addr := range addrs {
+				vaddr := net.ParseAddress(addr.String())
+				newError("Processing ", vaddr, " family ", vaddr.Family()).AtDebug().WriteToLog()
+				if c.Bind4 == nil && vaddr.Family().IsIPv4() {
+					c.Bind4 = &cfgcommon.Address{
+						Address: vaddr,
+					}
+					bindInterfaceIP4 = vaddr.IP()
+					newError("IPv4 local address set to ", vaddr, " from ", c.BindInterface).AtInfo().WriteToLog()
+				} else if c.Bind6 == nil && vaddr.Family().IsIPv6() {
+					c.Bind6 = &cfgcommon.Address{
+						Address: vaddr,
+					}
+					bindInterfaceIP6 = vaddr.IP()
+					newError("IPv6 local address set to ", vaddr, " from ", c.BindInterface).AtInfo().WriteToLog()
+				} else {
+					newError("Skipping IP ", vaddr, " from ", c.BindInterface).AtInfo().WriteToLog()
+				}
+			}
+		}
 	}
+
+	if c.Bind4 != nil {
+		if c.Bind4.Family().IsIPv4() {
+			senderSettings.Via4 = c.Bind4.Build()
+		} else if c.Bind4.Family().IsDomain() {
+			iface, err := gonet.InterfaceByName(c.Bind4.String())
+			if err != nil {
+				return nil, err
+			}
+
+			addrs, err := iface.Addrs()
+			if err != nil {
+				return nil, err
+			}
+
+			newError(c.Bind4, " has ", len(addrs), " IP address(es)").AtInfo().WriteToLog()
+
+			for _, addr := range addrs {
+				vaddr := net.ParseAddress(addr.String())
+				newError("Processing ", vaddr, " family ", vaddr.Family()).AtDebug().WriteToLog()
+				if vaddr.Family().IsIPv4() {
+					senderSettings.Via4 = net.NewIPOrDomain(vaddr)
+					newError("IPv4 local address set to ", vaddr).AtInfo().WriteToLog()
+					break
+				} else {
+					newError("Skipping IP ", vaddr, " from ", c.Bind4).AtInfo().WriteToLog()
+				}
+			}
+		} else {
+			return nil, newError("Invalid bind4: ", c.Bind4)
+		}
+	}
+
+	if c.Bind6 != nil {
+		if c.Bind6.Family().IsIPv6() {
+			senderSettings.Via6 = c.Bind6.Build()
+		} else if c.Bind6.Family().IsDomain() {
+			iface, err := gonet.InterfaceByName(c.Bind6.String())
+			if err != nil {
+				return nil, err
+			}
+
+			addrs, err := iface.Addrs()
+			if err != nil {
+				return nil, err
+			}
+
+			newError(c.Bind6, " has ", len(addrs), " IP address(es)").AtInfo().WriteToLog()
+
+			for _, addr := range addrs {
+				vaddr := net.ParseAddress(addr.String())
+				newError("Processing ", vaddr, " family ", vaddr.Family()).AtDebug().WriteToLog()
+				if vaddr.Family().IsIPv6() {
+					senderSettings.Via6 = net.NewIPOrDomain(vaddr)
+					newError("IPv6 local address set to ", vaddr).AtInfo().WriteToLog()
+					break
+				} else {
+					newError("Skipping IP ", vaddr, " from ", c.Bind6).AtInfo().WriteToLog()
+				}
+			}
+		} else {
+			return nil, newError("Invalid bind6: ", c.Bind6)
+		}
+	}
+
+	switch c.UpstreamDomainStrategy {
+	case "":
+		senderSettings.UpstreamDomainStrategy = proxyman.DomainStrategy_AS_IS
+	case "UseIP":
+		senderSettings.UpstreamDomainStrategy = proxyman.DomainStrategy_USE_IP
+	case "UseIPv4":
+		senderSettings.UpstreamDomainStrategy = proxyman.DomainStrategy_USE_IP4
+	case "UseIPv6":
+		senderSettings.UpstreamDomainStrategy = proxyman.DomainStrategy_USE_IP6
+	}
+
+	senderSettings.FallbackDelayMs = c.FallbackDelayMs
 
 	if c.StreamSetting != nil {
 		ss, err := c.StreamSetting.Build()
@@ -247,6 +390,35 @@ func (c *OutboundDetourConfig) Build() (*core.OutboundHandlerConfig, error) {
 			return nil, err
 		}
 		senderSettings.StreamSettings = ss
+	}
+
+	if bindInterfaceIndex != 0 {
+		if senderSettings.StreamSettings == nil {
+			senderSettings.StreamSettings = &internet.StreamConfig{
+				ProtocolName: "tcp",
+				SocketSettings: &internet.SocketConfig{
+					BindInterfaceIndex:              bindInterfaceIndex,
+					BindInterfaceName:               bindInterfaceName,
+					BindInterfaceIp4:                bindInterfaceIP4,
+					BindInterfaceIp6:                bindInterfaceIP6,
+					LinuxBindInterfaceUdpUsePktinfo: c.LinuxBindInterfaceUDPUsePktinfo,
+				},
+			}
+		} else if senderSettings.StreamSettings.SocketSettings == nil {
+			senderSettings.StreamSettings.SocketSettings = &internet.SocketConfig{
+				BindInterfaceIndex:              bindInterfaceIndex,
+				BindInterfaceName:               bindInterfaceName,
+				BindInterfaceIp4:                bindInterfaceIP4,
+				BindInterfaceIp6:                bindInterfaceIP6,
+				LinuxBindInterfaceUdpUsePktinfo: c.LinuxBindInterfaceUDPUsePktinfo,
+			}
+		} else {
+			senderSettings.StreamSettings.SocketSettings.BindInterfaceIndex = bindInterfaceIndex
+			senderSettings.StreamSettings.SocketSettings.BindInterfaceName = bindInterfaceName
+			senderSettings.StreamSettings.SocketSettings.BindInterfaceIp4 = bindInterfaceIP4
+			senderSettings.StreamSettings.SocketSettings.BindInterfaceIp6 = bindInterfaceIP6
+			senderSettings.StreamSettings.SocketSettings.LinuxBindInterfaceUdpUsePktinfo = c.LinuxBindInterfaceUDPUsePktinfo
+		}
 	}
 
 	if c.ProxySettings != nil {
@@ -313,6 +485,7 @@ type Config struct {
 	LogConfig        *log.LogConfig          `json:"log"`
 	RouterConfig     *router.RouterConfig    `json:"routing"`
 	DNSConfig        *dns.DNSConfig          `json:"dns"`
+	TunConfig        *TunConfig              `json:"tun"`
 	InboundConfigs   []InboundDetourConfig   `json:"inbounds"`
 	OutboundConfigs  []OutboundDetourConfig  `json:"outbounds"`
 	Transport        *TransportConfig        `json:"transport"`
@@ -475,6 +648,14 @@ func (c *Config) Build() (*core.Config, error) {
 
 	if c.MultiObservatory != nil {
 		r, err := c.MultiObservatory.Build()
+		if err != nil {
+			return nil, err
+		}
+		config.App = append(config.App, serial.ToTypedMessage(r))
+	}
+
+	if c.TunConfig != nil {
+		r, err := c.TunConfig.Build()
 		if err != nil {
 			return nil, err
 		}

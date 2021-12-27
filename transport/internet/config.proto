@@ -86,6 +86,16 @@ message SocketConfig {
   // option. This option is for UDP only.
   bool receive_original_dest_address = 4;
 
+  uint32 bind_interface_index = 11;
+
+  string bind_interface_name = 12;
+
+  bytes bind_interface_ip4 = 13;
+
+  bytes bind_interface_ip6 = 14;
+
+  bool linux_bind_interface_udp_use_pktinfo = 15;
+
   bytes bind_address = 5;
 
   uint32 bind_port = 6;

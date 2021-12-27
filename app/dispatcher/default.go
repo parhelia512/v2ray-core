@@ -20,6 +20,7 @@ import (
 	"github.com/v2fly/v2ray-core/v4/common/protocol/quic"
 	"github.com/v2fly/v2ray-core/v4/common/protocol/tls"
 	"github.com/v2fly/v2ray-core/v4/common/session"
+	features_dns "github.com/v2fly/v2ray-core/v4/features/dns"
 	"github.com/v2fly/v2ray-core/v4/features/outbound"
 	"github.com/v2fly/v2ray-core/v4/features/policy"
 	"github.com/v2fly/v2ray-core/v4/features/routing"
@@ -92,6 +93,7 @@ func (r *cachedReader) Interrupt() {
 
 // DefaultDispatcher is a default implementation of Dispatcher.
 type DefaultDispatcher struct {
+	dns    features_dns.Client
 	ohm    outbound.Manager
 	router routing.Router
 	policy policy.Manager
@@ -101,8 +103,8 @@ type DefaultDispatcher struct {
 func init() {
 	common.Must(common.RegisterConfig((*Config)(nil), func(ctx context.Context, config interface{}) (interface{}, error) {
 		d := new(DefaultDispatcher)
-		if err := core.RequireFeatures(ctx, func(om outbound.Manager, router routing.Router, pm policy.Manager, sm stats.Manager) error {
-			return d.Init(config.(*Config), om, router, pm, sm)
+		if err := core.RequireFeatures(ctx, func(om outbound.Manager, router routing.Router, pm policy.Manager, sm stats.Manager, dns features_dns.Client) error {
+			return d.Init(config.(*Config), om, router, pm, sm, dns)
 		}); err != nil {
 			return nil, err
 		}
@@ -111,11 +113,12 @@ func init() {
 }
 
 // Init initializes DefaultDispatcher.
-func (d *DefaultDispatcher) Init(config *Config, om outbound.Manager, router routing.Router, pm policy.Manager, sm stats.Manager) error {
+func (d *DefaultDispatcher) Init(config *Config, om outbound.Manager, router routing.Router, pm policy.Manager, sm stats.Manager, dns features_dns.Client) error {
 	d.ohm = om
 	d.router = router
 	d.policy = pm
 	d.stats = sm
+	d.dns = dns
 	return nil
 }
 
@@ -204,11 +207,13 @@ func (d *DefaultDispatcher) Dispatch(ctx context.Context, destination net.Destin
 	if !destination.IsValid() {
 		panic("Dispatcher: Invalid destination.")
 	}
+	if session.DNSClientFromContext(ctx) == nil {
+		ctx = session.ContextWithDNSClient(ctx, d.dns)
+	}
 	ob := &session.Outbound{
 		Target: destination,
 	}
 	ctx = session.ContextWithOutbound(ctx, ob)
-
 	inbound, outbound := d.getLink(ctx)
 	content := session.ContentFromContext(ctx)
 	if content == nil {

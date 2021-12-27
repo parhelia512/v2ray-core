@@ -3,7 +3,9 @@
 
 package internet
 
-func applyOutboundSocketOptions(network string, address string, fd uintptr, config *SocketConfig) error {
+import "github.com/v2fly/v2ray-core/v4/common/net"
+
+func applyOutboundSocketOptions(network string, address string, fd uintptr, config *SocketConfig, dest net.Destination) error {
 	return nil
 }
 

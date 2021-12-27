@@ -8,21 +8,26 @@ const (
 )
 
 var (
-	CIDRMask        = net.CIDRMask
-	Dial            = net.Dial
-	DialTCP         = net.DialTCP
-	DialUDP         = net.DialUDP
-	DialUnix        = net.DialUnix
-	FileConn        = net.FileConn
-	Listen          = net.Listen
-	ListenTCP       = net.ListenTCP
-	ListenUDP       = net.ListenUDP
-	ListenUnix      = net.ListenUnix
-	LookupIP        = net.LookupIP
-	ParseIP         = net.ParseIP
-	ResolveUDPAddr  = net.ResolveUDPAddr
-	ResolveUnixAddr = net.ResolveUnixAddr
-	SplitHostPort   = net.SplitHostPort
+	CIDRMask         = net.CIDRMask
+	Dial             = net.Dial
+	DialTCP          = net.DialTCP
+	DialUDP          = net.DialUDP
+	DialUnix         = net.DialUnix
+	FileConn         = net.FileConn
+	Listen           = net.Listen
+	ListenTCP        = net.ListenTCP
+	ListenUDP        = net.ListenUDP
+	ListenUnix       = net.ListenUnix
+	LookupIP         = net.LookupIP
+	ParseIP          = net.ParseIP
+	ResolveUDPAddr   = net.ResolveUDPAddr
+	ResolveUnixAddr  = net.ResolveUnixAddr
+	SplitHostPort    = net.SplitHostPort
+	JoinHostPort     = net.JoinHostPort
+	Interfaces       = net.Interfaces
+	InterfaceAddrs   = net.InterfaceAddrs
+	InterfaceByIndex = net.InterfaceByIndex
+	InterfaceByName  = net.InterfaceByName
 )
 
 type (

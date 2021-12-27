@@ -56,8 +56,16 @@ type Outbound struct {
 	// Target address of the outbound connection.
 	Target      net.Destination
 	RouteTarget net.Destination
-	// Gateway address
-	Gateway net.Address
+
+	// IPv4 local address
+	Bind4 net.Address
+
+	// IPv6 local address
+	Bind6 net.Address
+
+	DomainStrategy int32
+
+	FallbackDelayMs int32
 }
 
 // SniffingRequest controls the behavior of content sniffing.

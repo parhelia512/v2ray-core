@@ -65,13 +65,13 @@ func (h *Handler) policy() policy.Session {
 	return p
 }
 
-func (h *Handler) resolveIP(ctx context.Context, domain string, localAddr net.Address) net.Address {
+func (h *Handler) resolveIP(ctx context.Context, domain string) net.Address {
 	lookupFunc := h.dns.LookupIP
-	if h.config.DomainStrategy == Config_USE_IP4 || (localAddr != nil && localAddr.Family().IsIPv4()) {
+	if h.config.DomainStrategy == Config_USE_IP4 {
 		if lookupIPv4, ok := h.dns.(dns.IPv4Lookup); ok {
 			lookupFunc = lookupIPv4.LookupIPv4
 		}
-	} else if h.config.DomainStrategy == Config_USE_IP6 || (localAddr != nil && localAddr.Family().IsIPv6()) {
+	} else if h.config.DomainStrategy == Config_USE_IP6 {
 		if lookupIPv6, ok := h.dns.(dns.IPv6Lookup); ok {
 			lookupFunc = lookupIPv6.LookupIPv6
 		}
@@ -121,7 +121,7 @@ func (h *Handler) Process(ctx context.Context, link *transport.Link, dialer inte
 	err := retry.ExponentialBackoff(5, 100).On(func() error {
 		dialDest := destination
 		if h.config.useIP() && dialDest.Address.Family().IsDomain() {
-			ip := h.resolveIP(ctx, dialDest.Address.Domain(), dialer.Address())
+			ip := h.resolveIP(ctx, dialDest.Address.Domain())
 			if ip != nil {
 				dialDest = net.Destination{
 					Network: dialDest.Network,

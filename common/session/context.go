@@ -2,6 +2,8 @@ package session
 
 import (
 	"context"
+
+	"github.com/v2fly/v2ray-core/v4/features/dns"
 )
 
 type sessionKey int
@@ -9,6 +11,7 @@ type sessionKey int
 const (
 	idSessionKey sessionKey = iota
 	inboundSessionKey
+	dnsClientKey
 	outboundSessionKey
 	contentSessionKey
 	muxPreferedSessionKey
@@ -85,6 +88,17 @@ func ContextWithSockopt(ctx context.Context, s *Sockopt) context.Context {
 func SockoptFromContext(ctx context.Context) *Sockopt {
 	if sockopt, ok := ctx.Value(sockoptSessionKey).(*Sockopt); ok {
 		return sockopt
+	}
+	return nil
+}
+
+func ContextWithDNSClient(ctx context.Context, dnsClient dns.Client) context.Context {
+	return context.WithValue(ctx, dnsClientKey, dnsClient)
+}
+
+func DNSClientFromContext(ctx context.Context) dns.Client {
+	if dnsClient, ok := ctx.Value(dnsClientKey).(dns.Client); ok {
+		return dnsClient
 	}
 	return nil
 }
