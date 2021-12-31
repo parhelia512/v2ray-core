@@ -5,7 +5,6 @@ package socks
 
 import (
 	"context"
-	"github.com/v2fly/v2ray-core/v4/common/net/packetaddr"
 	"io"
 	"time"
 
@@ -14,6 +13,7 @@ import (
 	"github.com/v2fly/v2ray-core/v4/common/buf"
 	"github.com/v2fly/v2ray-core/v4/common/log"
 	"github.com/v2fly/v2ray-core/v4/common/net"
+	"github.com/v2fly/v2ray-core/v4/common/net/packetaddr"
 	"github.com/v2fly/v2ray-core/v4/common/protocol"
 	udp_proto "github.com/v2fly/v2ray-core/v4/common/protocol/udp"
 	"github.com/v2fly/v2ray-core/v4/common/session"
