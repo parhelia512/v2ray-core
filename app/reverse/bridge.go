@@ -20,6 +20,7 @@ import (
 
 // Bridge is a component in reverse proxy, that relays connections from Portal to local address.
 type Bridge struct {
+	ctx         context.Context
 	dispatcher  routing.Dispatcher
 	tag         string
 	domain      string
@@ -28,7 +29,7 @@ type Bridge struct {
 }
 
 // NewBridge creates a new Bridge instance.
-func NewBridge(config *BridgeConfig, dispatcher routing.Dispatcher) (*Bridge, error) {
+func NewBridge(ctx context.Context, config *BridgeConfig, dispatcher routing.Dispatcher) (*Bridge, error) {
 	if config.Tag == "" {
 		return nil, newError("bridge tag is empty")
 	}
@@ -37,6 +38,7 @@ func NewBridge(config *BridgeConfig, dispatcher routing.Dispatcher) (*Bridge, er
 	}
 
 	b := &Bridge{
+		ctx:        ctx,
 		dispatcher: dispatcher,
 		tag:        config.Tag,
 		domain:     config.Domain,
@@ -76,7 +78,7 @@ func (b *Bridge) monitor() error {
 	}
 
 	if numWorker == 0 || numConnections/numWorker > 16 {
-		worker, err := NewBridgeWorker(b.domain, b.tag, b.dispatcher)
+		worker, err := NewBridgeWorker(b.ctx, b.domain, b.tag, b.dispatcher)
 		if err != nil {
 			newError("failed to create bridge worker").Base(err).AtWarning().WriteToLog()
 			return nil
@@ -102,12 +104,11 @@ type BridgeWorker struct {
 	state      Control_State
 }
 
-func NewBridgeWorker(domain string, tag string, d routing.Dispatcher) (*BridgeWorker, error) {
-	ctx := context.Background()
-	ctx = session.ContextWithInbound(ctx, &session.Inbound{
+func NewBridgeWorker(ctx context.Context, domain string, tag string, d routing.Dispatcher) (*BridgeWorker, error) {
+	bridgeCtx := session.ContextWithInbound(ctx, &session.Inbound{
 		Tag: tag,
 	})
-	link, err := d.Dispatch(ctx, net.Destination{
+	link, err := d.Dispatch(bridgeCtx, net.Destination{
 		Network: net.Network_TCP,
 		Address: net.DomainAddress(domain),
 		Port:    0,
@@ -121,7 +122,7 @@ func NewBridgeWorker(domain string, tag string, d routing.Dispatcher) (*BridgeWo
 		tag:        tag,
 	}
 
-	worker, err := mux.NewServerWorker(context.Background(), w, link)
+	worker, err := mux.NewServerWorker(ctx, w, link)
 	if err != nil {
 		return nil, err
 	}
