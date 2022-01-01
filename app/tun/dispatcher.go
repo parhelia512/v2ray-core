@@ -3,6 +3,7 @@ package tun
 import (
 	"context"
 	"io"
+	"sync"
 	"time"
 
 	"github.com/v2fly/v2ray-core/v4/common"
@@ -41,9 +42,10 @@ type packetConn interface {
 var _ packetConn = (*dispatcherConn)(nil)
 
 type dispatcherConn struct {
-	dest  net.Destination
-	link  *transport.Link
-	timer *signal.ActivityTimer
+	access sync.Mutex
+	dest   net.Destination
+	link   *transport.Link
+	timer  *signal.ActivityTimer
 
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -130,6 +132,9 @@ func (c *dispatcherConn) LocalAddr() net.Addr {
 }
 
 func (c *dispatcherConn) Close() error {
+	c.access.Lock()
+	defer c.access.Unlock()
+
 	select {
 	case <-c.ctx.Done():
 		return nil
