@@ -365,11 +365,7 @@ func init() {
 		return New(ctx, config.(*Config))
 	}))
 
-	defaultFlagValue := "NOT_DEFINED_AT_ALL"
-
-	if time.Now().Year() >= 2022 {
-		defaultFlagValue = "true_by_default_2022"
-	}
+	defaultFlagValue := "true_by_default_2022"
 
 	isAeadForced := platform.NewEnvFlag("v2ray.vmess.aead.forced").GetValue(func() string { return defaultFlagValue })
 	if isAeadForced == "true" {
