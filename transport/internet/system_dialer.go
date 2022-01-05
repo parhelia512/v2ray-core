@@ -12,7 +12,10 @@ import (
 	"github.com/v2fly/v2ray-core/v5/common/session"
 )
 
-var effectiveSystemDialer SystemDialer = &DefaultSystemDialer{}
+var (
+	effectiveSystemDialer    SystemDialer = &DefaultSystemDialer{}
+	effectiveSystemDNSDialer SystemDialer = &DefaultSystemDialer{}
+)
 
 type SystemDialer interface {
 	Dial(ctx context.Context, source net.Address, destination net.Destination, sockopt *SocketConfig) (net.Conn, error)
@@ -205,6 +208,14 @@ func UseAlternativeSystemDialer(dialer SystemDialer) {
 		dialer = &DefaultSystemDialer{}
 	}
 	effectiveSystemDialer = dialer
+}
+
+// SagerNet private
+func UseAlternativeSystemDNSDialer(dialer SystemDialer) {
+	if dialer == nil {
+		dialer = &DefaultSystemDialer{}
+	}
+	effectiveSystemDNSDialer = dialer
 }
 
 // RegisterDialerController adds a controller to the effective system dialer.

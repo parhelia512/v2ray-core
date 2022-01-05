@@ -264,7 +264,7 @@ func (s *H3NameServer) setupH3Client() *http.Client {
 						cnc.ConnectionOutputMultiUDP(link.Reader),
 					)
 				} else {
-					conn, err = internet.DialSystem(ctx, dest, nil)
+					conn, err = internet.DialSystemDNS(ctx, dest, nil)
 					if err != nil {
 						return nil, err
 					}
