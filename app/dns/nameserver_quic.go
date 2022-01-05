@@ -452,7 +452,7 @@ func (s *QUICNameServer) openConnection(ctx context.Context) (quic.EarlyConnecti
 		pConn = &connWrapper{conn}
 		remoteAddr = conn.RemoteAddr()
 	} else {
-		conn, err := internet.DialSystem(ctx, s.destination, nil)
+		conn, err := internet.DialSystemDNS(ctx, s.destination, nil)
 		if err != nil {
 			return nil, err
 		}
