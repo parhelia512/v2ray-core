@@ -62,7 +62,7 @@ func NewH3LocalNameServer(url *url.URL) *DoHNameServer {
 			if err != nil {
 				return nil, err
 			}
-			conn, err := internet.DialSystem(ctx, dest, nil)
+			conn, err := internet.DialSystemDNS(ctx, dest, nil)
 			if err != nil {
 				return nil, err
 			}
