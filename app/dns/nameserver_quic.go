@@ -450,7 +450,7 @@ func (s *QUICNameServer) openConnection(ctx context.Context) (quic.EarlyConnecti
 			cnc.ConnectionOutputMultiUDP(link.Reader),
 		)
 	} else {
-		conn, err = internet.DialSystem(ctx, s.destination, nil)
+		conn, err = internet.DialSystemDNS(ctx, s.destination, nil)
 		if err != nil {
 			return nil, err
 		}
