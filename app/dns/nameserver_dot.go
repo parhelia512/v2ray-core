@@ -55,7 +55,7 @@ func NewDoTLocalNameServer(url *url.URL) (*TCPNameServer, error) {
 	}
 
 	s.dial = func(ctx context.Context) (net.Conn, error) {
-		conn, err := internet.DialSystem(ctx, s.destination, nil)
+		conn, err := internet.DialSystemDNS(ctx, s.destination, nil)
 		if err != nil {
 			return nil, err
 		}
