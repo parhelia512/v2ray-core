@@ -250,6 +250,8 @@ func (v PacketAddrType) Build() packetaddr.PacketAddrType {
 		return packetaddr.PacketAddrType_None
 	case "packet":
 		return packetaddr.PacketAddrType_Packet
+	case "xudp":
+		return packetaddr.PacketAddrType_XUDP
 	default:
 		return packetaddr.PacketAddrType_None
 	}
