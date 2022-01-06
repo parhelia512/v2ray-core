@@ -124,7 +124,8 @@ type VMessOutboundTarget struct {
 }
 
 type VMessOutboundConfig struct {
-	Receivers []*VMessOutboundTarget `json:"vnext"`
+	Receivers      []*VMessOutboundTarget   `json:"vnext"`
+	PacketEncoding cfgcommon.PacketAddrType `json:"packetEncoding"`
 }
 
 // Build implements Buildable
@@ -161,5 +162,6 @@ func (c *VMessOutboundConfig) Build() (proto.Message, error) {
 		serverSpecs[idx] = spec
 	}
 	config.Receiver = serverSpecs
+	config.PacketEncoding = c.PacketEncoding.Build()
 	return config, nil
 }
