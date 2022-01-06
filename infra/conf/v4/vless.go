@@ -129,7 +129,8 @@ type VLessOutboundVnext struct {
 }
 
 type VLessOutboundConfig struct {
-	Vnext []*VLessOutboundVnext `json:"vnext"`
+	Vnext          []*VLessOutboundVnext    `json:"vnext"`
+	PacketEncoding cfgcommon.PacketAddrType `json:"packetEncoding"`
 }
 
 // Build implements Buildable
@@ -171,6 +172,7 @@ func (c *VLessOutboundConfig) Build() (proto.Message, error) {
 		}
 		config.Vnext[idx] = spec
 	}
+	config.PacketEncoding = c.PacketEncoding.Build()
 
 	return config, nil
 }
