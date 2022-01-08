@@ -2,6 +2,8 @@ package shadowsocks
 
 import (
 	"context"
+	"crypto/rand"
+	"strconv"
 
 	core "github.com/v2fly/v2ray-core/v5"
 	"github.com/v2fly/v2ray-core/v5/common"
@@ -24,6 +26,18 @@ import (
 type Client struct {
 	serverPicker  protocol.ServerPicker
 	policyManager policy.Manager
+
+	plugin         SIP003Plugin
+	pluginOverride net.Destination
+	streamPlugin   StreamPlugin
+	protocolPlugin ProtocolPlugin
+}
+
+func (c *Client) Close() error {
+	if c.plugin != nil {
+		return c.plugin.Close()
+	}
+	return nil
 }
 
 // NewClient create a new Shadowsocks client.
@@ -45,6 +59,42 @@ func NewClient(ctx context.Context, config *ClientConfig) (*Client, error) {
 		serverPicker:  protocol.NewRoundRobinServerPicker(serverList),
 		policyManager: v.GetFeature(policy.ManagerType()).(policy.Manager),
 	}
+
+	if config.Plugin != "" {
+		s := client.serverPicker.PickServer()
+		var plugin SIP003Plugin
+		if pc := Plugins[config.Plugin]; pc != nil {
+			plugin = pc()
+		} else if PluginLoader == nil {
+			return nil, newError("plugin loader not registered")
+		} else {
+			plugin = PluginLoader(config.Plugin)
+		}
+		if streamPlugin, ok := plugin.(StreamPlugin); ok {
+			client.streamPlugin = streamPlugin
+			if err := plugin.Init("", "", s.Destination().Address.String(), s.Destination().Port.String(), config.PluginOpts, config.PluginArgs, s.PickUser().Account.(*MemoryAccount)); err != nil {
+				return nil, newError("failed to start plugin").Base(err)
+			}
+			if protocolPlugin, ok := plugin.(ProtocolPlugin); ok {
+				client.protocolPlugin = protocolPlugin
+			}
+		} else {
+			port, err := net.GetFreePort()
+			if err != nil {
+				return nil, newError("failed to get free port for shadowsocks plugin").Base(err)
+			}
+			client.pluginOverride = net.Destination{
+				Network: net.Network_TCP,
+				Address: net.LocalHostIP,
+				Port:    net.Port(port),
+			}
+			if err := plugin.Init(net.LocalHostIP.String(), strconv.Itoa(port), s.Destination().Address.String(), s.Destination().Port.String(), config.PluginOpts, config.PluginArgs, s.PickUser().Account.(*MemoryAccount)); err != nil {
+				return nil, newError("failed to start plugin").Base(err)
+			}
+			client.plugin = plugin
+		}
+	}
+
 	return client, nil
 }
 
@@ -59,16 +109,34 @@ func (c *Client) Process(ctx context.Context, link *transport.Link, dialer inter
 
 	var server *protocol.ServerSpec
 	var conn internet.Connection
+	var user *protocol.MemoryUser
 
 	err := retry.ExponentialBackoff(5, 100).On(func() error {
 		server = c.serverPicker.PickServer()
-		dest := server.Destination()
-		dest.Network = network
+		user = server.PickUser()
+		_, ok := user.Account.(*MemoryAccount)
+		if !ok {
+			return newError("user account is not valid")
+		}
+
+		var dest net.Destination
+		if network == net.Network_TCP && c.plugin != nil {
+			dest = c.pluginOverride
+		} else {
+			dest = server.Destination()
+			dest.Network = network
+		}
+
 		rawConn, err := dialer.Dial(ctx, dest)
 		if err != nil {
 			return err
 		}
-		conn = rawConn
+
+		if network == net.Network_TCP && c.streamPlugin != nil {
+			conn = c.streamPlugin.StreamConn(rawConn)
+		} else {
+			conn = rawConn
+		}
 
 		return nil
 	})
@@ -90,22 +158,37 @@ func (c *Client) Process(ctx context.Context, link *transport.Link, dialer inter
 		request.Command = protocol.RequestCommandUDP
 	}
 
-	user := server.PickUser()
-	_, ok := user.Account.(*MemoryAccount)
-	if !ok {
-		return newError("user account is not valid")
-	}
 	request.User = user
 
 	sessionPolicy := c.policyManager.ForLevel(user.Level)
 	ctx, cancel := context.WithCancel(ctx)
 	timer := signal.CancelAfterInactivity(ctx, cancel, sessionPolicy.Timeouts.ConnectionIdle)
 
+	var protocolConn *ProtocolConn
+	var iv []byte
+	account := user.Account.(*MemoryAccount)
+	if account.Cipher.IVSize() > 0 {
+		iv = make([]byte, account.Cipher.IVSize())
+		common.Must2(rand.Read(iv))
+		if account.ReducedIVEntropy {
+			remapToPrintable(iv[:6])
+		}
+		if ivError := account.CheckIV(iv); ivError != nil {
+			return newError("failed to mark outgoing iv").Base(ivError)
+		}
+	}
+
+	if c.protocolPlugin != nil {
+		protocolConn = &ProtocolConn{}
+		c.protocolPlugin.ProtocolConn(protocolConn, iv)
+	}
+
 	if packetConn, err := packetaddr.ToPacketAddrConn(link, destination); err == nil {
 		requestDone := func() error {
 			protocolWriter := &UDPWriter{
 				Writer:  conn,
 				Request: request,
+				Plugin:  c.protocolPlugin,
 			}
 			return udp.CopyPacketConn(protocolWriter, packetConn, udp.UpdateActivity(timer))
 		}
@@ -113,6 +196,7 @@ func (c *Client) Process(ctx context.Context, link *transport.Link, dialer inter
 			protocolReader := &UDPReader{
 				Reader: conn,
 				User:   user,
+				Plugin: c.protocolPlugin,
 			}
 			return udp.CopyPacketConn(packetConn, protocolReader, udp.UpdateActivity(timer))
 		}
@@ -127,7 +211,7 @@ func (c *Client) Process(ctx context.Context, link *transport.Link, dialer inter
 		requestDone := func() error {
 			defer timer.SetTimeout(sessionPolicy.Timeouts.DownlinkOnly)
 			bufferedWriter := buf.NewBufferedWriter(buf.NewWriter(conn))
-			bodyWriter, err := WriteTCPRequest(request, bufferedWriter)
+			bodyWriter, err := WriteTCPRequest(request, bufferedWriter, iv, protocolConn)
 			if err != nil {
 				return newError("failed to write request").Base(err)
 			}
@@ -146,7 +230,7 @@ func (c *Client) Process(ctx context.Context, link *transport.Link, dialer inter
 		responseDone := func() error {
 			defer timer.SetTimeout(sessionPolicy.Timeouts.UplinkOnly)
 
-			responseReader, err := ReadTCPResponse(user, conn)
+			responseReader, err := ReadTCPResponse(user, conn, protocolConn)
 			if err != nil {
 				return err
 			}
@@ -166,6 +250,7 @@ func (c *Client) Process(ctx context.Context, link *transport.Link, dialer inter
 		writer := &UDPWriter{
 			Writer:  conn,
 			Request: request,
+			Plugin:  c.protocolPlugin,
 		}
 
 		requestDone := func() error {
@@ -183,6 +268,7 @@ func (c *Client) Process(ctx context.Context, link *transport.Link, dialer inter
 			reader := &UDPReader{
 				Reader: conn,
 				User:   user,
+				Plugin: c.protocolPlugin,
 			}
 
 			if err := buf.Copy(reader, link.Writer, buf.UpdateActivity(timer)); err != nil {
