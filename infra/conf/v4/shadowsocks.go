@@ -28,6 +28,9 @@ type ShadowsocksServerConfig struct {
 	Email          string                   `json:"email"`
 	NetworkList    *cfgcommon.NetworkList   `json:"network"`
 	IVCheck        bool                     `json:"ivCheck"`
+	Plugin         string                   `json:"plugin"`
+	PluginOpts     string                   `json:"pluginOpts"`
+	PluginArgs     *cfgcommon.StringList    `json:"pluginArgs"`
 	PacketEncoding cfgcommon.PacketAddrType `json:"packetEncoding"`
 	Clients        []*ShadowsocksUserConfig `json:"clients"`
 	Users          []*ShadowsocksUserConfig `json:"users"`
@@ -54,6 +57,11 @@ func (v *ShadowsocksServerConfig) Build() (proto.Message, error) {
 						Email: user.Email,
 					})
 				}
+				config.Plugin = v.Plugin
+				config.PluginOpts = v.PluginOpts
+				if v.PluginArgs != nil && len(*v.PluginArgs) > 0 {
+					config.PluginArgs = *v.PluginArgs
+				}
 				return config, nil
 			} else {
 				config := new(shadowsocks_2022.RelayServerConfig)
@@ -69,6 +77,11 @@ func (v *ShadowsocksServerConfig) Build() (proto.Message, error) {
 						Port:    uint32(user.Port),
 					})
 				}
+				config.Plugin = v.Plugin
+				config.PluginOpts = v.PluginOpts
+				if v.PluginArgs != nil && len(*v.PluginArgs) > 0 {
+					config.PluginArgs = *v.PluginArgs
+				}
 				return config, nil
 			}
 		}
@@ -78,6 +91,11 @@ func (v *ShadowsocksServerConfig) Build() (proto.Message, error) {
 		config.Level = int32(v.Level)
 		config.Email = v.Email
 		config.Network = v.NetworkList.Build()
+		config.Plugin = v.Plugin
+		config.PluginOpts = v.PluginOpts
+		if v.PluginArgs != nil && len(*v.PluginArgs) > 0 {
+			config.PluginArgs = *v.PluginArgs
+		}
 		return config, nil
 	}
 
@@ -104,6 +122,11 @@ func (v *ShadowsocksServerConfig) Build() (proto.Message, error) {
 	}
 
 	config.PacketEncoding = v.PacketEncoding.Build()
+	config.Plugin = v.Plugin
+	config.PluginOpts = v.PluginOpts
+	if v.PluginArgs != nil && len(*v.PluginArgs) > 0 {
+		config.PluginArgs = *v.PluginArgs
+	}
 
 	return config, nil
 }
@@ -121,7 +144,10 @@ type ShadowsocksServerTarget struct {
 }
 
 type ShadowsocksClientConfig struct {
-	Servers []*ShadowsocksServerTarget `json:"servers"`
+	Servers    []*ShadowsocksServerTarget `json:"servers"`
+	Plugin     string                     `json:"plugin"`
+	PluginOpts string                     `json:"pluginOpts"`
+	PluginArgs *cfgcommon.StringList      `json:"pluginArgs"`
 }
 
 func (v *ShadowsocksClientConfig) Build() (proto.Message, error) {
@@ -148,6 +174,11 @@ func (v *ShadowsocksClientConfig) Build() (proto.Message, error) {
 			config.Port = uint32(server.Port)
 			config.Method = strings.ToLower(server.Cipher)
 			config.Key = server.Password
+			config.Plugin = v.Plugin
+			config.PluginOpts = v.PluginOpts
+			if v.PluginArgs != nil && len(*v.PluginArgs) > 0 {
+				config.PluginArgs = *v.PluginArgs
+			}
 			return config, nil
 		}
 	}
@@ -195,6 +226,11 @@ func (v *ShadowsocksClientConfig) Build() (proto.Message, error) {
 	}
 
 	config.Server = serverSpecs
+	config.Plugin = v.Plugin
+	config.PluginOpts = v.PluginOpts
+	if v.PluginArgs != nil && len(*v.PluginArgs) > 0 {
+		config.PluginArgs = *v.PluginArgs
+	}
 
 	return config, nil
 }
