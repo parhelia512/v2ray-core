@@ -6,6 +6,7 @@ package shadowsocks2022
 import (
 	"context"
 	gonet "net"
+	"strconv"
 	"sync"
 	"time"
 
@@ -19,6 +20,7 @@ import (
 	"github.com/v2fly/v2ray-core/v4/common/session"
 	"github.com/v2fly/v2ray-core/v4/common/signal"
 	"github.com/v2fly/v2ray-core/v4/common/task"
+	"github.com/v2fly/v2ray-core/v4/proxy/sip003"
 	"github.com/v2fly/v2ray-core/v4/transport"
 	"github.com/v2fly/v2ray-core/v4/transport/internet"
 	"github.com/v2fly/v2ray-core/v4/transport/internet/udp"
@@ -27,6 +29,16 @@ import (
 type Client struct {
 	config *ClientConfig
 	ctx    context.Context
+
+	plugin         sip003.Plugin
+	pluginOverride net.Destination
+}
+
+func (c *Client) Close() error {
+	if c.plugin != nil {
+		return c.plugin.Close()
+	}
+	return nil
 }
 
 const UDPConnectionState = "UDPConnectionState"
@@ -103,7 +115,12 @@ func (c *Client) Process(ctx context.Context, link *transport.Link, dialer inter
 	if network == net.Network_TCP {
 		var conn internet.Connection
 		err := retry.ExponentialBackoff(5, 100).On(func() error {
-			dest := net.TCPDestination(c.config.Address.AsAddress(), net.Port(c.config.Port))
+			var dest net.Destination
+			if network == net.Network_TCP && c.plugin != nil {
+				dest = c.pluginOverride
+			} else {
+				dest = net.TCPDestination(c.config.Address.AsAddress(), net.Port(c.config.Port))
+			}
 			dest.Network = network
 			rawConn, err := dialer.Dial(ctx, dest)
 			if err != nil {
@@ -241,10 +258,36 @@ func NewClient(ctx context.Context, config *ClientConfig) (*Client, error) {
 	}
 	storage.Put(ctx, UDPConnectionState, udpState)
 
-	return &Client{
+	c := &Client{
 		config: config,
 		ctx:    ctx,
-	}, nil
+	}
+
+	if config.Plugin != "" {
+		var plugin sip003.Plugin
+		if pc := sip003.Plugins[config.Plugin]; pc != nil {
+			plugin = pc()
+		} else if sip003.PluginLoader == nil {
+			return nil, newError("plugin loader not registered")
+		} else {
+			plugin = sip003.PluginLoader(config.Plugin)
+		}
+		port, err := net.GetFreePort()
+		if err != nil {
+			return nil, newError("failed to get free port for sip003 plugin").Base(err)
+		}
+		c.pluginOverride = net.Destination{
+			Network: net.Network_TCP,
+			Address: net.LocalHostIP,
+			Port:    net.Port(port),
+		}
+		if err := plugin.Init(net.LocalHostIP.String(), strconv.Itoa(port), config.Address.AsAddress().String(), net.Port(config.Port).String(), config.PluginOpts, config.PluginArgs); err != nil {
+			return nil, newError("failed to start plugin").Base(err)
+		}
+		c.plugin = plugin
+	}
+
+	return c, nil
 }
 
 func init() {
