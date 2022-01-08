@@ -31,6 +31,9 @@ type ShadowsocksServerConfig struct {
 	PacketEncoding cfgcommon.PacketAddrType `json:"packetEncoding"`
 	Clients        []*ShadowsocksUserConfig `json:"clients"`
 	Users          []*ShadowsocksUserConfig `json:"users"`
+	Plugin         string                   `json:"plugin"`
+	PluginOpts     string                   `json:"pluginOpts"`
+	PluginArgs     *cfgcommon.StringList    `json:"pluginArgs"`
 }
 
 func (v *ShadowsocksServerConfig) Build() (proto.Message, error) {
@@ -104,6 +107,11 @@ func (v *ShadowsocksServerConfig) Build() (proto.Message, error) {
 	}
 
 	config.PacketEncoding = v.PacketEncoding.Build()
+	config.Plugin = v.Plugin
+	config.PluginOpts = v.PluginOpts
+	if v.PluginArgs != nil && len(*v.PluginArgs) > 0 {
+		config.PluginArgs = *v.PluginArgs
+	}
 
 	return config, nil
 }
@@ -121,7 +129,10 @@ type ShadowsocksServerTarget struct {
 }
 
 type ShadowsocksClientConfig struct {
-	Servers []*ShadowsocksServerTarget `json:"servers"`
+	Servers    []*ShadowsocksServerTarget `json:"servers"`
+	Plugin     string                     `json:"plugin"`
+	PluginOpts string                     `json:"pluginOpts"`
+	PluginArgs *cfgcommon.StringList      `json:"pluginArgs"`
 }
 
 func (v *ShadowsocksClientConfig) Build() (proto.Message, error) {
@@ -195,6 +206,11 @@ func (v *ShadowsocksClientConfig) Build() (proto.Message, error) {
 	}
 
 	config.Server = serverSpecs
+	config.Plugin = v.Plugin
+	config.PluginOpts = v.PluginOpts
+	if v.PluginArgs != nil && len(*v.PluginArgs) > 0 {
+		config.PluginArgs = *v.PluginArgs
+	}
 
 	return config, nil
 }
