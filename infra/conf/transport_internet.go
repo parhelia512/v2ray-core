@@ -392,6 +392,10 @@ type SocketConfig struct {
 	AcceptProxyProtocol  bool   `json:"acceptProxyProtocol"`
 	TCPKeepAliveInterval int32  `json:"tcpKeepAliveInterval"`
 	TCPKeepAliveIdle     int32  `json:"tcpKeepAliveIdle"`
+	BindToDevice         string `json:"bindToDevice"`
+	RxBufSize            uint64 `json:"rxBufSize"`
+	TxBufSize            uint64 `json:"txBufSize"`
+	ForceBufSize         bool   `json:"forceBufSize"`
 }
 
 // Build implements Buildable.
@@ -428,6 +432,10 @@ func (c *SocketConfig) Build() (*internet.SocketConfig, error) {
 		AcceptProxyProtocol:  c.AcceptProxyProtocol,
 		TcpKeepAliveInterval: c.TCPKeepAliveInterval,
 		TcpKeepAliveIdle:     c.TCPKeepAliveIdle,
+		RxBufSize:            int64(c.RxBufSize),
+		TxBufSize:            int64(c.TxBufSize),
+		ForceBufSize:         c.ForceBufSize,
+		BindToDevice:         c.BindToDevice,
 	}, nil
 }
 
