@@ -3,6 +3,7 @@ package environment
 import (
 	"github.com/v2fly/v2ray-core/v4/common/environment/filesystemcap"
 	"github.com/v2fly/v2ray-core/v4/common/log"
+	"github.com/v2fly/v2ray-core/v4/features/extension/storage"
 	"github.com/v2fly/v2ray-core/v4/transport/internet"
 	"github.com/v2fly/v2ray-core/v4/transport/internet/tagged"
 )
@@ -36,4 +37,11 @@ type LogCapabilitySet interface {
 
 type FileSystemCapabilitySet interface {
 	filesystemcap.FileSystemCapabilitySet
+}
+
+type PersistentStorageCapabilitySet interface {
+	PersistentStorage() storage.ScopedPersistentStorage
+}
+type TransientStorageCapabilitySet interface {
+	TransientStorage() storage.ScopedTransientStorage
 }
