@@ -5,11 +5,6 @@ package platform
 
 import "path/filepath"
 
-func ExpandEnv(s string) string {
-	// TODO
-	return s
-}
-
 func LineSeparator() string {
 	return "\r\n"
 }

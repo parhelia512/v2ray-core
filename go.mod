@@ -3,6 +3,7 @@ module github.com/v2fly/v2ray-core/v4
 go 1.17
 
 require (
+	github.com/adrg/xdg v0.4.0
 	github.com/golang/mock v1.6.0
 	github.com/golang/protobuf v1.5.2
 	github.com/google/go-cmp v0.5.7
