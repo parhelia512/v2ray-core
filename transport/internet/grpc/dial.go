@@ -5,6 +5,7 @@ package grpc
 
 import (
 	"context"
+	"io"
 	gonet "net"
 	"sync"
 	"time"
@@ -13,6 +14,7 @@ import (
 	"google.golang.org/grpc/backoff"
 	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/keepalive"
 
 	core "github.com/v2fly/v2ray-core/v5"
 	"github.com/v2fly/v2ray-core/v5/common"
@@ -65,12 +67,25 @@ func dialgRPC(ctx context.Context, dest net.Destination, streamSettings *interne
 		return nil, newError("Cannot dial grpc").Base(err)
 	}
 	client := encoding.NewGunServiceClient(conn)
-	gunService, err := client.(encoding.GunServiceClientX).TunCustomName(ctx, grpcSettings.ServiceName)
-	if err != nil {
-		canceller()
-		return nil, newError("Cannot dial grpc").Base(err)
+
+	switch grpcSettings.Mode {
+	case Mode_Gun:
+		gunService, err := client.(encoding.GunServiceClientX).TunCustomName(ctx, grpcSettings.ServiceName)
+		if err != nil {
+			canceller()
+			return nil, newError("Cannot dial grpc").Base(err)
+		}
+		return encoding.NewGunConn(gunService, nil), nil
+	case Mode_Multi:
+		gunService, err := client.(encoding.GunServiceClientX).TunMultiCustomName(ctx, grpcSettings.ServiceName)
+		if err != nil {
+			canceller()
+			return nil, newError("Cannot dial grpc").Base(err)
+		}
+		conn, _ := encoding.NewMultiConn(gunService)
+		return conn, nil
 	}
-	return encoding.NewGunConn(gunService, nil), nil
+	return nil, io.EOF
 }
 
 func getGrpcClient(ctx context.Context, dest net.Destination, dialOption grpc.DialOption, streamSettings *internet.MemoryStreamConfig) (*grpc.ClientConn, dialerCanceller, error) {
@@ -92,9 +107,7 @@ func getGrpcClient(ctx context.Context, dest net.Destination, dialOption grpc.Di
 		return client, canceller, nil
 	}
 
-	conn, err := grpc.Dial(
-		dest.Address.String()+":"+dest.Port.String(),
-		dialOption,
+	grpcOptions := []grpc.DialOption{
 		grpc.WithConnectParams(grpc.ConnectParams{
 			Backoff: backoff.Config{
 				BaseDelay:  500 * time.Millisecond,
@@ -127,7 +140,20 @@ func getGrpcClient(ctx context.Context, dest net.Destination, dialOption grpc.Di
 			}
 			return conn, err
 		}),
-	)
+		dialOption,
+	}
+	grpcSettings := streamSettings.ProtocolSettings.(*Config)
+	if grpcSettings.IdleTimeout > 0 || grpcSettings.HealthCheckTimeout > 0 || grpcSettings.PermitWithoutStream {
+		grpcOptions = append(grpcOptions, grpc.WithKeepaliveParams(keepalive.ClientParameters{
+			Time:                time.Second * time.Duration(grpcSettings.IdleTimeout),
+			Timeout:             time.Second * time.Duration(grpcSettings.HealthCheckTimeout),
+			PermitWithoutStream: grpcSettings.PermitWithoutStream,
+		}))
+	}
+	if grpcSettings.InitialWindowsSize > 0 {
+		grpcOptions = append(grpcOptions, grpc.WithInitialWindowSize(grpcSettings.InitialWindowsSize))
+	}
+	conn, err := grpc.Dial(dest.Address.String()+":"+dest.Port.String(), grpcOptions...)
 	globalDialerMap[dialerConf{dest, streamSettings}] = conn
 	return conn, canceller, err
 }
