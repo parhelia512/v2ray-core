@@ -5,10 +5,12 @@ package grpc
 
 import (
 	"context"
+	"time"
 
 	goreality "github.com/xtls/reality"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/keepalive"
 
 	"github.com/v2fly/v2ray-core/v5/common"
 	"github.com/v2fly/v2ray-core/v5/common/net"
@@ -18,6 +20,8 @@ import (
 	"github.com/v2fly/v2ray-core/v5/transport/internet/reality"
 	"github.com/v2fly/v2ray-core/v5/transport/internet/tls"
 )
+
+var _ encoding.GunServiceServer = (*Listener)(nil)
 
 type Listener struct {
 	encoding.UnimplementedGunServiceServer
@@ -34,6 +38,17 @@ func (l Listener) Tun(server encoding.GunService_TunServer) error {
 	l.handler(encoding.NewGunConn(server, cancel))
 	<-tunCtx.Done()
 	return nil
+}
+
+func (l Listener) TunMulti(server encoding.GunService_TunMultiServer) error {
+	conn, done := encoding.NewMultiConn(server)
+	l.handler(conn)
+	<-done
+	return nil
+}
+
+func (l Listener) HandleConn(connection internet.Connection) {
+	l.handler(connection)
 }
 
 func (l Listener) Close() error {
@@ -72,13 +87,19 @@ func Listen(ctx context.Context, address net.Address, port net.Port, settings *i
 
 	config := tls.ConfigFromStreamSettings(settings)
 
-	var s *grpc.Server
-	if config == nil {
-		s = grpc.NewServer()
-	} else {
+	var options []grpc.ServerOption
+	if config != nil {
 		// gRPC server may silently ignore TLS errors
-		s = grpc.NewServer(grpc.Creds(credentials.NewTLS(config.GetTLSConfig(tls.WithNextProto("h2")))))
+		options = append(options, grpc.Creds(credentials.NewTLS(config.GetTLSConfig(tls.WithNextProto("h2")))))
 	}
+	if grpcSettings.IdleTimeout > 0 || grpcSettings.HealthCheckTimeout > 0 {
+		options = append(options, grpc.KeepaliveParams(keepalive.ServerParameters{
+			Time:    time.Second * time.Duration(grpcSettings.IdleTimeout),
+			Timeout: time.Second * time.Duration(grpcSettings.HealthCheckTimeout),
+		}))
+	}
+
+	s := grpc.NewServer(options...)
 	listener.s = s
 
 	if settings.SocketSettings != nil && settings.SocketSettings.AcceptProxyProtocol {
