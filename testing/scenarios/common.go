@@ -24,7 +24,7 @@ import (
 	"github.com/v2fly/v2ray-core/v4/common/net"
 	"github.com/v2fly/v2ray-core/v4/common/retry"
 	"github.com/v2fly/v2ray-core/v4/common/serial"
-  	"github.com/v2fly/v2ray-core/v4/common/units"
+	"github.com/v2fly/v2ray-core/v4/common/units"
 )
 
 func xor(b []byte) []byte {
