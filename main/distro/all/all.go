@@ -47,6 +47,9 @@ import (
 	_ "github.com/v2fly/v2ray-core/v4/proxy/vmess/inbound"
 	_ "github.com/v2fly/v2ray-core/v4/proxy/vmess/outbound"
 
+	// Developer preview proxies
+	_ "github.com/v2fly/v2ray-core/v4/proxy/vlite/outbound"
+
 	// Transports
 	_ "github.com/v2fly/v2ray-core/v4/transport/internet/domainsocket"
 	_ "github.com/v2fly/v2ray-core/v4/transport/internet/grpc"
