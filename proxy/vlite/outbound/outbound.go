@@ -131,6 +131,10 @@ func createStatusFromConfig(config *UDPProtocolConfig) (*status, error) {
 		ctx = context.WithValue(ctx, interfaces.ExtraOptionsUDPFECEnabled, true)
 	}
 
+	if config.ScramblePacket {
+		ctx = context.WithValue(ctx, interfaces.ExtraOptionsUDPShouldMask, true)
+	}
+
 	ctx = context.WithValue(ctx, interfaces.ExtraOptionsUDPMask, string(s.password))
 
 	if config.HandshakeMaskingPaddingSize != 0 {
