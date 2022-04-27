@@ -19,6 +19,9 @@ require (
 	github.com/pires/go-proxyproto v0.7.0
 	github.com/quic-go/quic-go v0.39.0
 	github.com/refraction-networking/utls v1.5.4
+	github.com/sagernet/sing v0.2.14
+	github.com/sagernet/sing-shadowsocks v0.2.5
+	github.com/sagernet/sing-shadowsocks2 v0.1.4
 	github.com/seiflotfy/cuckoofilter v0.0.0-20220411075957-e3b120b3f5fb
 	github.com/stretchr/testify v1.8.4
 	github.com/v2fly/BrowserBridge v0.0.0-20210430233438-0570fc1d7d08
@@ -80,4 +83,5 @@ require (
 	golang.org/x/time v0.3.0 // indirect
 	golang.org/x/tools v0.14.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20230822172742-b8732ec3820d // indirect
+	lukechampine.com/blake3 v1.2.1 // indirect
 )
