@@ -21,6 +21,8 @@ require (
 	github.com/quic-go/qtls-go1-20 v0.1.1
 	github.com/quic-go/quic-go v0.32.0
 	github.com/refraction-networking/utls v1.2.2
+	github.com/sagernet/sing v0.1.7
+	github.com/sagernet/sing-shadowsocks v0.1.1-0.20230202035033-e3123545f2f7
 	github.com/seiflotfy/cuckoofilter v0.0.0-20220411075957-e3b120b3f5fb
 	github.com/stretchr/testify v1.8.1
 	github.com/v2fly/BrowserBridge v0.0.0-20210430233438-0570fc1d7d08
@@ -53,6 +55,7 @@ require (
 	github.com/google/pprof v0.0.0-20210407192527-94a9f03dee38 // indirect
 	github.com/klauspost/compress v1.15.15 // indirect
 	github.com/klauspost/cpuid v1.2.3 // indirect
+	github.com/klauspost/cpuid/v2 v2.0.12 // indirect
 	github.com/klauspost/reedsolomon v1.9.3 // indirect
 	github.com/leodido/go-urn v1.2.1 // indirect
 	github.com/lunixbochs/struc v0.0.0-20200707160740-784aaebc1d40 // indirect
@@ -74,4 +77,5 @@ require (
 	golang.org/x/text v0.7.0 // indirect
 	golang.org/x/tools v0.2.0 // indirect
 	google.golang.org/genproto v0.0.0-20230110181048-76db0878b65f // indirect
+	lukechampine.com/blake3 v1.1.7 // indirect
 )
