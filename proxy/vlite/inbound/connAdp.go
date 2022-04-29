@@ -4,10 +4,11 @@
 package inbound
 
 import (
-	"github.com/v2fly/v2ray-core/v4/common/buf"
-	"github.com/v2fly/v2ray-core/v4/common/signal/done"
 	"io"
 	"net"
+
+	"github.com/v2fly/v2ray-core/v4/common/buf"
+	"github.com/v2fly/v2ray-core/v4/common/signal/done"
 )
 
 func newUDPConnAdaptor(conn net.Conn, done *done.Instance) net.Conn {
