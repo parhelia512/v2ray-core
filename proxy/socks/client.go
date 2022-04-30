@@ -7,13 +7,11 @@ import (
 	"context"
 	"time"
 
-	"github.com/v2fly/v2ray-core/v4/common/net/packetaddr"
-	"github.com/v2fly/v2ray-core/v4/transport/internet/udp"
-
 	core "github.com/v2fly/v2ray-core/v4"
 	"github.com/v2fly/v2ray-core/v4/common"
 	"github.com/v2fly/v2ray-core/v4/common/buf"
 	"github.com/v2fly/v2ray-core/v4/common/net"
+	"github.com/v2fly/v2ray-core/v4/common/net/packetaddr"
 	"github.com/v2fly/v2ray-core/v4/common/protocol"
 	"github.com/v2fly/v2ray-core/v4/common/retry"
 	"github.com/v2fly/v2ray-core/v4/common/session"
@@ -23,6 +21,7 @@ import (
 	"github.com/v2fly/v2ray-core/v4/features/policy"
 	"github.com/v2fly/v2ray-core/v4/transport"
 	"github.com/v2fly/v2ray-core/v4/transport/internet"
+	"github.com/v2fly/v2ray-core/v4/transport/internet/udp"
 )
 
 // Client is a Socks5 client.

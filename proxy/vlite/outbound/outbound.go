@@ -19,6 +19,7 @@ import (
 	"github.com/xiaokangwang/VLite/transport/udp/udpClient"
 	"github.com/xiaokangwang/VLite/transport/udp/udpuni/udpunic"
 	"github.com/xiaokangwang/VLite/transport/uni/uniclient"
+	client2 "github.com/xiaokangwang/VLite/workers/client"
 
 	"github.com/v2fly/v2ray-core/v4/common"
 	"github.com/v2fly/v2ray-core/v4/common/environment"
@@ -31,8 +32,6 @@ import (
 	"github.com/v2fly/v2ray-core/v4/transport"
 	"github.com/v2fly/v2ray-core/v4/transport/internet"
 	"github.com/v2fly/v2ray-core/v4/transport/internet/udp"
-
-	client2 "github.com/xiaokangwang/VLite/workers/client"
 )
 
 //go:generate go run github.com/v2fly/v2ray-core/v4/common/errors/errorgen

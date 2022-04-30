@@ -7,9 +7,8 @@ import (
 	"bytes"
 	"context"
 
-	"github.com/v2fly/v2ray-core/v4/common/environment/envctx"
-
 	"github.com/v2fly/v2ray-core/v4/common"
+	"github.com/v2fly/v2ray-core/v4/common/environment/envctx"
 	"github.com/v2fly/v2ray-core/v4/common/net"
 	"github.com/v2fly/v2ray-core/v4/features/routing"
 	"github.com/v2fly/v2ray-core/v4/transport/internet/udp"
