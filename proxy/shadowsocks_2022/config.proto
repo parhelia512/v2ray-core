@@ -21,6 +21,22 @@ message ServerConfig {
   repeated v2ray.core.common.net.Network network = 5;
 }
 
+message MultiUserServerConfig {
+  option (v2ray.core.common.protoext.message_opt).type = "inbound";
+  option (v2ray.core.common.protoext.message_opt).short_name = "shadowsocks-2022-multi";
+
+  string method = 1;
+  string key = 2;
+  repeated User users = 3;
+  repeated v2ray.core.common.net.Network network = 4;
+}
+
+message User {
+  string key = 1;
+  string email = 2;
+  int32 level = 3;
+}
+
 message ClientConfig {
   option (v2ray.core.common.protoext.message_opt).type = "outbound";
   option (v2ray.core.common.protoext.message_opt).short_name = "shadowsocks-2022";

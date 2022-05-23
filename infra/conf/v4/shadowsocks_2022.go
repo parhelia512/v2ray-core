@@ -9,11 +9,12 @@ import (
 )
 
 type Shadowsocks2022ServerConfig struct {
-	Method  string                 `json:"method"`
-	Key     string                 `json:"key"`
-	Level   byte                   `json:"level"`
-	Email   string                 `json:"email"`
-	Network *cfgcommon.NetworkList `json:"network"`
+	Method  string                       `json:"method"`
+	Key     string                       `json:"key"`
+	Level   byte                         `json:"level"`
+	Email   string                       `json:"email"`
+	Network *cfgcommon.NetworkList       `json:"network"`
+	Users   []*Shadowsocks2022UserConfig `json:"users"`
 }
 
 func (v *Shadowsocks2022ServerConfig) Build() (proto.Message, error) {
@@ -27,6 +28,40 @@ func (v *Shadowsocks2022ServerConfig) Build() (proto.Message, error) {
 		Level:   int32(v.Level),
 		Email:   v.Email,
 		Network: network,
+	}, nil
+}
+
+type Shadowsocks2022MultiUserServerConfig struct {
+	Method  string                       `json:"method"`
+	Key     string                       `json:"key"`
+	Network *cfgcommon.NetworkList       `json:"network"`
+	Users   []*Shadowsocks2022UserConfig `json:"users"`
+}
+
+type Shadowsocks2022UserConfig struct {
+	Key   string `json:"key"`
+	Level byte   `json:"level"`
+	Email string `json:"email"`
+}
+
+func (v *Shadowsocks2022MultiUserServerConfig) Build() (proto.Message, error) {
+	var network []net.Network
+	if v.Network != nil {
+		network = v.Network.Build()
+	}
+	var users []*shadowsocks_2022.User
+	for _, user := range v.Users {
+		users = append(users, &shadowsocks_2022.User{
+			Key:   user.Key,
+			Level: int32(user.Level),
+			Email: user.Email,
+		})
+	}
+	return &shadowsocks_2022.MultiUserServerConfig{
+		Method:  v.Method,
+		Key:     v.Key,
+		Network: network,
+		Users:   users,
 	}, nil
 }
 

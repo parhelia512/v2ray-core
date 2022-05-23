@@ -24,14 +24,15 @@ import (
 
 var (
 	inboundConfigLoader = loader.NewJSONConfigLoader(loader.ConfigCreatorCache{
-		"dokodemo-door":    func() interface{} { return new(DokodemoConfig) },
-		"http":             func() interface{} { return new(HTTPServerConfig) },
-		"shadowsocks":      func() interface{} { return new(ShadowsocksServerConfig) },
-		"socks":            func() interface{} { return new(SocksServerConfig) },
-		"vless":            func() interface{} { return new(VLessInboundConfig) },
-		"vmess":            func() interface{} { return new(VMessInboundConfig) },
-		"trojan":           func() interface{} { return new(TrojanServerConfig) },
-		"shadowsocks-2022": func() interface{} { return new(Shadowsocks2022ServerConfig) },
+		"dokodemo-door":          func() interface{} { return new(DokodemoConfig) },
+		"http":                   func() interface{} { return new(HTTPServerConfig) },
+		"shadowsocks":            func() interface{} { return new(ShadowsocksServerConfig) },
+		"socks":                  func() interface{} { return new(SocksServerConfig) },
+		"vless":                  func() interface{} { return new(VLessInboundConfig) },
+		"vmess":                  func() interface{} { return new(VMessInboundConfig) },
+		"trojan":                 func() interface{} { return new(TrojanServerConfig) },
+		"shadowsocks-2022":       func() interface{} { return new(Shadowsocks2022ServerConfig) },
+		"shadowsocks-2022-multi": func() interface{} { return new(Shadowsocks2022MultiUserServerConfig) },
 	}, "protocol", "settings")
 
 	outboundConfigLoader = loader.NewJSONConfigLoader(loader.ConfigCreatorCache{

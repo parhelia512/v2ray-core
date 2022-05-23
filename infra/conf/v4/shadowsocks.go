@@ -12,18 +12,46 @@ import (
 	shadowsocks_2022 "github.com/v2fly/v2ray-core/v5/proxy/shadowsocks_2022"
 )
 
+type ShadowsocksUserConfig struct {
+	Password string `json:"password"`
+	Level    byte   `json:"level"`
+	Email    string `json:"email"`
+}
+
 type ShadowsocksServerConfig struct {
-	Cipher      string                 `json:"method"`
-	Password    string                 `json:"password"`
-	UDP         bool                   `json:"udp"`
-	Level       byte                   `json:"level"`
-	Email       string                 `json:"email"`
-	NetworkList *cfgcommon.NetworkList `json:"network"`
-	IVCheck     bool                   `json:"ivCheck"`
+	Cipher      string                   `json:"method"`
+	Password    string                   `json:"password"`
+	UDP         bool                     `json:"udp"`
+	Level       byte                     `json:"level"`
+	Email       string                   `json:"email"`
+	NetworkList *cfgcommon.NetworkList   `json:"network"`
+	IVCheck     bool                     `json:"ivCheck"`
+	Clients     []*ShadowsocksUserConfig `json:"clients"`
+	Users       []*ShadowsocksUserConfig `json:"users"`
 }
 
 func (v *ShadowsocksServerConfig) Build() (proto.Message, error) {
 	if strings.HasPrefix(v.Cipher, strings.ToLower("2022-blake3-")) {
+		if v.Users == nil {
+			v.Users = v.Clients
+		}
+		if len(v.Users) > 0 {
+			if strings.HasPrefix(v.Cipher, strings.ToLower("2022-blake3-aes-")) {
+				return nil, newError("shadowsocks 2022 (multi-user): only 2022-blake3-aes-*-gcm methods are supported")
+			}
+			config := new(shadowsocks_2022.MultiUserServerConfig)
+			config.Method = strings.ToLower(v.Cipher)
+			config.Key = v.Password
+			config.Network = v.NetworkList.Build()
+			for _, user := range v.Users {
+				config.Users = append(config.Users, &shadowsocks_2022.User{
+					Key:   user.Password,
+					Level: int32(user.Level),
+					Email: user.Email,
+				})
+			}
+			return config, nil
+		}
 		config := new(shadowsocks_2022.ServerConfig)
 		config.Method = strings.ToLower(v.Cipher)
 		config.Key = v.Password
