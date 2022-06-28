@@ -29,7 +29,8 @@ func MustFromContext(ctx context.Context) *Instance {
 	return v
 }
 
-/* toContext returns ctx from the given context, or creates an Instance if the context doesn't find that.
+/*
+	toContext returns ctx from the given context, or creates an Instance if the context doesn't find that.
 
 It is unsupported to use this function to create a context that is suitable to invoke V2Ray's internal component
 in third party code, you shouldn't use //go:linkname to alias of this function into your own package and
@@ -37,7 +38,6 @@ use this function in your third party code.
 
 For third party code, usage enabled by creating a context to interact with V2Ray's internal component is unsupported,
 and may break at any time.
-
 */
 func toContext(ctx context.Context, v *Instance) context.Context {
 	if FromContext(ctx) != v {
@@ -46,7 +46,8 @@ func toContext(ctx context.Context, v *Instance) context.Context {
 	return ctx
 }
 
-/*ToBackgroundDetachedContext create a detached context from another context
+/*
+ToBackgroundDetachedContext create a detached context from another context
 Internal API
 */
 func ToBackgroundDetachedContext(ctx context.Context) context.Context {
