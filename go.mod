@@ -13,7 +13,7 @@ require (
 	github.com/marten-seemann/qtls-go1-16 v0.1.5
 	github.com/marten-seemann/qtls-go1-17 v0.1.2
 	github.com/marten-seemann/qtls-go1-18 v0.1.2
-	github.com/miekg/dns v1.1.49
+	github.com/miekg/dns v1.1.50
 	github.com/mustafaturan/bus v1.0.2
 	github.com/pires/go-proxyproto v0.6.2
 	github.com/seiflotfy/cuckoofilter v0.0.0-20220312154859-af7fbb8e765b
