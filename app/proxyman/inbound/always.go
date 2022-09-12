@@ -73,20 +73,24 @@ func NewAlwaysOnInboundHandler(ctx context.Context, tag string, receiverConfig *
 		address = net.AnyIP
 	}
 
+	listeningAddrs := make(map[net.Address]bool)
+	if address != net.AnyIP && address != net.AnyIPv6 {
+		listeningAddrs[address] = true
+	} else {
+		interfaceAddrs, err := net.InterfaceAddrs()
+		if err != nil {
+			listeningAddrs[address] = true
+		}
+		for _, addr := range interfaceAddrs {
+			listeningAddrs[net.IPAddress(addr.(*net.IPNet).IP)] = true
+		}
+	}
+
 	mss, err := internet.ToMemoryStreamConfig(receiverConfig.StreamSettings)
 	if err != nil {
 		return nil, newError("failed to parse stream config").Base(err).AtWarning()
 	}
 
-	if receiverConfig.ReceiveOriginalDestination {
-		if mss.SocketSettings == nil {
-			mss.SocketSettings = &internet.SocketConfig{}
-		}
-		if mss.SocketSettings.Tproxy == internet.SocketConfig_Off {
-			mss.SocketSettings.Tproxy = internet.SocketConfig_Redirect
-		}
-		mss.SocketSettings.ReceiveOriginalDestAddress = true
-	}
 	if pr == nil {
 		if net.HasNetwork(nl, net.Network_UNIX) {
 			newError("creating unix domain socket worker on ", address).AtDebug().WriteToLog()
@@ -122,6 +126,7 @@ func NewAlwaysOnInboundHandler(ctx context.Context, tag string, receiverConfig *
 					uplinkCounter:   uplinkCounter,
 					downlinkCounter: downlinkCounter,
 					ctx:             ctx,
+					listeningAddrs:  listeningAddrs,
 				}
 				h.workers = append(h.workers, worker)
 			}
@@ -138,6 +143,7 @@ func NewAlwaysOnInboundHandler(ctx context.Context, tag string, receiverConfig *
 					uplinkCounter:   uplinkCounter,
 					downlinkCounter: downlinkCounter,
 					stream:          mss,
+					listeningAddrs:  listeningAddrs,
 				}
 				h.workers = append(h.workers, worker)
 			}
