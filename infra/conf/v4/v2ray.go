@@ -13,6 +13,7 @@ import (
 	"github.com/v2fly/v2ray-core/v5/app/dispatcher"
 	"github.com/v2fly/v2ray-core/v5/app/proxyman"
 	"github.com/v2fly/v2ray-core/v5/app/stats"
+	"github.com/v2fly/v2ray-core/v5/common/net"
 	"github.com/v2fly/v2ray-core/v5/common/serial"
 	"github.com/v2fly/v2ray-core/v5/features"
 	"github.com/v2fly/v2ray-core/v5/infra/conf/cfgcommon"
@@ -24,6 +25,7 @@ import (
 	"github.com/v2fly/v2ray-core/v5/infra/conf/synthetic/log"
 	"github.com/v2fly/v2ray-core/v5/infra/conf/synthetic/router"
 	"github.com/v2fly/v2ray-core/v5/infra/conf/v5cfg"
+	"github.com/v2fly/v2ray-core/v5/transport/internet"
 )
 
 var (
@@ -200,8 +202,29 @@ func (c *InboundDetourConfig) Build() (*core.InboundHandlerConfig, error) {
 	if err != nil {
 		return nil, newError("failed to load inbound detour config.").Base(err)
 	}
-	if dokodemoConfig, ok := rawConfig.(*DokodemoConfig); ok {
-		receiverSettings.ReceiveOriginalDestination = dokodemoConfig.Redirect
+	if content, ok := rawConfig.(*DokodemoConfig); ok && content.Redirect {
+		receiverSettings.ReceiveOriginalDestination = true
+		if receiverSettings.StreamSettings == nil {
+			receiverSettings.StreamSettings = &internet.StreamConfig{}
+		}
+		if receiverSettings.StreamSettings.SocketSettings == nil {
+			receiverSettings.StreamSettings.SocketSettings = &internet.SocketConfig{}
+		}
+		receiverSettings.StreamSettings.SocketSettings.ReceiveOriginalDestAddress = true
+		if receiverSettings.StreamSettings.SocketSettings.Tproxy == internet.SocketConfig_Off {
+			receiverSettings.StreamSettings.SocketSettings.Tproxy = internet.SocketConfig_Redirect
+		}
+	}
+	if content, ok := rawConfig.(*SocksServerConfig); ok && content.UDP &&
+		(receiverSettings.Listen.AsAddress() == net.AnyIP || receiverSettings.Listen.AsAddress() == net.AnyIPv6) {
+		receiverSettings.ReceiveOriginalDestination = true
+		if receiverSettings.StreamSettings == nil {
+			receiverSettings.StreamSettings = &internet.StreamConfig{}
+		}
+		if receiverSettings.StreamSettings.SocketSettings == nil {
+			receiverSettings.StreamSettings.SocketSettings = &internet.SocketConfig{}
+		}
+		receiverSettings.StreamSettings.SocketSettings.ReceiveOriginalDestAddress = true
 	}
 	ts, err := rawConfig.(cfgcommon.Buildable).Build()
 	if err != nil {
