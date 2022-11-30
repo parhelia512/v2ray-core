@@ -185,6 +185,7 @@ var typeMap = map[router.Domain_Type]dns.DomainMatchingType{
 type DNSConfig struct { // nolint: revive
 	Servers                []*NameServerConfig     `json:"servers"`
 	Hosts                  map[string]*HostAddress `json:"hosts"`
+	DomainMatcher          string                  `json:"domainMatcher"`
 	ClientIP               *cfgcommon.Address      `json:"clientIp"`
 	Tag                    string                  `json:"tag"`
 	QueryStrategy          string                  `json:"queryStrategy"`
@@ -263,6 +264,7 @@ func (c *DNSConfig) Build() (*dns.Config, error) {
 		DisableCache:           c.DisableCache,
 		DisableFallback:        c.DisableFallback,
 		DisableFallbackIfMatch: c.DisableFallbackIfMatch,
+		DomainMatcher:          c.DomainMatcher,
 	}
 
 	if c.ClientIP != nil {

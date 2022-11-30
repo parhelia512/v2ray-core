@@ -106,7 +106,17 @@ func establishDomainRules(config *Config, clients []*Client, nsClientMap map[int
 	}
 	// MatcherInfos is ensured to cover the maximum index domainMatcher could return, where matcher's index starts from 1
 	matcherInfos := make([]*DomainMatcherInfo, domainRuleCount+1)
-	domainMatcher := &strmatcher.LinearIndexMatcher{}
+	var domainMatcher strmatcher.IndexMatcher
+	switch config.DomainMatcher {
+	case "mph", "hybrid":
+		newError("using mph domain matcher").AtDebug().WriteToLog()
+		domainMatcher = strmatcher.NewMphIndexMatcher()
+	case "linear":
+		fallthrough
+	default:
+		newError("using default domain matcher").AtDebug().WriteToLog()
+		domainMatcher = strmatcher.NewLinearIndexMatcher()
+	}
 	for nsIdx, ns := range config.NameServer {
 		clientIdx := nsClientMap[nsIdx]
 		var rules []string
@@ -142,6 +152,9 @@ func establishDomainRules(config *Config, clients []*Client, nsClientMap map[int
 			}
 		}
 		clients[clientIdx].domains = rules
+	}
+	if err := domainMatcher.Build(); err != nil {
+		return nil, nil, err
 	}
 	return domainMatcher, matcherInfos, nil
 }
