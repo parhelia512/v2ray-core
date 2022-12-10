@@ -18,6 +18,7 @@ import (
 	dns_proto "github.com/v2fly/v2ray-core/v4/common/protocol/dns"
 	"github.com/v2fly/v2ray-core/v4/common/session"
 	"github.com/v2fly/v2ray-core/v4/common/signal"
+	"github.com/v2fly/v2ray-core/v4/common/strmatcher"
 	"github.com/v2fly/v2ray-core/v4/common/task"
 	"github.com/v2fly/v2ray-core/v4/features/dns"
 	"github.com/v2fly/v2ray-core/v4/features/policy"
@@ -186,8 +187,10 @@ func (h *Handler) Process(ctx context.Context, link *transport.Link, d internet.
 			if !h.isOwnLink(ctx) {
 				isIPQuery, domain, id, qType := parseIPQuery(b.Bytes())
 				if isIPQuery {
-					go h.handleIPQuery(id, qType, domain, writer)
-					continue
+					if domain, err := strmatcher.ToDomain(domain); err == nil {
+						go h.handleIPQuery(id, qType, domain, writer)
+						continue
+					}
 				}
 			}
 

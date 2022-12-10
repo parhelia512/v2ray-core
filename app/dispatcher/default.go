@@ -18,6 +18,7 @@ import (
 	"github.com/v2fly/v2ray-core/v4/common/net"
 	"github.com/v2fly/v2ray-core/v4/common/protocol"
 	"github.com/v2fly/v2ray-core/v4/common/session"
+	"github.com/v2fly/v2ray-core/v4/common/strmatcher"
 	"github.com/v2fly/v2ray-core/v4/features/outbound"
 	"github.com/v2fly/v2ray-core/v4/features/policy"
 	"github.com/v2fly/v2ray-core/v4/features/routing"
@@ -228,10 +229,11 @@ func (d *DefaultDispatcher) Dispatch(ctx context.Context, destination net.Destin
 				content.Protocol = result.Protocol()
 			}
 			if err == nil && shouldOverride(result, sniffingRequest.OverrideDestinationForProtocol) {
-				domain := result.Domain()
-				newError("sniffed domain: ", domain).WriteToLog(session.ExportIDToError(ctx))
-				destination.Address = net.ParseAddress(domain)
-				ob.Target = destination
+				if domain, err := strmatcher.ToDomain(result.Domain()); err == nil {
+					newError("sniffed domain: ", domain, " for ", destination).WriteToLog(session.ExportIDToError(ctx))
+					destination.Address = net.ParseAddress(domain)
+					ob.Target = destination
+				}
 			}
 			d.routedDispatch(ctx, outbound, destination)
 		}()
