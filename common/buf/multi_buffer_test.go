@@ -107,7 +107,7 @@ func TestMultiBufferReadAllToByte(t *testing.T) {
 		common.Must(err)
 
 		if l := len(b); l != 8*1024 {
-			t.Error("unexpceted length from ReadAllToBytes", l)
+			t.Error("unexpected length from ReadAllToBytes", l)
 		}
 	}
 	{
@@ -140,7 +140,7 @@ func TestMultiBufferCopy(t *testing.T) {
 	mb.Copy(lbdst)
 
 	if d := cmp.Diff(lb, lbdst); d != "" {
-		t.Error("unexpceted different from MultiBufferCopy ", d)
+		t.Error("unexpected different from MultiBufferCopy ", d)
 	}
 }
 
