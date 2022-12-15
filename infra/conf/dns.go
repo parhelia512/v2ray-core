@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/v2fly/v2ray-core/v4/app/dns"
+	"github.com/v2fly/v2ray-core/v4/app/dns/fakedns"
 	"github.com/v2fly/v2ray-core/v4/app/router"
 	"github.com/v2fly/v2ray-core/v4/common/net"
 	"github.com/v2fly/v2ray-core/v4/common/platform"
@@ -26,6 +27,7 @@ type NameServerConfig struct {
 	SkipFallback     bool
 	Domains          []string
 	ExpectIPs        cfgcommon.StringList
+	FakeDNS          FakeDNSConfigExtend
 
 	cfgctx context.Context
 }
@@ -48,6 +50,7 @@ func (c *NameServerConfig) UnmarshalJSON(data []byte) error {
 		SkipFallback     bool                 `json:"skipFallback"`
 		Domains          []string             `json:"domains"`
 		ExpectIPs        cfgcommon.StringList `json:"expectIps"`
+		FakeDNS          FakeDNSConfigExtend  `json:"fakedns"`
 	}
 	if err := json.Unmarshal(data, &advanced); err == nil {
 		c.Address = advanced.Address
@@ -60,6 +63,7 @@ func (c *NameServerConfig) UnmarshalJSON(data []byte) error {
 		c.SkipFallback = advanced.SkipFallback
 		c.Domains = advanced.Domains
 		c.ExpectIPs = advanced.ExpectIPs
+		c.FakeDNS = advanced.FakeDNS
 		return nil
 	}
 
@@ -112,6 +116,15 @@ func (c *NameServerConfig) Build() (*dns.NameServer, error) {
 	geoipList, err := rule2.ToCidrList(cfgctx, c.ExpectIPs)
 	if err != nil {
 		return nil, newError("invalid IP rule: ", c.ExpectIPs).Base(err)
+	}
+
+	var fakeDNS *fakedns.FakeDnsPoolMulti
+	if c.FakeDNS.FakeDNSConfig != nil {
+		fake, err := c.FakeDNS.FakeDNSConfig.Build()
+		if err != nil {
+			return nil, newError("failed to build fakedns").Base(err)
+		}
+		fakeDNS = fake
 	}
 
 	var myClientIP []byte
@@ -171,6 +184,7 @@ func (c *NameServerConfig) Build() (*dns.NameServer, error) {
 		PrioritizedDomain: domains,
 		Geoip:             geoipList,
 		OriginalRules:     originalRules,
+		FakeDns:           fakeDNS,
 	}, nil
 }
 
@@ -185,6 +199,7 @@ var typeMap = map[router.Domain_Type]dns.DomainMatchingType{
 type DNSConfig struct { // nolint: revive
 	Servers                []*NameServerConfig     `json:"servers"`
 	Hosts                  map[string]*HostAddress `json:"hosts"`
+	FakeDNS                *FakeDNSConfig          `json:"fakedns"`
 	DomainMatcher          string                  `json:"domainMatcher"`
 	ClientIP               *cfgcommon.Address      `json:"clientIp"`
 	Tag                    string                  `json:"tag"`
@@ -418,6 +433,14 @@ func (c *DNSConfig) Build() (*dns.Config, error) {
 		}
 
 		config.StaticHosts = append(config.StaticHosts, mappings...)
+	}
+
+	if c.FakeDNS != nil {
+		fakeDNS, err := c.FakeDNS.Build()
+		if err != nil {
+			return nil, newError("failed to build fakedns").Base(err)
+		}
+		config.FakeDns = fakeDNS
 	}
 
 	return config, nil

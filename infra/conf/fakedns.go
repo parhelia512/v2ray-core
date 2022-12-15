@@ -2,7 +2,7 @@ package conf
 
 import (
 	"encoding/json"
-	"strings"
+	"net"
 
 	"github.com/v2fly/v2ray-core/v4/app/dns/fakedns"
 )
@@ -21,11 +21,29 @@ type FakeDNSConfig struct {
 func (f *FakeDNSConfig) UnmarshalJSON(data []byte) error {
 	var pool FakeDNSPoolElementConfig
 	var pools []*FakeDNSPoolElementConfig
+	var ipPools []string
 	switch {
 	case json.Unmarshal(data, &pool) == nil:
 		f.pool = &pool
 	case json.Unmarshal(data, &pools) == nil:
 		f.pools = pools
+	case json.Unmarshal(data, &ipPools) == nil:
+		f.pools = make([]*FakeDNSPoolElementConfig, 0, len(ipPools))
+		for _, ipPool := range ipPools {
+			_, ipNet, err := net.ParseCIDR(ipPool)
+			if err != nil {
+				return err
+			}
+			ones, bits := ipNet.Mask.Size()
+			sizeInBits := bits - ones
+			if sizeInBits > 16 { // At most 65536 ips for a IP pool
+				sizeInBits = 16
+			}
+			f.pools = append(f.pools, &FakeDNSPoolElementConfig{
+				IPPool:  ipPool,
+				LRUSize: (1 << sizeInBits) - 1,
+			})
+		}
 	default:
 		return newError("invalid fakedns config")
 	}
@@ -53,77 +71,17 @@ func (f *FakeDNSConfig) Build() (*fakedns.FakeDnsPoolMulti, error) {
 	return nil, newError("no valid FakeDNS config")
 }
 
-type FakeDNSPostProcessingStage struct{}
+type FakeDNSConfigExtend struct { // Adds boolean value parsing for "fakedns" config
+	*FakeDNSConfig
+}
 
-func (FakeDNSPostProcessingStage) Process(config *Config) error {
-	fakeDNSInUse := false
-	isIPv4Enable, isIPv6Enable := true, true
-
-	if config.DNSConfig != nil {
-		for _, v := range config.DNSConfig.Servers {
-			if v.Address.Family().IsDomain() && strings.EqualFold(v.Address.Domain(), "fakedns") {
-				fakeDNSInUse = true
-			}
+func (f *FakeDNSConfigExtend) UnmarshalJSON(data []byte) error {
+	var enabled bool
+	if json.Unmarshal(data, &enabled) == nil {
+		if enabled {
+			f.FakeDNSConfig = &FakeDNSConfig{pools: []*FakeDNSPoolElementConfig{}}
 		}
-
-		switch strings.ToLower(config.DNSConfig.QueryStrategy) {
-		case "useip4", "useipv4", "use_ip4", "use_ipv4", "use_ip_v4", "use-ip4", "use-ipv4", "use-ip-v4":
-			isIPv4Enable, isIPv6Enable = true, false
-		case "useip6", "useipv6", "use_ip6", "use_ipv6", "use_ip_v6", "use-ip6", "use-ipv6", "use-ip-v6":
-			isIPv4Enable, isIPv6Enable = false, true
-		}
+		return nil
 	}
-
-	if fakeDNSInUse {
-		// Add a Fake DNS Config if there is none
-		if config.FakeDNS == nil {
-			config.FakeDNS = &FakeDNSConfig{}
-			switch {
-			case isIPv4Enable && isIPv6Enable:
-				config.FakeDNS.pools = []*FakeDNSPoolElementConfig{
-					{
-						IPPool:  "198.18.0.0/15",
-						LRUSize: 32768,
-					},
-					{
-						IPPool:  "fc00::/18",
-						LRUSize: 32768,
-					},
-				}
-			case !isIPv4Enable && isIPv6Enable:
-				config.FakeDNS.pool = &FakeDNSPoolElementConfig{
-					IPPool:  "fc00::/18",
-					LRUSize: 65535,
-				}
-			case isIPv4Enable && !isIPv6Enable:
-				config.FakeDNS.pool = &FakeDNSPoolElementConfig{
-					IPPool:  "198.18.0.0/15",
-					LRUSize: 65535,
-				}
-			}
-		}
-
-		found := false
-		// Check if there is a Outbound with necessary sniffer on
-		var inbounds []InboundDetourConfig
-
-		if len(config.InboundConfigs) > 0 {
-			inbounds = append(inbounds, config.InboundConfigs...)
-		}
-		for _, v := range inbounds {
-			if v.SniffingConfig != nil && v.SniffingConfig.Enabled && v.SniffingConfig.DestOverride != nil {
-				for _, dov := range *v.SniffingConfig.DestOverride {
-					if strings.EqualFold(dov, "fakedns") || strings.EqualFold(dov, "fakedns+others") {
-						found = true
-						break
-					}
-				}
-			}
-		}
-		if !found {
-			newError("Defined FakeDNS but haven't enabled FakeDNS destOverride at any inbound.").AtWarning().WriteToLog()
-		}
-	}
-
-	return nil
+	return json.Unmarshal(data, &f.FakeDNSConfig)
 }

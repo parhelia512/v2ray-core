@@ -11,6 +11,7 @@ import (
 	"github.com/v2fly/v2ray-core/v4/app/proxyman"
 	"github.com/v2fly/v2ray-core/v4/app/stats"
 	"github.com/v2fly/v2ray-core/v4/common/serial"
+	"github.com/v2fly/v2ray-core/v4/features"
 	"github.com/v2fly/v2ray-core/v4/infra/conf/cfgcommon"
 )
 
@@ -545,6 +546,17 @@ func (c *Config) Build() (*core.Config, error) {
 		config.App = append(config.App, serial.ToTypedMessage(routerConfig))
 	}
 
+	if c.FakeDNS != nil {
+		features.PrintDeprecatedFeatureWarning("root fakedns settings")
+		if c.DNSConfig != nil {
+			c.DNSConfig.FakeDNS = c.FakeDNS
+		} else {
+			c.DNSConfig = &DNSConfig{
+				FakeDNS: c.FakeDNS,
+			}
+		}
+	}
+
 	if c.DNSConfig != nil {
 		dnsApp, err := c.DNSConfig.Build()
 		if err != nil {
@@ -563,14 +575,6 @@ func (c *Config) Build() (*core.Config, error) {
 
 	if c.Reverse != nil {
 		r, err := c.Reverse.Build()
-		if err != nil {
-			return nil, err
-		}
-		config.App = append(config.App, serial.ToTypedMessage(r))
-	}
-
-	if c.FakeDNS != nil {
-		r, err := c.FakeDNS.Build()
 		if err != nil {
 			return nil, err
 		}
