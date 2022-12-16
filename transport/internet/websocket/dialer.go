@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
-	"github.com/v2fly/v2ray-core/v4/transport/internet/security"
 	"io"
 	gonet "net"
 	"net/http"
@@ -21,6 +20,7 @@ import (
 	"github.com/v2fly/v2ray-core/v4/common/session"
 	"github.com/v2fly/v2ray-core/v4/features/extension"
 	"github.com/v2fly/v2ray-core/v4/transport/internet"
+	"github.com/v2fly/v2ray-core/v4/transport/internet/security"
 )
 
 // Dial dials a WebSocket connection to the given destination.
