@@ -5,7 +5,6 @@ package trojan
 
 import (
 	"context"
-	"sync"
 
 	core "github.com/v2fly/v2ray-core/v4"
 	"github.com/v2fly/v2ray-core/v4/common"
@@ -123,12 +122,9 @@ func (c *Client) Process(ctx context.Context, link *transport.Link, dialer inter
 			defer timer.SetTimeout(sessionPolicy.Timeouts.UplinkOnly)
 
 			packetReader := &PacketReader{Reader: conn}
-			splitReader := &PacketConnectionReader{
-				readerAccess: &sync.Mutex{},
-				reader:       packetReader,
-			}
+			packetConnectionReader := &PacketConnectionReader{reader: packetReader}
 
-			return udp.CopyPacketConn(packetConn, splitReader, udp.UpdateActivity(timer))
+			return udp.CopyPacketConn(packetConn, packetConnectionReader, udp.UpdateActivity(timer))
 		}
 
 		responseDoneAndCloseWriter := task.OnSuccess(getResponse, task.Close(link.Writer))
