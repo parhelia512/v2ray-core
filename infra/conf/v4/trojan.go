@@ -89,9 +89,10 @@ type TrojanUserConfig struct {
 
 // TrojanServerConfig is Inbound configuration
 type TrojanServerConfig struct {
-	Clients   []*TrojanUserConfig      `json:"clients"`
-	Fallback  json.RawMessage          `json:"fallback"`
-	Fallbacks []*TrojanInboundFallback `json:"fallbacks"`
+	Clients        []*TrojanUserConfig      `json:"clients"`
+	Fallback       json.RawMessage          `json:"fallback"`
+	Fallbacks      []*TrojanInboundFallback `json:"fallbacks"`
+	PacketEncoding cfgcommon.PacketAddrType `json:"packetEncoding"`
 }
 
 // Build implements Buildable
@@ -167,6 +168,8 @@ func (c *TrojanServerConfig) Build() (proto.Message, error) {
 			return nil, newError(`Trojan fallbacks: invalid PROXY protocol version, "xver" only accepts 0, 1, 2`)
 		}
 	}
+
+	config.PacketEncoding = c.PacketEncoding.Build()
 
 	return config, nil
 }
