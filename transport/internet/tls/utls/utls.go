@@ -106,11 +106,13 @@ func (u uTLSClientConnection) GetConnectionApplicationProtocol() (string, error)
 
 func uTLSConfigFromTLSConfig(config *systls.Config) (*utls.Config, error) { // nolint: unparam
 	uconfig := &utls.Config{
-		Rand:       config.Rand,
-		Time:       config.Time,
-		RootCAs:    config.RootCAs,
-		NextProtos: config.NextProtos,
-		ServerName: config.ServerName,
+		Rand:                  config.Rand,
+		Time:                  config.Time,
+		RootCAs:               config.RootCAs,
+		NextProtos:            config.NextProtos,
+		ServerName:            config.ServerName,
+		InsecureSkipVerify:    config.InsecureSkipVerify,
+		VerifyPeerCertificate: config.VerifyPeerCertificate,
 	}
 	return uconfig, nil
 }
