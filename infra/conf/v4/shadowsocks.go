@@ -3,7 +3,6 @@ package v4
 import (
 	"github.com/golang/protobuf/proto"
 
-	"github.com/v2fly/v2ray-core/v5/common/net/packetaddr"
 	"github.com/v2fly/v2ray-core/v5/common/protocol"
 	"github.com/v2fly/v2ray-core/v5/common/serial"
 	"github.com/v2fly/v2ray-core/v5/infra/conf/cfgcommon"
@@ -11,14 +10,14 @@ import (
 )
 
 type ShadowsocksServerConfig struct {
-	Cipher         string                 `json:"method"`
-	Password       string                 `json:"password"`
-	UDP            bool                   `json:"udp"`
-	Level          byte                   `json:"level"`
-	Email          string                 `json:"email"`
-	NetworkList    *cfgcommon.NetworkList `json:"network"`
-	IVCheck        bool                   `json:"ivCheck"`
-	PacketEncoding string                 `json:"packetEncoding"`
+	Cipher         string                   `json:"method"`
+	Password       string                   `json:"password"`
+	UDP            bool                     `json:"udp"`
+	Level          byte                     `json:"level"`
+	Email          string                   `json:"email"`
+	NetworkList    *cfgcommon.NetworkList   `json:"network"`
+	IVCheck        bool                     `json:"ivCheck"`
+	PacketEncoding cfgcommon.PacketAddrType `json:"packetEncoding"`
 }
 
 func (v *ShadowsocksServerConfig) Build() (proto.Message, error) {
@@ -44,25 +43,21 @@ func (v *ShadowsocksServerConfig) Build() (proto.Message, error) {
 		Account: serial.ToTypedMessage(account),
 	}
 
-	switch v.PacketEncoding {
-	case "Packet":
-		config.PacketEncoding = packetaddr.PacketAddrType_Packet
-	case "", "None":
-		config.PacketEncoding = packetaddr.PacketAddrType_None
-	}
+	config.PacketEncoding = v.PacketEncoding.Build()
 
 	return config, nil
 }
 
 type ShadowsocksServerTarget struct {
-	Address  *cfgcommon.Address `json:"address"`
-	Port     uint16             `json:"port"`
-	Cipher   string             `json:"method"`
-	Password string             `json:"password"`
-	Email    string             `json:"email"`
-	Ota      bool               `json:"ota"`
-	Level    byte               `json:"level"`
-	IVCheck  bool               `json:"ivCheck"`
+	Address                        *cfgcommon.Address `json:"address"`
+	Port                           uint16             `json:"port"`
+	Cipher                         string             `json:"method"`
+	Password                       string             `json:"password"`
+	Email                          string             `json:"email"`
+	Ota                            bool               `json:"ota"`
+	Level                          byte               `json:"level"`
+	IVCheck                        bool               `json:"ivCheck"`
+	ExperimentReducedIvHeadEntropy bool               `json:"experimentReducedIvHeadEntropy"`
 }
 
 type ShadowsocksClientConfig struct {
@@ -96,6 +91,7 @@ func (v *ShadowsocksClientConfig) Build() (proto.Message, error) {
 		}
 
 		account.IvCheck = server.IVCheck
+		account.ExperimentReducedIvHeadEntropy = server.ExperimentReducedIvHeadEntropy
 
 		ss := &protocol.ServerEndpoint{
 			Address: server.Address.Build(),

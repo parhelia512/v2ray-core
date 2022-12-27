@@ -11,7 +11,6 @@ import (
 	"github.com/golang/protobuf/proto"
 
 	"github.com/v2fly/v2ray-core/v5/common/net"
-	"github.com/v2fly/v2ray-core/v5/common/net/packetaddr"
 	"github.com/v2fly/v2ray-core/v5/common/protocol"
 	"github.com/v2fly/v2ray-core/v5/common/serial"
 	"github.com/v2fly/v2ray-core/v5/infra/conf/cfgcommon"
@@ -95,7 +94,7 @@ type TrojanServerConfig struct {
 	Clients        []*TrojanUserConfig      `json:"clients"`
 	Fallback       json.RawMessage          `json:"fallback"`
 	Fallbacks      []*TrojanInboundFallback `json:"fallbacks"`
-	PacketEncoding string                   `json:"packetEncoding"`
+	PacketEncoding cfgcommon.PacketAddrType `json:"packetEncoding"`
 }
 
 // Build implements Buildable
@@ -169,12 +168,7 @@ func (c *TrojanServerConfig) Build() (proto.Message, error) {
 		}
 	}
 
-	switch c.PacketEncoding {
-	case "Packet":
-		config.PacketEncoding = packetaddr.PacketAddrType_Packet
-	case "", "None":
-		config.PacketEncoding = packetaddr.PacketAddrType_None
-	}
+	config.PacketEncoding = c.PacketEncoding.Build()
 
 	return config, nil
 }

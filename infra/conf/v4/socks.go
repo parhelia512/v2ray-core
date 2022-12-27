@@ -6,7 +6,6 @@ import (
 
 	"github.com/golang/protobuf/proto"
 
-	"github.com/v2fly/v2ray-core/v5/common/net/packetaddr"
 	"github.com/v2fly/v2ray-core/v5/common/protocol"
 	"github.com/v2fly/v2ray-core/v5/common/serial"
 	"github.com/v2fly/v2ray-core/v5/infra/conf/cfgcommon"
@@ -31,13 +30,13 @@ const (
 )
 
 type SocksServerConfig struct {
-	AuthMethod     string             `json:"auth"`
-	Accounts       []*SocksAccount    `json:"accounts"`
-	UDP            bool               `json:"udp"`
-	Host           *cfgcommon.Address `json:"ip"`
-	Timeout        uint32             `json:"timeout"`
-	UserLevel      uint32             `json:"userLevel"`
-	PacketEncoding string             `json:"packetEncoding"`
+	AuthMethod     string                   `json:"auth"`
+	Accounts       []*SocksAccount          `json:"accounts"`
+	UDP            bool                     `json:"udp"`
+	Host           *cfgcommon.Address       `json:"ip"`
+	Timeout        uint32                   `json:"timeout"`
+	UserLevel      uint32                   `json:"userLevel"`
+	PacketEncoding cfgcommon.PacketAddrType `json:"packetEncoding"`
 }
 
 func (v *SocksServerConfig) Build() (proto.Message, error) {
@@ -67,12 +66,7 @@ func (v *SocksServerConfig) Build() (proto.Message, error) {
 	config.Timeout = v.Timeout
 	config.UserLevel = v.UserLevel
 
-	switch v.PacketEncoding {
-	case "Packet":
-		config.PacketEncoding = packetaddr.PacketAddrType_Packet
-	case "", "None":
-		config.PacketEncoding = packetaddr.PacketAddrType_None
-	}
+	config.PacketEncoding = v.PacketEncoding.Build()
 
 	return config, nil
 }
@@ -84,8 +78,9 @@ type SocksRemoteConfig struct {
 }
 
 type SocksClientConfig struct {
-	Servers []*SocksRemoteConfig `json:"servers"`
-	Version string               `json:"version"`
+	Servers        []*SocksRemoteConfig `json:"servers"`
+	Version        string               `json:"version"`
+	DelayAuthWrite bool                 `json:"delayAuthWrite"`
 }
 
 func (v *SocksClientConfig) Build() (proto.Message, error) {
@@ -123,5 +118,6 @@ func (v *SocksClientConfig) Build() (proto.Message, error) {
 		}
 		config.Server[idx] = server
 	}
+	config.DelayAuthWrite = v.DelayAuthWrite
 	return config, nil
 }
