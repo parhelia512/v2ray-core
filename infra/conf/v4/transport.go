@@ -7,14 +7,16 @@ import (
 )
 
 type TransportConfig struct {
-	TCPConfig  *TCPConfig          `json:"tcpSettings"`
-	KCPConfig  *KCPConfig          `json:"kcpSettings"`
-	WSConfig   *WebSocketConfig    `json:"wsSettings"`
-	HTTPConfig *HTTPConfig         `json:"httpSettings"`
-	DSConfig   *DomainSocketConfig `json:"dsSettings"`
-	QUICConfig *QUICConfig         `json:"quicSettings"`
-	GunConfig  *GunConfig          `json:"gunSettings"`
-	GRPCConfig *GunConfig          `json:"grpcSettings"`
+	TCPConfig         *TCPConfig          `json:"tcpSettings"`
+	KCPConfig         *KCPConfig          `json:"kcpSettings"`
+	WSConfig          *WebSocketConfig    `json:"wsSettings"`
+	HTTPConfig        *HTTPConfig         `json:"httpSettings"`
+	DSConfig          *DomainSocketConfig `json:"dsSettings"`
+	QUICConfig        *QUICConfig         `json:"quicSettings"`
+	GunConfig         *GunConfig          `json:"gunSettings"`
+	GRPCConfig        *GunConfig          `json:"grpcSettings"`
+	MeekConfig        *MeekConfig         `json:"meekSettings"`
+	HTTPUpgradeConfig *HTTPUpgradeConfig  `json:"httpUpgradeSettings"`
 }
 
 // Build implements Buildable.
@@ -98,6 +100,28 @@ func (c *TransportConfig) Build() (*transport.Config, error) {
 		config.TransportSettings = append(config.TransportSettings, &internet.TransportConfig{
 			ProtocolName: "gun",
 			Settings:     serial.ToTypedMessage(gs),
+		})
+	}
+
+	if c.MeekConfig != nil {
+		ms, err := c.MeekConfig.Build()
+		if err != nil {
+			return nil, newError("Failed to build Meek config.").Base(err)
+		}
+		config.TransportSettings = append(config.TransportSettings, &internet.TransportConfig{
+			ProtocolName: "meek",
+			Settings:     serial.ToTypedMessage(ms),
+		})
+	}
+
+	if c.HTTPUpgradeConfig != nil {
+		hs, err := c.HTTPUpgradeConfig.Build()
+		if err != nil {
+			return nil, newError("Failed to build HTTP Upgrade config.").Base(err)
+		}
+		config.TransportSettings = append(config.TransportSettings, &internet.TransportConfig{
+			ProtocolName: "httpupgrade",
+			Settings:     serial.ToTypedMessage(hs),
 		})
 	}
 
