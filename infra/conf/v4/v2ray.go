@@ -31,6 +31,7 @@ var (
 		"vless":         func() interface{} { return new(VLessInboundConfig) },
 		"vmess":         func() interface{} { return new(VMessInboundConfig) },
 		"trojan":        func() interface{} { return new(TrojanServerConfig) },
+		"vliteu":        func() interface{} { return new(VLiteUDPInboundConfig) },
 	}, "protocol", "settings")
 
 	outboundConfigLoader = loader.NewJSONConfigLoader(loader.ConfigCreatorCache{
@@ -44,6 +45,7 @@ var (
 		"trojan":      func() interface{} { return new(TrojanClientConfig) },
 		"dns":         func() interface{} { return new(DNSOutboundConfig) },
 		"loopback":    func() interface{} { return new(LoopbackConfig) },
+		"vliteu":      func() interface{} { return new(VLiteUDPOutboundConfig) },
 	}, "protocol", "settings")
 )
 
@@ -319,6 +321,7 @@ type Config struct {
 	Observatory      *ObservatoryConfig      `json:"observatory"`
 	BurstObservatory *BurstObservatoryConfig `json:"burstObservatory"`
 	MultiObservatory *MultiObservatoryConfig `json:"multiObservatory"`
+	RestfulAPI       *RestfulAPIConfig       `json:"restfulAPI"`
 
 	Services map[string]*json.RawMessage `json:"services"`
 }
@@ -472,6 +475,14 @@ func (c *Config) Build() (*core.Config, error) {
 
 	if c.MultiObservatory != nil {
 		r, err := c.MultiObservatory.Build()
+		if err != nil {
+			return nil, err
+		}
+		config.App = append(config.App, serial.ToTypedMessage(r))
+	}
+
+	if c.RestfulAPI != nil {
+		r, err := c.RestfulAPI.Build()
 		if err != nil {
 			return nil, err
 		}

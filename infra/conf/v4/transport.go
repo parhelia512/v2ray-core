@@ -15,6 +15,7 @@ type TransportConfig struct {
 	QUICConfig *QUICConfig         `json:"quicSettings"`
 	GunConfig  *GunConfig          `json:"gunSettings"`
 	GRPCConfig *GunConfig          `json:"grpcSettings"`
+	MeekConfig *MeekConfig         `json:"meekSettings"`
 }
 
 // Build implements Buildable.
@@ -98,6 +99,17 @@ func (c *TransportConfig) Build() (*transport.Config, error) {
 		config.TransportSettings = append(config.TransportSettings, &internet.TransportConfig{
 			ProtocolName: "gun",
 			Settings:     serial.ToTypedMessage(gs),
+		})
+	}
+
+	if c.MeekConfig != nil {
+		ms, err := c.MeekConfig.Build()
+		if err != nil {
+			return nil, newError("Failed to build Meek config.").Base(err)
+		}
+		config.TransportSettings = append(config.TransportSettings, &internet.TransportConfig{
+			ProtocolName: "meek",
+			Settings:     serial.ToTypedMessage(ms),
 		})
 	}
 
