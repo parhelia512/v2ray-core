@@ -15,6 +15,9 @@ enum TransportProtocol {
   WebSocket = 3;
   HTTP = 4;
   DomainSocket = 5;
+  Gun = 6;
+  Meek = 7;
+  HTTPUpgrade = 8;
 }
 
 message TransportConfig {
