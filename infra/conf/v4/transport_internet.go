@@ -317,13 +317,33 @@ func (c *StreamConfig) Build() (*internet.StreamConfig, error) {
 		if tlsSettings == nil {
 			tlsSettings = &tlscfg.TLSConfig{}
 		}
-		ts, err := tlsSettings.Build()
-		if err != nil {
-			return nil, newError("Failed to build TLS config.").Base(err)
+		if tlsSettings.Fingerprint != "" {
+			imitate := strings.ToLower(tlsSettings.Fingerprint)
+			imitate = strings.TrimPrefix(imitate, "hello")
+			switch imitate {
+			case "chrome", "firefox", "safari", "ios", "edge", "360", "qq":
+				imitate += "_auto"
+			}
+			utlsSettings := &tlscfg.UTLSConfig{
+				TLSConfig: tlsSettings,
+				Imitate:   imitate,
+			}
+			us, err := utlsSettings.Build()
+			if err != nil {
+				return nil, newError("Failed to build UTLS config.").Base(err)
+			}
+			tm := serial.ToTypedMessage(us)
+			config.SecuritySettings = append(config.SecuritySettings, tm)
+			config.SecurityType = serial.V2Type(tm)
+		} else {
+			ts, err := tlsSettings.Build()
+			if err != nil {
+				return nil, newError("Failed to build TLS config.").Base(err)
+			}
+			tm := serial.ToTypedMessage(ts)
+			config.SecuritySettings = append(config.SecuritySettings, tm)
+			config.SecurityType = serial.V2Type(tm)
 		}
-		tm := serial.ToTypedMessage(ts)
-		config.SecuritySettings = append(config.SecuritySettings, tm)
-		config.SecurityType = serial.V2Type(tm)
 	} else if strings.EqualFold(c.Security, "utls") {
 		utlsSettings := c.UTLSSettings
 		if utlsSettings == nil {
