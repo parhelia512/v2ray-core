@@ -12,7 +12,7 @@ import (
 	"github.com/v2fly/v2ray-core/v5/common/net"
 	"github.com/v2fly/v2ray-core/v5/transport/internet"
 
-	"github.com/pion/transport/v2/replaydetector"
+	"github.com/pion/transport/v3/replaydetector"
 )
 
 func NewClientUDPSession(ctx context.Context, conn io.ReadWriteCloser, packetProcessor UDPClientPacketProcessor) *ClientUDPSession {
