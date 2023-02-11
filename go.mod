@@ -15,7 +15,7 @@ require (
 	github.com/quic-go/qtls-go1-19 v0.2.0
 	github.com/quic-go/qtls-go1-20 v0.1.0
 	github.com/quic-go/quic-go v0.32.0
-	github.com/refraction-networking/utls v1.2.0
+	github.com/refraction-networking/utls v1.2.2
 	github.com/seiflotfy/cuckoofilter v0.0.0-20220411075957-e3b120b3f5fb
 	github.com/stretchr/testify v1.8.1
 	github.com/v2fly/BrowserBridge v0.0.0-20210430233438-0570fc1d7d08
@@ -42,7 +42,7 @@ require (
 	github.com/ebfe/bcrypt_pbkdf v0.0.0-20140212075826-3c8d2dcb253a // indirect
 	github.com/go-task/slim-sprig v0.0.0-20210107165309-348f09dbbbc0 // indirect
 	github.com/google/pprof v0.0.0-20210407192527-94a9f03dee38 // indirect
-	github.com/klauspost/compress v1.15.12 // indirect
+	github.com/klauspost/compress v1.15.15 // indirect
 	github.com/klauspost/cpuid v1.2.3 // indirect
 	github.com/klauspost/reedsolomon v1.9.3 // indirect
 	github.com/lunixbochs/struc v0.0.0-20200707160740-784aaebc1d40 // indirect
