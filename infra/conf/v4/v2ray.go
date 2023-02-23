@@ -33,6 +33,7 @@ var (
 		"trojan":                 func() interface{} { return new(TrojanServerConfig) },
 		"shadowsocks-2022":       func() interface{} { return new(Shadowsocks2022ServerConfig) },
 		"shadowsocks-2022-multi": func() interface{} { return new(Shadowsocks2022MultiUserServerConfig) },
+		"shadow-tls":             func() interface{} { return new(ShadowTLSServerConfig) },
 	}, "protocol", "settings")
 
 	outboundConfigLoader = loader.NewJSONConfigLoader(loader.ConfigCreatorCache{
@@ -47,6 +48,7 @@ var (
 		"dns":              func() interface{} { return new(DNSOutboundConfig) },
 		"loopback":         func() interface{} { return new(LoopbackConfig) },
 		"shadowsocks-2022": func() interface{} { return new(Shadowsocks2022ClientConfig) },
+		"shadow-tls":       func() interface{} { return new(ShadowTLSClientConfig) },
 	}, "protocol", "settings")
 )
 
