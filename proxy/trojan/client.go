@@ -95,7 +95,7 @@ func (c *Client) Process(ctx context.Context, link *transport.Link, dialer inter
 			defer timer.SetTimeout(sessionPolicy.Timeouts.DownlinkOnly)
 
 			var buffer [2048]byte
-			_, addr, err := packetConn.ReadFrom(buffer[:])
+			n, addr, err := packetConn.ReadFrom(buffer[:])
 			if err != nil {
 				return newError("failed to read a packet").Base(err)
 			}
@@ -106,7 +106,7 @@ func (c *Client) Process(ctx context.Context, link *transport.Link, dialer inter
 			packetWriter := &PacketWriter{Writer: connWriter, Target: dest}
 
 			// write some request payload to buffer
-			if _, err := packetWriter.WriteTo(buffer[:], addr); err != nil {
+			if _, err := packetWriter.WriteTo(buffer[:n], addr); err != nil {
 				return newError("failed to write a request payload").Base(err)
 			}
 
