@@ -13,7 +13,7 @@ require (
 	github.com/mustafaturan/bus v1.0.2
 	github.com/pires/go-proxyproto v0.6.2
 	github.com/quic-go/qtls-go1-19 v0.3.2
-	github.com/quic-go/qtls-go1-20 v0.1.1
+	github.com/quic-go/qtls-go1-20 v0.2.2
 	github.com/quic-go/quic-go v0.33.0
 	github.com/refraction-networking/utls v1.3.1
 	github.com/seiflotfy/cuckoofilter v0.0.0-20220411075957-e3b120b3f5fb
