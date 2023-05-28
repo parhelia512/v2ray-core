@@ -8,9 +8,11 @@ option java_multiple_files = true;
 
 
 // import "app/router/config.proto";
+import "common/net/packetaddr/config.proto";
 
 message Config {
     string name = 1;
     uint32 mtu = 2;
     uint32 user_level = 3;
+    v2ray.core.net.packetaddr.PacketAddrType packet_encoding = 4;
 }
