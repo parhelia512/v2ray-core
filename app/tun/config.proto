@@ -7,7 +7,7 @@ option java_package = "com.v2ray.core.app.tun";
 option java_multiple_files = true;
 
 
-// import "app/router/config.proto";
+import "app/router/config.proto";
 import "common/net/packetaddr/config.proto";
 
 message Config {
@@ -16,4 +16,5 @@ message Config {
     uint32 user_level = 3;
     v2ray.core.net.packetaddr.PacketAddrType packet_encoding = 4;
     string tag = 6;
+    repeated v2ray.core.app.router.CIDR ips = 7;
 }
