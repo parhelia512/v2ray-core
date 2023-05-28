@@ -10,6 +10,7 @@ import (
 	"github.com/v2fly/v2ray-core/v4/common/buf"
 	"github.com/v2fly/v2ray-core/v4/common/log"
 	"github.com/v2fly/v2ray-core/v4/common/net"
+	"github.com/v2fly/v2ray-core/v4/common/session"
 	"github.com/v2fly/v2ray-core/v4/common/signal"
 	"github.com/v2fly/v2ray-core/v4/common/task"
 	"github.com/v2fly/v2ray-core/v4/features/policy"
@@ -68,12 +69,13 @@ func SetTCPHandler(ctx context.Context, dispatcher routing.Dispatcher, policyMan
 }
 
 func (h *TCPHandler) Handle(conn net.Conn) error {
+	ctx := session.ContextWithInbound(h.ctx, &session.Inbound{Tag: h.config.Tag})
 	sessionPolicy := h.policyManager.ForLevel(h.config.UserLevel)
 
 	addr := conn.RemoteAddr()
 
 	dest := net.DestinationFromAddr(addr)
-	ctx := log.ContextWithAccessMessage(h.ctx, &log.AccessMessage{
+	ctx = log.ContextWithAccessMessage(h.ctx, &log.AccessMessage{
 		From:   addr,
 		To:     dest,
 		Status: log.AccessAccepted,
