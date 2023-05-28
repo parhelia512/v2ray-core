@@ -6,6 +6,7 @@ package tun
 import (
 	"context"
 
+	tun_net "github.com/v2fly/v2ray-core/v4/app/tun/net"
 	"github.com/v2fly/v2ray-core/v4/common/buf"
 	"github.com/v2fly/v2ray-core/v4/common/net"
 	"github.com/v2fly/v2ray-core/v4/common/net/packetaddr"
@@ -38,7 +39,7 @@ func (c *udpConn) ID() *stack.TransportEndpointID {
 	return &c.id
 }
 
-func HandleUDP(handle func(UDPConn)) StackOption {
+func HandleUDP(handle func(tun_net.UDPConn)) StackOption {
 	return func(s *stack.Stack) error {
 		udpForwarder := gvisor_udp.NewForwarder(s, func(r *gvisor_udp.ForwarderRequest) {
 			wg := new(waiter.Queue)
@@ -60,7 +61,7 @@ func HandleUDP(handle func(UDPConn)) StackOption {
 	}
 }
 
-func (h *UDPHandler) HandleQueue(ch chan UDPConn) {
+func (h *UDPHandler) HandleQueue(ch chan tun_net.UDPConn) {
 	for {
 		select {
 		case <-h.ctx.Done():
@@ -73,7 +74,9 @@ func (h *UDPHandler) HandleQueue(ch chan UDPConn) {
 	}
 }
 
-func (h *UDPHandler) Handle(conn UDPConn) error {
+func (h *UDPHandler) Handle(conn tun_net.UDPConn) error {
+	defer conn.Close()
+	id := conn.ID()
 	ctx := session.ContextWithInbound(h.ctx, &session.Inbound{Tag: h.config.Tag})
 	packetConn := conn.(net.PacketConn)
 
@@ -86,10 +89,13 @@ func (h *UDPHandler) Handle(conn UDPConn) error {
 		udpDispatcherConstructor = packetAddrDispatcherFactory.NewPacketAddrDispatcher
 	}
 
+	dest := net.UDPDestination(tun_net.AddressFromTCPIPAddr(id.LocalAddress), net.Port(id.LocalPort))
+	src := net.UDPDestination(tun_net.AddressFromTCPIPAddr(id.RemoteAddress), net.Port(id.RemotePort))
+
 	udpServer := udpDispatcherConstructor(h.dispatcher, func(ctx context.Context, packet *udp_proto.Packet) {
 		if _, err := packetConn.WriteTo(packet.Payload.Bytes(), &net.UDPAddr{
-			IP:   packet.Source.Address.IP(),
-			Port: int(packet.Source.Port),
+			IP:   src.Address.IP(),
+			Port: int(src.Port),
 		}); err != nil {
 			newError("failed to write UDP packet").Base(err).WriteToLog()
 		}
@@ -101,13 +107,13 @@ func (h *UDPHandler) Handle(conn UDPConn) error {
 			return nil
 		default:
 			var buffer [2048]byte
-			n, addr, err := packetConn.ReadFrom(buffer[:])
+			n, _, err := packetConn.ReadFrom(buffer[:])
 			if err != nil {
 				return newError("failed to read UDP packet").Base(err)
 			}
 			currentPacketCtx := ctx
 
-			udpServer.Dispatch(currentPacketCtx, net.DestinationFromAddr(addr), buf.FromBytes(buffer[:n]))
+			udpServer.Dispatch(currentPacketCtx, dest, buf.FromBytes(buffer[:n]))
 		}
 	}
 }
