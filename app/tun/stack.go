@@ -37,6 +37,7 @@ func (t *TUN) CreateStack(linkedEndpoint stack.LinkEndpoint) (*stack.Stack, erro
 
 		CreateNIC(nicID, linkedEndpoint),
 		AddProtocolAddress(nicID, t.config.Ips),
+		SetRouteTable(nicID, t.config.Routes),
 		SetPromiscuousMode(nicID, t.config.EnablePromiscuousMode),
 		SetSpoofing(nicID, t.config.EnableSpoofing),
 	}
