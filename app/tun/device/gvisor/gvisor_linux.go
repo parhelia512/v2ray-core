@@ -3,7 +3,7 @@
 // +build linux
 // +build linux,amd64 linux,arm64
 
-package tun
+package gvisor
 
 import (
 	"fmt"
@@ -22,7 +22,7 @@ const (
 	ifReqSize = unix.IFNAMSIZ + 64
 )
 
-type TUN struct {
+type GvisorTUN struct {
 	stack.LinkEndpoint
 
 	options device.Options
@@ -32,7 +32,7 @@ type TUN struct {
 }
 
 func New(options device.Options) (device.Device, error) {
-	t := &TUN{options: options}
+	t := &GvisorTUN{options: options}
 
 	if len(options.Name) > unix.IFNAMSIZ {
 		return nil, newError("name too long").AtError()
@@ -73,7 +73,7 @@ func New(options device.Options) (device.Device, error) {
 	return t, nil
 }
 
-func (t *TUN) Close() error {
+func (t *GvisorTUN) Close() error {
 	return unix.Close(t.fd)
 }
 
