@@ -21,6 +21,7 @@ import (
 )
 
 func newHTTPRoundTripperClient(ctx context.Context, config *ClientConfig) request.RoundTripperClient {
+	_ = ctx
 	return &httpTripperClient{config: config}
 }
 
@@ -30,8 +31,7 @@ type httpTripperClient struct {
 	assembly request.TransportClientAssembly
 }
 
-type unimplementedBackDrop struct {
-}
+type unimplementedBackDrop struct{}
 
 func (u unimplementedBackDrop) RoundTrip(r *http.Request) (*http.Response, error) {
 	return nil, newError("unimplemented")
