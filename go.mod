@@ -75,6 +75,7 @@ require (
 	github.com/pion/transport/v2 v2.2.4 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
+	github.com/quic-go/qpack v0.4.0 // indirect
 	github.com/riobard/go-bloom v0.0.0-20200614022211-cdc8013cb5b3 // indirect
 	github.com/secure-io/siv-go v0.0.0-20180922214919-5ff40651e2c4 // indirect
 	github.com/xtaci/smux v1.5.15 // indirect
