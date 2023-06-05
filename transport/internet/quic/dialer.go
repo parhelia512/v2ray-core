@@ -19,7 +19,7 @@ import (
 
 type connectionContext struct {
 	rawConn *sysConn
-	conn    quic.Connection
+	conn    quic.EarlyConnection
 }
 
 var errConnectionClosed = newError("connection closed")
@@ -54,7 +54,7 @@ type clientConnections struct {
 	cleanup *task.Periodic
 }
 
-func isActive(s quic.Connection) bool {
+func isActive(s quic.EarlyConnection) bool {
 	select {
 	case <-s.Context().Done():
 		return false
@@ -201,7 +201,7 @@ func (s *clientConnections) openConnection(ctx context.Context, destAddr net.Add
 		}
 	}
 
-	conn, err := tr.Dial(context.Background(), destAddr, tlsConfig.GetTLSConfig(tls.WithDestination(dest)), quicConfig)
+	conn, err := tr.DialEarly(context.Background(), destAddr, tlsConfig.GetTLSConfig(tls.WithDestination(dest)), quicConfig)
 	if err != nil {
 		sysConn.Close()
 		return nil, err
