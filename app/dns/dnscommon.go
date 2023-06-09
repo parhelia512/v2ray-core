@@ -32,6 +32,7 @@ type IPRecord struct {
 	IP     []net.Address
 	Expire time.Time
 	RCode  dnsmessage.RCode
+	TTL    uint32
 }
 
 func (r *IPRecord) getIPs() ([]net.Address, error) {
@@ -42,6 +43,16 @@ func (r *IPRecord) getIPs() ([]net.Address, error) {
 		return nil, dns_feature.RCodeError(r.RCode)
 	}
 	return r.IP, nil
+}
+
+func (r *IPRecord) getIPsAndTTL() ([]net.Address, uint32, time.Time, error) {
+	if r == nil || r.Expire.Before(time.Now()) {
+		return nil, 0, time.Time{}, errRecordNotFound
+	}
+	if r.RCode != dnsmessage.RCodeSuccess {
+		return nil, r.TTL, r.Expire, dns_feature.RCodeError(r.RCode)
+	}
+	return r.IP, r.TTL, r.Expire, nil
 }
 
 func isNewer(baseRec *IPRecord, newRec *IPRecord) bool {
@@ -179,6 +190,7 @@ func parseResponse(payload []byte) (*IPRecord, error) {
 		ReqID:  h.ID,
 		RCode:  h.RCode,
 		Expire: now.Add(time.Second * 600),
+		TTL:    600,
 	}
 
 L:
@@ -194,6 +206,7 @@ L:
 		// keeps ttl preferred
 		if ttl := ah.TTL; ttl > 0 {
 			ipRecord.Expire = now.Add(time.Duration(ttl) * time.Second)
+			ipRecord.TTL = ttl
 		}
 
 		switch ah.Type {
