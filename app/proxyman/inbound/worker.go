@@ -104,6 +104,7 @@ func (w *tcpWorker) callback(conn internet.Connection) {
 		Source:  net.DestinationFromAddr(conn.RemoteAddr()),
 		Gateway: w.getGateway(originalDest),
 		Tag:     w.tag,
+		Conn:    conn,
 	})
 	content := new(session.Content)
 	if w.sniffingConfig != nil {
@@ -510,6 +511,7 @@ func (w *dsWorker) callback(conn internet.Connection) {
 		Source:  net.DestinationFromAddr(conn.RemoteAddr()),
 		Gateway: net.UnixDestination(w.address),
 		Tag:     w.tag,
+		Conn:    conn,
 	})
 	content := new(session.Content)
 	if w.sniffingConfig != nil {
