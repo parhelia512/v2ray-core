@@ -90,14 +90,14 @@ func (e Engine) Client(conn net.Conn, opts ...security.Option) (security.Conn, e
 	if err != nil {
 		return nil, newError("unable to finish utls handshake").Base(err)
 	}
-	return uTLSClientConnection{utlsClientConn}, nil
+	return UTLSClientConnection{utlsClientConn}, nil
 }
 
-type uTLSClientConnection struct {
+type UTLSClientConnection struct {
 	*utls.UConn
 }
 
-func (u uTLSClientConnection) GetConnectionApplicationProtocol() (string, error) {
+func (u UTLSClientConnection) GetConnectionApplicationProtocol() (string, error) {
 	if err := u.Handshake(); err != nil {
 		return "", err
 	}
