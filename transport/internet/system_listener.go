@@ -2,7 +2,10 @@ package internet
 
 import (
 	"context"
+	"os"
 	"runtime"
+	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -18,6 +21,19 @@ type controller func(network, address string, fd uintptr) error
 
 type DefaultListener struct {
 	controllers []controller
+}
+
+type combinedListener struct {
+	net.Listener
+	locker *FileLocker // for unix domain socket
+}
+
+func (cl *combinedListener) Close() error {
+	if cl.locker != nil {
+		cl.locker.Release()
+		cl.locker = nil
+	}
+	return cl.Listener.Close()
 }
 
 func getControlFunc(ctx context.Context, sockopt *SocketConfig, controllers []controller) func(network, address string, c syscall.RawConn) error {
@@ -40,11 +56,12 @@ func getControlFunc(ctx context.Context, sockopt *SocketConfig, controllers []co
 	}
 }
 
-func (dl *DefaultListener) Listen(ctx context.Context, addr net.Addr, sockopt *SocketConfig) (net.Listener, error) {
+func (dl *DefaultListener) Listen(ctx context.Context, addr net.Addr, sockopt *SocketConfig) (l net.Listener, err error) {
 	var lc net.ListenConfig
-	var l net.Listener
-	var err error
 	var network, address string
+	callback := func(l net.Listener, err error) (net.Listener, error) {
+		return l, err
+	}
 	switch addr := addr.(type) {
 	case *net.TCPAddr:
 		network = addr.Network()
@@ -66,6 +83,18 @@ func (dl *DefaultListener) Listen(ctx context.Context, addr net.Addr, sockopt *S
 				address = string(fullAddr)
 			}
 		} else {
+			// normal unix domain socket
+			var filePerm *os.FileMode
+			if s := strings.Split(address, ","); len(s) == 2 {
+				address = s[0]
+				perm, perr := strconv.ParseUint(s[1], 8, 32)
+				if perr != nil {
+					return nil, newError("failed to parse permission: " + s[1]).Base(perr)
+				}
+
+				mode := os.FileMode(perm)
+				filePerm = &mode
+			}
 			// normal unix domain socket needs lock
 			locker := &FileLocker{
 				path: address + ".lock",
@@ -74,11 +103,27 @@ func (dl *DefaultListener) Listen(ctx context.Context, addr net.Addr, sockopt *S
 			if err != nil {
 				return nil, err
 			}
-			ctx = context.WithValue(ctx, address, locker) // nolint: revive,staticcheck
+			callback = func(l net.Listener, err error) (net.Listener, error) {
+				if err != nil {
+					locker.Release()
+					return l, err
+				}
+				l = &combinedListener{Listener: l, locker: locker}
+				if filePerm == nil {
+					return l, nil
+				}
+				err = os.Chmod(address, *filePerm)
+				if err != nil {
+					l.Close()
+					return nil, newError("failed to set permission for " + address).Base(err)
+				}
+				return l, nil
+			}
 		}
 	}
 
 	l, err = lc.Listen(ctx, network, address)
+	l, err = callback(l, err)
 	if sockopt != nil && sockopt.AcceptProxyProtocol {
 		policyFunc := func(upstream net.Addr) (proxyproto.Policy, error) { return proxyproto.REQUIRE, nil }
 		l = &proxyproto.Listener{Listener: l, Policy: policyFunc}
