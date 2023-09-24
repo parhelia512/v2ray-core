@@ -78,8 +78,7 @@ type httpTripperServer struct {
 	listener net.Listener
 	assembly request.TransportServerAssembly
 
-	listenAddress net.Addr
-	config        *ServerConfig
+	config *ServerConfig
 }
 
 func (h *httpTripperServer) OnTransportServerAssemblyReady(assembly request.TransportServerAssembly) {
