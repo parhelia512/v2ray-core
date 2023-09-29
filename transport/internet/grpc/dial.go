@@ -20,6 +20,7 @@ import (
 	"github.com/v2fly/v2ray-core/v5/common/session"
 	"github.com/v2fly/v2ray-core/v5/transport/internet"
 	"github.com/v2fly/v2ray-core/v5/transport/internet/grpc/encoding"
+	"github.com/v2fly/v2ray-core/v5/transport/internet/reality"
 	"github.com/v2fly/v2ray-core/v5/transport/internet/tls"
 )
 
@@ -87,6 +88,8 @@ func getGrpcClient(ctx context.Context, dest net.Destination, streamSettings *in
 	dialOption := grpc.WithInsecure()
 
 	tlsConfig := tls.ConfigFromStreamSettings(streamSettings)
+	realityConfig := reality.ConfigFromStreamSettings(streamSettings)
+
 	if tlsConfig != nil {
 		dialOption = grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig.GetTLSConfig()))
 	}
@@ -117,7 +120,11 @@ func getGrpcClient(ctx context.Context, dest net.Destination, streamSettings *in
 			}
 			address := net.ParseAddress(rawHost)
 			detachedContext := core.ToBackgroundDetachedContext(ctx)
-			return internet.DialSystem(detachedContext, net.TCPDestination(address, port), streamSettings.SocketSettings)
+			conn, err := internet.DialSystem(detachedContext, net.TCPDestination(address, port), streamSettings.SocketSettings)
+			if err == nil && realityConfig != nil {
+				return reality.UClient(conn, realityConfig, ctx, dest)
+			}
+			return conn, err
 		}),
 	)
 	globalDialerMap[dialerConf{dest, streamSettings}] = conn
