@@ -1,6 +1,6 @@
 module github.com/v2fly/v2ray-core/v5
 
-go 1.20
+go 1.21
 
 require (
 	github.com/adrg/xdg v0.4.0
@@ -24,6 +24,7 @@ require (
 	github.com/v2fly/VSign v0.0.0-20201108000810-e2adc24bf848
 	github.com/v2fly/ss-bloomring v0.0.0-20210312155135-28617310f63e
 	github.com/xiaokangwang/VLite v0.0.0-20220418190619-cff95160a432
+	github.com/xtls/reality v0.0.0-20231112171332-de1173cf2b19
 	go4.org/netipx v0.0.0-20230303233057-f1b76eb4bb35
 	golang.org/x/crypto v0.17.0
 	golang.org/x/net v0.19.0
