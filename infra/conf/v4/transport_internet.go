@@ -328,6 +328,8 @@ type StreamConfig struct {
 	MeekSettings        *MeekConfig             `json:"meekSettings"`
 	HTTPUpgradeSettings *HTTPUpgradeConfig      `json:"httpUpgradeSettings"`
 	SocketSettings      *socketcfg.SocketConfig `json:"sockopt"`
+
+	REALITYSettings *tlscfg.REALITYConfig `json:"realitySettings"`
 }
 
 // Build implements Buildable.
@@ -384,6 +386,21 @@ func (c *StreamConfig) Build() (*internet.StreamConfig, error) {
 			return nil, newError("Failed to build UTLS config.").Base(err)
 		}
 		tm := serial.ToTypedMessage(us)
+		config.SecuritySettings = append(config.SecuritySettings, tm)
+		config.SecurityType = serial.V2Type(tm)
+	}
+	if strings.EqualFold(c.Security, "reality") {
+		if config.ProtocolName != "tcp" && config.ProtocolName != "http" && config.ProtocolName != "gun" && config.ProtocolName != "domainsocket" {
+			return nil, newError("REALITY only supports TCP, H2, gRPC and DomainSocket for now.")
+		}
+		if c.REALITYSettings == nil {
+			return nil, newError(`REALITY: Empty "realitySettings".`)
+		}
+		rs, err := c.REALITYSettings.Build()
+		if err != nil {
+			return nil, newError("Failed to build REALITY config.").Base(err)
+		}
+		tm := serial.ToTypedMessage(rs)
 		config.SecuritySettings = append(config.SecuritySettings, tm)
 		config.SecurityType = serial.V2Type(tm)
 	}
