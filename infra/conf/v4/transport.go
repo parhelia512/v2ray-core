@@ -2,7 +2,7 @@ package v4
 
 import (
 	"github.com/v2fly/v2ray-core/v5/common/serial"
-	"github.com/v2fly/v2ray-core/v5/transport"
+	"github.com/v2fly/v2ray-core/v5/transport/global"
 	"github.com/v2fly/v2ray-core/v5/transport/internet"
 )
 
@@ -15,11 +15,12 @@ type TransportConfig struct {
 	QUICConfig *QUICConfig         `json:"quicSettings"`
 	GunConfig  *GunConfig          `json:"gunSettings"`
 	GRPCConfig *GunConfig          `json:"grpcSettings"`
+	MeekConfig *MeekConfig         `json:"meekSettings"`
 }
 
 // Build implements Buildable.
-func (c *TransportConfig) Build() (*transport.Config, error) {
-	config := new(transport.Config)
+func (c *TransportConfig) Build() (*global.Config, error) {
+	config := new(global.Config)
 
 	if c.TCPConfig != nil {
 		ts, err := c.TCPConfig.Build()
@@ -98,6 +99,17 @@ func (c *TransportConfig) Build() (*transport.Config, error) {
 		config.TransportSettings = append(config.TransportSettings, &internet.TransportConfig{
 			ProtocolName: "gun",
 			Settings:     serial.ToTypedMessage(gs),
+		})
+	}
+
+	if c.MeekConfig != nil {
+		ms, err := c.MeekConfig.Build()
+		if err != nil {
+			return nil, newError("Failed to build Meek config.").Base(err)
+		}
+		config.TransportSettings = append(config.TransportSettings, &internet.TransportConfig{
+			ProtocolName: "meek",
+			Settings:     serial.ToTypedMessage(ms),
 		})
 	}
 

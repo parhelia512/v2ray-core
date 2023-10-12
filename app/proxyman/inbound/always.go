@@ -10,6 +10,7 @@ import (
 	"github.com/v2fly/v2ray-core/v5/common/errors"
 	"github.com/v2fly/v2ray-core/v5/common/mux"
 	"github.com/v2fly/v2ray-core/v5/common/net"
+	"github.com/v2fly/v2ray-core/v5/features/inbound"
 	"github.com/v2fly/v2ray-core/v5/features/policy"
 	"github.com/v2fly/v2ray-core/v5/features/stats"
 	"github.com/v2fly/v2ray-core/v5/proxy"
@@ -57,7 +58,10 @@ func NewAlwaysOnInboundHandler(ctx context.Context, tag string, receiverConfig *
 	if !ok {
 		return nil, newError("not an inbound proxy.")
 	}
+	return NewAlwaysOnInboundHandlerWithProxy(ctx, tag, receiverConfig, p, false)
+}
 
+func NewAlwaysOnInboundHandlerWithProxy(ctx context.Context, tag string, receiverConfig *proxyman.ReceiverConfig, p proxy.Inbound, inject bool) (*AlwaysOnInboundHandler, error) {
 	h := &AlwaysOnInboundHandler{
 		proxy: p,
 		mux:   mux.NewServer(ctx),
@@ -73,20 +77,24 @@ func NewAlwaysOnInboundHandler(ctx context.Context, tag string, receiverConfig *
 		address = net.AnyIP
 	}
 
+	listeningAddrs := make(map[net.Address]bool)
+	if address != net.AnyIP && address != net.AnyIPv6 {
+		listeningAddrs[address] = true
+	} else {
+		interfaceAddrs, err := net.InterfaceAddrs()
+		if err != nil {
+			listeningAddrs[address] = true
+		}
+		for _, addr := range interfaceAddrs {
+			listeningAddrs[net.IPAddress(addr.(*net.IPNet).IP)] = true
+		}
+	}
+
 	mss, err := internet.ToMemoryStreamConfig(receiverConfig.StreamSettings)
 	if err != nil {
 		return nil, newError("failed to parse stream config").Base(err).AtWarning()
 	}
 
-	if receiverConfig.ReceiveOriginalDestination {
-		if mss.SocketSettings == nil {
-			mss.SocketSettings = &internet.SocketConfig{}
-		}
-		if mss.SocketSettings.Tproxy == internet.SocketConfig_Off {
-			mss.SocketSettings.Tproxy = internet.SocketConfig_Redirect
-		}
-		mss.SocketSettings.ReceiveOriginalDestAddress = true
-	}
 	if pr == nil {
 		if net.HasNetwork(nl, net.Network_UNIX) {
 			newError("creating unix domain socket worker on ", address).AtDebug().WriteToLog()
@@ -122,6 +130,7 @@ func NewAlwaysOnInboundHandler(ctx context.Context, tag string, receiverConfig *
 					uplinkCounter:   uplinkCounter,
 					downlinkCounter: downlinkCounter,
 					ctx:             ctx,
+					listeningAddrs:  listeningAddrs,
 				}
 				h.workers = append(h.workers, worker)
 			}
@@ -138,9 +147,16 @@ func NewAlwaysOnInboundHandler(ctx context.Context, tag string, receiverConfig *
 					uplinkCounter:   uplinkCounter,
 					downlinkCounter: downlinkCounter,
 					stream:          mss,
+					listeningAddrs:  listeningAddrs,
 				}
 				h.workers = append(h.workers, worker)
 			}
+		}
+	}
+
+	if !inject {
+		if i, ok := p.(inbound.Initializer); ok {
+			i.Initialize(h)
 		}
 	}
 

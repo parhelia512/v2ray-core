@@ -4,11 +4,12 @@ import (
 	"io"
 
 	"github.com/v2fly/v2ray-core/v5/common/bytespool"
+	"github.com/v2fly/v2ray-core/v5/common/net"
 )
 
 const (
 	// Size of a regular buffer.
-	Size = 2048
+	Size = bytespool.Size
 )
 
 var pool = bytespool.GetPool(Size)
@@ -30,9 +31,10 @@ type Buffer struct {
 	start     int32
 	end       int32
 	ownership ownership
+	Endpoint  *net.Destination
 }
 
-// New creates a Buffer with 0 length and 2K capacity.
+// New creates a Buffer with 0 length and 8K capacity.
 func New() *Buffer {
 	return &Buffer{
 		v: pool.Get().([]byte),
@@ -79,6 +81,7 @@ func (b *Buffer) Release() {
 	case bytespools:
 		bytespool.Free(p) // nolint: staticcheck
 	}
+	b.Endpoint = nil
 }
 
 // Clear clears the content of the buffer, results an empty buffer with
@@ -181,6 +184,13 @@ func (b *Buffer) Cap() int32 {
 	return int32(len(b.v))
 }
 
+func (b *Buffer) Use() []byte {
+	end := int32(len(b.v))
+	ext := b.v[b.end:end]
+	b.end = end
+	return ext
+}
+
 // IsEmpty returns true if the buffer is empty.
 func (b *Buffer) IsEmpty() bool {
 	return b.Len() == 0
@@ -256,6 +266,33 @@ func (b *Buffer) ReadFrom(reader io.Reader) (int64, error) {
 	return int64(n), err
 }
 
+func (b *Buffer) ReadFromPacketConn(reader net.PacketConn) (int64, error) {
+	n, addr, err := reader.ReadFrom(b.v[b.end:])
+	if addr != nil {
+		switch address := addr.(type) {
+		case *net.UDPAddr:
+			b.Endpoint = &net.Destination{
+				Network: net.Network_UDP,
+				Address: net.IPAddress(address.IP),
+				Port:    net.Port(address.Port),
+			}
+		case *net.TCPAddr:
+			b.Endpoint = &net.Destination{
+				Network: net.Network_TCP,
+				Address: net.IPAddress(address.IP),
+				Port:    net.Port(address.Port),
+			}
+		case *net.UnixAddr:
+			b.Endpoint = &net.Destination{
+				Network: net.Network_UNIX,
+				Address: net.DomainAddress(address.Name),
+			}
+		}
+	}
+	b.end += int32(n)
+	return int64(n), err
+}
+
 // ReadFullFrom reads exact size of bytes from given reader, or until error occurs.
 func (b *Buffer) ReadFullFrom(reader io.Reader, size int32) (int64, error) {
 	end := b.end + size
@@ -271,4 +308,15 @@ func (b *Buffer) ReadFullFrom(reader io.Reader, size int32) (int64, error) {
 // String returns the string form of this Buffer.
 func (b *Buffer) String() string {
 	return string(b.Bytes())
+}
+
+func (b *Buffer) ExtendCopy(data []byte) []byte {
+	end := b.end + int32(len(data))
+	if end > int32(len(b.v)) {
+		panic("extending out of bound")
+	}
+	ext := b.v[b.end:end]
+	b.end = end
+	copy(ext, data)
+	return ext
 }

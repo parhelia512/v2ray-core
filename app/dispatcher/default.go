@@ -201,7 +201,8 @@ func (d *DefaultDispatcher) Dispatch(ctx context.Context, destination net.Destin
 		panic("Dispatcher: Invalid destination.")
 	}
 	ob := &session.Outbound{
-		Target: destination,
+		OriginalTarget: destination,
+		Target:         destination,
 	}
 	ctx = session.ContextWithOutbound(ctx, ob)
 
@@ -228,7 +229,15 @@ func (d *DefaultDispatcher) Dispatch(ctx context.Context, destination net.Destin
 				if domain, err := strmatcher.ToDomain(result.Domain()); err == nil {
 					newError("sniffed domain: ", domain, " for ", destination).WriteToLog(session.ExportIDToError(ctx))
 					destination.Address = net.ParseAddress(domain)
-					ob.Target = destination
+					protocol := result.Protocol()
+					if resComp, ok := result.(SnifferResultComposite); ok {
+						protocol = resComp.ProtocolForDomainResult()
+					}
+					if sniffingRequest.RouteOnly && !strings.HasPrefix(protocol, "fakedns") {
+						ob.RouteTarget = destination
+					} else {
+						ob.Target = destination
+					}
 				}
 			}
 			d.routedDispatch(ctx, outbound, destination)

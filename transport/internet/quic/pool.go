@@ -9,7 +9,7 @@ import (
 var pool *sync.Pool
 
 func init() {
-	pool = bytespool.GetPool(2048)
+	pool = bytespool.GetPool(bytespool.Size)
 }
 
 func getBuffer() []byte {

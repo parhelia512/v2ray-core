@@ -10,6 +10,7 @@ import "common/net/address.proto";
 import "common/net/port.proto";
 import "transport/internet/config.proto";
 import "google/protobuf/any.proto";
+import "common/net/packetaddr/config.proto";
 
 message InboundConfig {}
 
@@ -60,6 +61,8 @@ message SniffingConfig {
   // Whether should only try to sniff metadata without waiting for client input.
   // Can be used to support SMTP like protocol where server send the first message.
   bool metadata_only = 3;
+
+  bool route_only = 4;
 }
 
 message ReceiverConfig {
@@ -91,6 +94,8 @@ message SenderConfig {
     USE_IP = 1;
     USE_IP4 = 2;
     USE_IP6 = 3;
+    PREFER_IP4 = 4;
+    PREFER_IP6 = 5;
   }
 
   // Send traffic through the given IP. Only IP is allowed.
@@ -106,4 +111,5 @@ message MultiplexingConfig {
   bool enabled = 1;
   // Max number of concurrent connections that one Mux connection can handle.
   uint32 concurrency = 2;
+  v2ray.core.net.packetaddr.PacketAddrType packet_encoding = 3;
 }

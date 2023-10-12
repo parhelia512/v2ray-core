@@ -73,6 +73,7 @@ func (c *TrojanClientConfig) Build() (proto.Message, error) {
 
 // TrojanInboundFallback is fallback configuration
 type TrojanInboundFallback struct {
+	Name string          `json:"name"`
 	Alpn string          `json:"alpn"`
 	Path string          `json:"path"`
 	Type string          `json:"type"`
@@ -89,9 +90,10 @@ type TrojanUserConfig struct {
 
 // TrojanServerConfig is Inbound configuration
 type TrojanServerConfig struct {
-	Clients   []*TrojanUserConfig      `json:"clients"`
-	Fallback  json.RawMessage          `json:"fallback"`
-	Fallbacks []*TrojanInboundFallback `json:"fallbacks"`
+	Clients        []*TrojanUserConfig      `json:"clients"`
+	Fallback       json.RawMessage          `json:"fallback"`
+	Fallbacks      []*TrojanInboundFallback `json:"fallbacks"`
+	PacketEncoding cfgcommon.PacketAddrType `json:"packetEncoding"`
 }
 
 // Build implements Buildable
@@ -122,6 +124,7 @@ func (c *TrojanServerConfig) Build() (proto.Message, error) {
 			_ = json.Unmarshal(fb.Dest, &s)
 		}
 		config.Fallbacks = append(config.Fallbacks, &trojan.Fallback{
+			Name: fb.Name,
 			Alpn: fb.Alpn,
 			Path: fb.Path,
 			Type: fb.Type,
@@ -167,6 +170,8 @@ func (c *TrojanServerConfig) Build() (proto.Message, error) {
 			return nil, newError(`Trojan fallbacks: invalid PROXY protocol version, "xver" only accepts 0, 1, 2`)
 		}
 	}
+
+	config.PacketEncoding = c.PacketEncoding.Build()
 
 	return config, nil
 }

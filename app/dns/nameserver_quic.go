@@ -15,11 +15,13 @@ import (
 	"github.com/v2fly/v2ray-core/v5/common"
 	"github.com/v2fly/v2ray-core/v5/common/buf"
 	"github.com/v2fly/v2ray-core/v5/common/net"
+	"github.com/v2fly/v2ray-core/v5/common/net/cnc"
 	"github.com/v2fly/v2ray-core/v5/common/protocol/dns"
 	"github.com/v2fly/v2ray-core/v5/common/session"
 	"github.com/v2fly/v2ray-core/v5/common/signal/pubsub"
 	"github.com/v2fly/v2ray-core/v5/common/task"
 	dns_feature "github.com/v2fly/v2ray-core/v5/features/dns"
+	"github.com/v2fly/v2ray-core/v5/features/routing"
 	"github.com/v2fly/v2ray-core/v5/transport/internet/tls"
 )
 
@@ -39,6 +41,36 @@ type QUICNameServer struct {
 	name        string
 	destination net.Destination
 	connection  quic.Connection
+	dispatcher  routing.Dispatcher
+}
+
+// NewQUICRemoteNameServer creates DNS-over-QUIC client object for remote resolving
+func NewQUICRemoteNameServer(url *url.URL, dispatcher routing.Dispatcher) (*QUICNameServer, error) {
+	newError("DNS: created Remote DNS-over-QUIC client for ", url.String()).AtInfo().WriteToLog()
+
+	var err error
+	port := net.Port(853)
+	if url.Port() != "" {
+		port, err = net.PortFromString(url.Port())
+		if err != nil {
+			return nil, err
+		}
+	}
+	dest := net.UDPDestination(net.ParseAddress(url.Hostname()), port)
+
+	s := &QUICNameServer{
+		ips:         make(map[string]record),
+		pub:         pubsub.NewService(),
+		name:        url.String(),
+		destination: dest,
+		dispatcher:  dispatcher,
+	}
+	s.cleanup = &task.Periodic{
+		Interval: time.Minute,
+		Execute:  s.Cleanup,
+	}
+
+	return s, nil
 }
 
 // NewQUICNameServer creates DNS-over-QUIC client object for local resolving
@@ -239,19 +271,21 @@ func (s *QUICNameServer) sendQuery(ctx context.Context, domain string, clientIP 
 	}
 }
 
-func (s *QUICNameServer) findIPsForDomain(domain string, option dns_feature.IPOption) ([]net.IP, error) {
+func (s *QUICNameServer) findIPsForDomain(domain string, option dns_feature.IPOption) ([]net.IP, uint32, time.Time, error) {
 	s.RLock()
 	record, found := s.ips[domain]
 	s.RUnlock()
 
 	if !found {
-		return nil, errRecordNotFound
+		return nil, 0, time.Time{}, errRecordNotFound
 	}
 
-	var ips []net.Address
-	var lastErr error
+	var ips, a, aaaa []net.Address
+	var ttl uint32
+	var expireAt time.Time
+	var err, lastErr error
 	if option.IPv4Enable {
-		a, err := record.A.getIPs()
+		a, ttl, expireAt, err = record.A.getIPsAndTTL()
 		if err != nil {
 			lastErr = err
 		}
@@ -259,7 +293,7 @@ func (s *QUICNameServer) findIPsForDomain(domain string, option dns_feature.IPOp
 	}
 
 	if option.IPv6Enable {
-		aaaa, err := record.AAAA.getIPs()
+		aaaa, ttl, expireAt, err = record.AAAA.getIPsAndTTL()
 		if err != nil {
 			lastErr = err
 		}
@@ -267,27 +301,28 @@ func (s *QUICNameServer) findIPsForDomain(domain string, option dns_feature.IPOp
 	}
 
 	if len(ips) > 0 {
-		return toNetIP(ips)
+		ips, err := toNetIP(ips)
+		return ips, ttl, expireAt, err
 	}
 
 	if lastErr != nil {
-		return nil, lastErr
+		return nil, ttl, expireAt, lastErr
 	}
 
-	return nil, dns_feature.ErrEmptyResponse
+	return nil, ttl, expireAt, dns_feature.ErrEmptyResponse
 }
 
-// QueryIP is called from dns.Server->queryIPTimeout
-func (s *QUICNameServer) QueryIP(ctx context.Context, domain string, clientIP net.IP, option dns_feature.IPOption, disableCache bool) ([]net.IP, error) {
+// QueryIPWithTTL is called from dns.ServerWithTTL->queryIPTimeout
+func (s *QUICNameServer) QueryIPWithTTL(ctx context.Context, domain string, clientIP net.IP, option dns_feature.IPOption, disableCache bool) ([]net.IP, uint32, time.Time, error) {
 	fqdn := Fqdn(domain)
 
 	if disableCache {
 		newError("DNS cache is disabled. Querying IP for ", domain, " at ", s.name).AtDebug().WriteToLog()
 	} else {
-		ips, err := s.findIPsForDomain(fqdn, option)
+		ips, ttl, expireAt, err := s.findIPsForDomain(fqdn, option)
 		if err != errRecordNotFound {
 			newError(s.name, " cache HIT ", domain, " -> ", ips).Base(err).AtDebug().WriteToLog()
-			return ips, err
+			return ips, ttl, expireAt, err
 		}
 	}
 
@@ -320,17 +355,23 @@ func (s *QUICNameServer) QueryIP(ctx context.Context, domain string, clientIP ne
 	s.sendQuery(ctx, fqdn, clientIP, option)
 
 	for {
-		ips, err := s.findIPsForDomain(fqdn, option)
+		ips, ttl, expireAt, err := s.findIPsForDomain(fqdn, option)
 		if err != errRecordNotFound {
-			return ips, err
+			return ips, ttl, expireAt, err
 		}
 
 		select {
 		case <-ctx.Done():
-			return nil, ctx.Err()
+			return nil, ttl, expireAt, ctx.Err()
 		case <-done:
 		}
 	}
+}
+
+// QueryIP is called from dns.Server->queryIPTimeout
+func (s *QUICNameServer) QueryIP(ctx context.Context, domain string, clientIP net.IP, option dns_feature.IPOption, disableCache bool) ([]net.IP, error) {
+	ips, _, _, err := s.QueryIPWithTTL(ctx, domain, clientIP, option, disableCache)
+	return ips, err
 }
 
 func isActive(s quic.Connection) bool {
@@ -393,12 +434,28 @@ func (s *QUICNameServer) openConnection(ctx context.Context) (quic.Connection, e
 		HandshakeIdleTimeout: handshakeIdleTimeout,
 	}
 
-	conn, err := quic.DialAddr(ctx, s.destination.NetAddr(), tlsConfig.GetTLSConfig(tls.WithNextProto(NextProtoDQ)), quicConfig)
-	if err != nil {
-		return nil, err
+	if s.dispatcher != nil {
+		link, err := s.dispatcher.Dispatch(ctx, s.destination)
+		if err != nil {
+			return nil, err
+		}
+		conn := cnc.NewConnection(
+			cnc.ConnectionInputMulti(link.Writer),
+			cnc.ConnectionOutputMultiUDP(link.Reader),
+		)
+		netAddr := &netAddrWrapper{network: "udp", dest: s.destination.NetAddr()}
+		qConn, err := quic.Dial(ctx, &packetConnWrapper{conn, netAddr}, netAddr, tlsConfig.GetTLSConfig(tls.WithNextProto(NextProtoDQ)), quicConfig)
+		if err != nil {
+			return nil, err
+		}
+		return qConn, nil
+	} else {
+		conn, err := quic.DialAddr(ctx, s.destination.NetAddr(), tlsConfig.GetTLSConfig(tls.WithNextProto(NextProtoDQ)), quicConfig)
+		if err != nil {
+			return nil, err
+		}
+		return conn, nil
 	}
-
-	return conn, nil
 }
 
 func (s *QUICNameServer) openStream(ctx context.Context) (quic.Stream, error) {

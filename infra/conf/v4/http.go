@@ -12,14 +12,16 @@ import (
 )
 
 type HTTPAccount struct {
-	Username string `json:"user"`
-	Password string `json:"pass"`
+	Username string            `json:"user"`
+	Password string            `json:"pass"`
+	Headers  map[string]string `json:"headers"`
 }
 
 func (v *HTTPAccount) Build() *http.Account {
 	return &http.Account{
 		Username: v.Username,
 		Password: v.Password,
+		Headers:  v.Headers,
 	}
 }
 
@@ -54,7 +56,8 @@ type HTTPRemoteConfig struct {
 }
 
 type HTTPClientConfig struct {
-	Servers []*HTTPRemoteConfig `json:"servers"`
+	Servers            []*HTTPRemoteConfig `json:"servers"`
+	H1SkipWaitForReply bool                `json:"h1SkipWaitForReply"`
 }
 
 func (v *HTTPClientConfig) Build() (proto.Message, error) {
@@ -79,5 +82,6 @@ func (v *HTTPClientConfig) Build() (proto.Message, error) {
 		}
 		config.Server[idx] = server
 	}
+	config.H1SkipWaitForReply = v.H1SkipWaitForReply
 	return config, nil
 }

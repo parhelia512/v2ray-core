@@ -11,6 +11,7 @@ import (
 	"github.com/v2fly/v2ray-core/v5/common/mux"
 	"github.com/v2fly/v2ray-core/v5/common/net"
 	"github.com/v2fly/v2ray-core/v5/common/task"
+	"github.com/v2fly/v2ray-core/v5/features/inbound"
 	"github.com/v2fly/v2ray-core/v5/proxy"
 	"github.com/v2fly/v2ray-core/v5/transport/internet"
 )
@@ -47,15 +48,6 @@ func NewDynamicInboundHandler(ctx context.Context, tag string, receiverConfig *p
 	mss, err := internet.ToMemoryStreamConfig(receiverConfig.StreamSettings)
 	if err != nil {
 		return nil, newError("failed to parse stream settings").Base(err).AtWarning()
-	}
-	if receiverConfig.ReceiveOriginalDestination {
-		if mss.SocketSettings == nil {
-			mss.SocketSettings = &internet.SocketConfig{}
-		}
-		if mss.SocketSettings.Tproxy == internet.SocketConfig_Off {
-			mss.SocketSettings.Tproxy = internet.SocketConfig_Redirect
-		}
-		mss.SocketSettings.ReceiveOriginalDestAddress = true
 	}
 
 	h.streamSettings = mss
@@ -114,6 +106,19 @@ func (h *DynamicInboundHandler) refresh() error {
 		address = net.AnyIP
 	}
 
+	listeningAddrs := make(map[net.Address]bool)
+	if address != net.AnyIP && address != net.AnyIPv6 {
+		listeningAddrs[address] = true
+	} else {
+		interfaceAddrs, err := net.InterfaceAddrs()
+		if err != nil {
+			listeningAddrs[address] = true
+		}
+		for _, addr := range interfaceAddrs {
+			listeningAddrs[net.IPAddress(addr.(*net.IPNet).IP)] = true
+		}
+	}
+
 	uplinkCounter, downlinkCounter := getStatCounter(h.v, h.tag)
 
 	for i := uint32(0); i < concurrency; i++ {
@@ -138,6 +143,7 @@ func (h *DynamicInboundHandler) refresh() error {
 				uplinkCounter:   uplinkCounter,
 				downlinkCounter: downlinkCounter,
 				ctx:             h.ctx,
+				listeningAddrs:  listeningAddrs,
 			}
 			if err := worker.Start(); err != nil {
 				newError("failed to create TCP worker").Base(err).AtWarning().WriteToLog()
@@ -158,12 +164,17 @@ func (h *DynamicInboundHandler) refresh() error {
 				uplinkCounter:   uplinkCounter,
 				downlinkCounter: downlinkCounter,
 				stream:          h.streamSettings,
+				listeningAddrs:  listeningAddrs,
 			}
 			if err := worker.Start(); err != nil {
 				newError("failed to create UDP worker").Base(err).AtWarning().WriteToLog()
 				continue
 			}
 			workers = append(workers, worker)
+		}
+
+		if i, ok := p.(inbound.Initializer); ok {
+			i.Initialize(h)
 		}
 	}
 

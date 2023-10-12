@@ -122,6 +122,18 @@ func (rr *RoutingRule) BuildCondition() (Condition, error) {
 		conds.Add(cond)
 	}
 
+	if rr.UidList != nil && len(rr.UidList.Uid) > 0 {
+		conds.Add(NewUidMatcher(rr.UidList))
+	}
+
+	if len(rr.WifiSsidList) > 0 {
+		conds.Add(NewWifiSSIDMatcher(rr.WifiSsidList))
+	}
+
+	if len(rr.NetworkType) > 0 {
+		conds.Add(NewNetworkTypeMatcher(rr.NetworkType))
+	}
+
 	if conds.Len() == 0 {
 		return nil, newError("this rule has no effective fields").AtWarning()
 	}
@@ -144,6 +156,20 @@ func (br *BalancingRule) Build(ohm outbound.Manager, dispatcher routing.Dispatch
 		return &Balancer{
 			selectors: br.OutboundSelector,
 			strategy:  &LeastPingStrategy{config: s},
+			ohm:       ohm,
+		}, nil
+	case "fallback":
+		i, err := serial.GetInstanceOf(br.StrategySettings)
+		if err != nil {
+			return nil, err
+		}
+		s, ok := i.(*StrategyFallbackConfig)
+		if !ok {
+			return nil, newError("not a StrategyFallbackConfig").AtError()
+		}
+		return &Balancer{
+			selectors: br.OutboundSelector,
+			strategy:  &FallbackStrategy{config: s},
 			ohm:       ohm,
 		}, nil
 	case "leastload":

@@ -9,6 +9,7 @@ option java_multiple_files = true;
 import "google/protobuf/any.proto";
 import "common/net/port.proto";
 import "common/net/network.proto";
+import "common/net/uid.proto";
 import "common/protoext/extensions.proto";
 import "app/router/routercommon/common.proto";
 
@@ -66,6 +67,10 @@ message RoutingRule {
 
   string domain_matcher = 17;
 
+  v2ray.core.common.net.UidList uid_list = 18;
+  repeated string wifi_ssid_list = 19;
+  string network_type = 20;
+
   // geo_domain instruct simplified config loader to load geo domain rule and fill in domain field.
   repeated v2ray.core.app.router.routercommon.GeoSite geo_domain = 68001;
 }
@@ -92,6 +97,13 @@ message StrategyRandomConfig {
 message StrategyLeastPingConfig {
   option (v2ray.core.common.protoext.message_opt).type = "balancer";
   option (v2ray.core.common.protoext.message_opt).short_name = "leastping";
+
+  string observer_tag = 7;
+}
+
+message StrategyFallbackConfig {
+  option (v2ray.core.common.protoext.message_opt).type = "balancer";
+  option (v2ray.core.common.protoext.message_opt).short_name = "fallback";
 
   string observer_tag = 7;
 }
@@ -172,6 +184,10 @@ message SimplifiedRoutingRule {
   string attributes = 15;
 
   string domain_matcher = 17;
+
+  v2ray.core.common.net.UidList uid_list = 18;
+  repeated string wifi_ssid_list = 19;
+  string network_type = 20;
 
   // geo_domain instruct simplified config loader to load geo domain rule and fill in domain field.
   repeated v2ray.core.app.router.routercommon.GeoSite geo_domain = 68001;

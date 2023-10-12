@@ -22,6 +22,7 @@ type TLSConfig struct {
 	DisableSystemRoot                bool                  `json:"disableSystemRoot"`
 	PinnedPeerCertificateChainSha256 *[]string             `json:"pinnedPeerCertificateChainSha256"`
 	VerifyClientCertificate          bool                  `json:"verifyClientCertificate"`
+	Fingerprint                      string                `json:"fingerprint"`
 }
 
 // Build implements Buildable.

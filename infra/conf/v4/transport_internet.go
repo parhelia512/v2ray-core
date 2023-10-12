@@ -18,6 +18,7 @@ import (
 	"github.com/v2fly/v2ray-core/v5/transport/internet/http"
 	"github.com/v2fly/v2ray-core/v5/transport/internet/kcp"
 	"github.com/v2fly/v2ray-core/v5/transport/internet/quic"
+	"github.com/v2fly/v2ray-core/v5/transport/internet/request/stereotype/meek"
 	"github.com/v2fly/v2ray-core/v5/transport/internet/tcp"
 	"github.com/v2fly/v2ray-core/v5/transport/internet/websocket"
 )
@@ -260,6 +261,15 @@ func (c *DomainSocketConfig) Build() (proto.Message, error) {
 	}, nil
 }
 
+type MeekConfig struct {
+	URL string `json:"url"`
+}
+
+// Build implements Buildable.
+func (c *MeekConfig) Build() (proto.Message, error) {
+	return &meek.Config{Url: c.URL}, nil
+}
+
 type TransportProtocol string
 
 // Build implements Buildable.
@@ -279,6 +289,8 @@ func (p TransportProtocol) Build() (string, error) {
 		return "quic", nil
 	case "gun", "grpc":
 		return "gun", nil
+	case "meek":
+		return "meek", nil
 	default:
 		return "", newError("Config: unknown transport protocol: ", p)
 	}
@@ -288,6 +300,7 @@ type StreamConfig struct {
 	Network        *TransportProtocol      `json:"network"`
 	Security       string                  `json:"security"`
 	TLSSettings    *tlscfg.TLSConfig       `json:"tlsSettings"`
+	UTLSSettings   *tlscfg.UTLSConfig      `json:"utlsSettings"`
 	TCPSettings    *TCPConfig              `json:"tcpSettings"`
 	KCPSettings    *KCPConfig              `json:"kcpSettings"`
 	WSSettings     *WebSocketConfig        `json:"wsSettings"`
@@ -296,7 +309,10 @@ type StreamConfig struct {
 	QUICSettings   *QUICConfig             `json:"quicSettings"`
 	GunSettings    *GunConfig              `json:"gunSettings"`
 	GRPCSettings   *GunConfig              `json:"grpcSettings"`
+	MeekSettings   *MeekConfig             `json:"meekSettings"`
 	SocketSettings *socketcfg.SocketConfig `json:"sockopt"`
+
+	REALITYSettings *tlscfg.REALITYConfig `json:"realitySettings"`
 }
 
 // Build implements Buildable.
@@ -316,11 +332,58 @@ func (c *StreamConfig) Build() (*internet.StreamConfig, error) {
 		if tlsSettings == nil {
 			tlsSettings = &tlscfg.TLSConfig{}
 		}
-		ts, err := tlsSettings.Build()
-		if err != nil {
-			return nil, newError("Failed to build TLS config.").Base(err)
+		if tlsSettings.Fingerprint != "" {
+			imitate := strings.ToLower(tlsSettings.Fingerprint)
+			imitate = strings.TrimPrefix(imitate, "hello")
+			switch imitate {
+			case "chrome", "firefox", "safari", "ios", "edge", "360", "qq":
+				imitate += "_auto"
+			}
+			utlsSettings := &tlscfg.UTLSConfig{
+				TLSConfig: tlsSettings,
+				Imitate:   imitate,
+			}
+			us, err := utlsSettings.Build()
+			if err != nil {
+				return nil, newError("Failed to build UTLS config.").Base(err)
+			}
+			tm := serial.ToTypedMessage(us)
+			config.SecuritySettings = append(config.SecuritySettings, tm)
+			config.SecurityType = serial.V2Type(tm)
+		} else {
+			ts, err := tlsSettings.Build()
+			if err != nil {
+				return nil, newError("Failed to build TLS config.").Base(err)
+			}
+			tm := serial.ToTypedMessage(ts)
+			config.SecuritySettings = append(config.SecuritySettings, tm)
+			config.SecurityType = serial.V2Type(tm)
 		}
-		tm := serial.ToTypedMessage(ts)
+	} else if strings.EqualFold(c.Security, "utls") {
+		utlsSettings := c.UTLSSettings
+		if utlsSettings == nil {
+			utlsSettings = &tlscfg.UTLSConfig{}
+		}
+		us, err := utlsSettings.Build()
+		if err != nil {
+			return nil, newError("Failed to build UTLS config.").Base(err)
+		}
+		tm := serial.ToTypedMessage(us)
+		config.SecuritySettings = append(config.SecuritySettings, tm)
+		config.SecurityType = serial.V2Type(tm)
+	}
+	if strings.EqualFold(c.Security, "reality") {
+		if config.ProtocolName != "tcp" && config.ProtocolName != "http" && config.ProtocolName != "gun" && config.ProtocolName != "domainsocket" {
+			return nil, newError("REALITY only supports TCP, H2, gRPC and DomainSocket for now.")
+		}
+		if c.REALITYSettings == nil {
+			return nil, newError(`REALITY: Empty "realitySettings".`)
+		}
+		rs, err := c.REALITYSettings.Build()
+		if err != nil {
+			return nil, newError("Failed to build REALITY config.").Base(err)
+		}
+		tm := serial.ToTypedMessage(rs)
 		config.SecuritySettings = append(config.SecuritySettings, tm)
 		config.SecurityType = serial.V2Type(tm)
 	}
@@ -395,6 +458,16 @@ func (c *StreamConfig) Build() (*internet.StreamConfig, error) {
 		config.TransportSettings = append(config.TransportSettings, &internet.TransportConfig{
 			ProtocolName: "gun",
 			Settings:     serial.ToTypedMessage(gs),
+		})
+	}
+	if c.MeekSettings != nil {
+		ms, err := c.MeekSettings.Build()
+		if err != nil {
+			return nil, newError("Failed to build Meek config.").Base(err)
+		}
+		config.TransportSettings = append(config.TransportSettings, &internet.TransportConfig{
+			ProtocolName: "meek",
+			Settings:     serial.ToTypedMessage(ms),
 		})
 	}
 	if c.SocketSettings != nil {

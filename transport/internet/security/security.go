@@ -12,6 +12,7 @@ type Engine interface {
 
 type Conn interface {
 	net.Conn
+	GetConnectionApplicationProtocol() (string, error)
 }
 
 type Option interface {

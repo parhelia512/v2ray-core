@@ -5,6 +5,7 @@ package dns
 
 import (
 	"context"
+	"net/url"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -13,6 +14,7 @@ import (
 	"golang.org/x/net/dns/dnsmessage"
 
 	core "github.com/v2fly/v2ray-core/v5"
+	"github.com/v2fly/v2ray-core/v5/app/dispatcher"
 	"github.com/v2fly/v2ray-core/v5/common"
 	"github.com/v2fly/v2ray-core/v5/common/net"
 	"github.com/v2fly/v2ray-core/v5/common/protocol/dns"
@@ -38,26 +40,53 @@ type ClassicNameServer struct {
 	reqID     uint32
 }
 
+// NewUDPNameServer creates udp server object for remote resolving.
+func NewUDPNameServer(url *url.URL, dispatcher routing.Dispatcher) (*ClassicNameServer, error) {
+	return baseUDPNameServer(url, "UDP", dispatcher)
+}
+
+// NewUDPLocalNameServer creates udp server object for local resolving.
+func NewUDPLocalNameServer(url *url.URL) (*ClassicNameServer, error) {
+	return baseUDPNameServer(url, "UDPL", dispatcher.SystemInstance)
+}
+
+func baseUDPNameServer(url *url.URL, prefix string, dispatcher routing.Dispatcher) (*ClassicNameServer, error) {
+	var err error
+	port := net.Port(53)
+	if url.Port() != "" {
+		port, err = net.PortFromString(url.Port())
+		if err != nil {
+			return nil, err
+		}
+	}
+	dest := net.UDPDestination(net.ParseAddress(url.Hostname()), port)
+	s := newClassicNameServer(dest, prefix+"//"+dest.NetAddr(), dispatcher)
+	return s, nil
+}
+
 // NewClassicNameServer creates udp server object for remote resolving.
 func NewClassicNameServer(address net.Destination, dispatcher routing.Dispatcher) *ClassicNameServer {
 	// default to 53 if unspecific
 	if address.Port == 0 {
 		address.Port = net.Port(53)
 	}
+	newError("DNS: created UDP client initialized for ", address.NetAddr()).AtInfo().WriteToLog()
+	return newClassicNameServer(address, strings.ToUpper(address.String()), dispatcher)
+}
 
+func newClassicNameServer(address net.Destination, name string, dispatcher routing.Dispatcher) *ClassicNameServer {
 	s := &ClassicNameServer{
 		address:  address,
 		ips:      make(map[string]record),
 		requests: make(map[uint16]dnsRequest),
 		pub:      pubsub.NewService(),
-		name:     strings.ToUpper(address.String()),
+		name:     name,
 	}
 	s.cleanup = &task.Periodic{
 		Interval: time.Minute,
 		Execute:  s.Cleanup,
 	}
 	s.udpServer = udp.NewSplitDispatcher(dispatcher, s.HandleResponse)
-	newError("DNS: created UDP client initialized for ", address.NetAddr()).AtInfo().WriteToLog()
 	return s
 }
 
@@ -199,25 +228,28 @@ func (s *ClassicNameServer) sendQuery(ctx context.Context, domain string, client
 			udpCtx = session.ContextWithInbound(udpCtx, inbound)
 		}
 		udpCtx = session.ContextWithContent(udpCtx, &session.Content{
-			Protocol: "dns",
+			Protocol:       "v2ray.dns",
+			SkipDNSResolve: true,
 		})
 		s.udpServer.Dispatch(udpCtx, s.address, b)
 	}
 }
 
-func (s *ClassicNameServer) findIPsForDomain(domain string, option dns_feature.IPOption) ([]net.IP, error) {
+func (s *ClassicNameServer) findIPsForDomain(domain string, option dns_feature.IPOption) ([]net.IP, uint32, time.Time, error) {
 	s.RLock()
 	record, found := s.ips[domain]
 	s.RUnlock()
 
 	if !found {
-		return nil, errRecordNotFound
+		return nil, 0, time.Time{}, errRecordNotFound
 	}
 
-	var ips []net.Address
-	var lastErr error
+	var ips, a, aaaa []net.Address
+	var ttl uint32
+	var expireAt time.Time
+	var err, lastErr error
 	if option.IPv4Enable {
-		a, err := record.A.getIPs()
+		a, ttl, expireAt, err = record.A.getIPsAndTTL()
 		if err != nil {
 			lastErr = err
 		}
@@ -225,7 +257,7 @@ func (s *ClassicNameServer) findIPsForDomain(domain string, option dns_feature.I
 	}
 
 	if option.IPv6Enable {
-		aaaa, err := record.AAAA.getIPs()
+		aaaa, ttl, expireAt, err = record.AAAA.getIPsAndTTL()
 		if err != nil {
 			lastErr = err
 		}
@@ -233,27 +265,27 @@ func (s *ClassicNameServer) findIPsForDomain(domain string, option dns_feature.I
 	}
 
 	if len(ips) > 0 {
-		return toNetIP(ips)
+		ips, err := toNetIP(ips)
+		return ips, ttl, expireAt, err
 	}
 
 	if lastErr != nil {
-		return nil, lastErr
+		return nil, ttl, expireAt, lastErr
 	}
 
-	return nil, dns_feature.ErrEmptyResponse
+	return nil, ttl, expireAt, dns_feature.ErrEmptyResponse
 }
 
-// QueryIP implements Server.
-func (s *ClassicNameServer) QueryIP(ctx context.Context, domain string, clientIP net.IP, option dns_feature.IPOption, disableCache bool) ([]net.IP, error) {
+// QueryIPWithTTL implements ServerWithTTL.
+func (s *ClassicNameServer) QueryIPWithTTL(ctx context.Context, domain string, clientIP net.IP, option dns_feature.IPOption, disableCache bool) ([]net.IP, uint32, time.Time, error) {
 	fqdn := Fqdn(domain)
-
 	if disableCache {
 		newError("DNS cache is disabled. Querying IP for ", domain, " at ", s.name).AtDebug().WriteToLog()
 	} else {
-		ips, err := s.findIPsForDomain(fqdn, option)
+		ips, ttl, expireAt, err := s.findIPsForDomain(fqdn, option)
 		if err != errRecordNotFound {
 			newError(s.name, " cache HIT ", domain, " -> ", ips).Base(err).AtDebug().WriteToLog()
-			return ips, err
+			return ips, ttl, expireAt, err
 		}
 	}
 
@@ -286,15 +318,21 @@ func (s *ClassicNameServer) QueryIP(ctx context.Context, domain string, clientIP
 	s.sendQuery(ctx, fqdn, clientIP, option)
 
 	for {
-		ips, err := s.findIPsForDomain(fqdn, option)
+		ips, ttl, expireAt, err := s.findIPsForDomain(fqdn, option)
 		if err != errRecordNotFound {
-			return ips, err
+			return ips, ttl, expireAt, err
 		}
 
 		select {
 		case <-ctx.Done():
-			return nil, ctx.Err()
+			return nil, ttl, expireAt, ctx.Err()
 		case <-done:
 		}
 	}
+}
+
+// QueryIP implements Server.
+func (s *ClassicNameServer) QueryIP(ctx context.Context, domain string, clientIP net.IP, option dns_feature.IPOption, disableCache bool) ([]net.IP, error) {
+	ips, _, _, err := s.QueryIPWithTTL(ctx, domain, clientIP, option, disableCache)
+	return ips, err
 }

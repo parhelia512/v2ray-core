@@ -75,7 +75,7 @@ func NewDomainMatcher(matcherType string, domains []*routercommon.Domain) (*Doma
 	case "linear":
 		indexMatcher = strmatcher.NewLinearIndexMatcher()
 	default:
-		indexMatcher = strmatcher.NewLinearIndexMatcher()
+		indexMatcher = strmatcher.NewMphIndexMatcher()
 	}
 	for _, domain := range domains {
 		matcher, err := domainToMatcher(domain)
@@ -100,7 +100,7 @@ func (m *DomainMatcher) Apply(ctx routing.Context) bool {
 	if len(domain) == 0 {
 		return false
 	}
-	return m.Match(domain)
+	return m.Match(strings.ToLower(domain))
 }
 
 type MultiGeoIPMatcher struct {
@@ -322,4 +322,58 @@ func (m *AttributeMatcher) Apply(ctx routing.Context) bool {
 		return false
 	}
 	return m.Match(attributes)
+}
+
+type UidMatcher struct { // nolint: stylecheck
+	uidList map[uint32]bool
+}
+
+func NewUidMatcher(list *net.UidList) *UidMatcher { // nolint: stylecheck
+	m := UidMatcher{uidList: map[uint32]bool{}}
+	for _, uid := range list.Uid {
+		m.uidList[uid] = true
+	}
+	return &m
+}
+
+// Apply implements Condition.
+func (u UidMatcher) Apply(ctx routing.Context) bool {
+	return u.uidList[ctx.GetUid()]
+}
+
+type WifiSSIDMatcher struct {
+	ssid map[string]bool
+}
+
+func NewWifiSSIDMatcher(ssid []string) *WifiSSIDMatcher {
+	m := &WifiSSIDMatcher{
+		ssid: map[string]bool{},
+	}
+
+	for _, status := range ssid {
+		m.ssid[status] = true
+	}
+
+	return m
+}
+
+// Apply implements Condition.
+func (m *WifiSSIDMatcher) Apply(ctx routing.Context) bool {
+	return m.ssid[ctx.GetWifiSsid()]
+}
+
+type NetworkTypeMatcher struct {
+	networkType string
+}
+
+func NewNetworkTypeMatcher(networkType string) *NetworkTypeMatcher {
+	m := &NetworkTypeMatcher{
+		networkType: networkType,
+	}
+	return m
+}
+
+// Apply implements Condition.
+func (m *NetworkTypeMatcher) Apply(ctx routing.Context) bool {
+	return m.networkType == ctx.GetNetworkType()
 }

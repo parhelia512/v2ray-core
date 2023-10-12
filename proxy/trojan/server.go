@@ -3,8 +3,10 @@ package trojan
 import (
 	"context"
 	"io"
-	"strconv"
+	"strings"
 	"time"
+
+	"github.com/pires/go-proxyproto"
 
 	core "github.com/v2fly/v2ray-core/v5"
 	"github.com/v2fly/v2ray-core/v5/common"
@@ -22,6 +24,7 @@ import (
 	"github.com/v2fly/v2ray-core/v5/features/policy"
 	"github.com/v2fly/v2ray-core/v5/features/routing"
 	"github.com/v2fly/v2ray-core/v5/transport/internet"
+	"github.com/v2fly/v2ray-core/v5/transport/internet/reality"
 	"github.com/v2fly/v2ray-core/v5/transport/internet/tls"
 	"github.com/v2fly/v2ray-core/v5/transport/internet/udp"
 )
@@ -36,7 +39,7 @@ func init() {
 type Server struct {
 	policyManager  policy.Manager
 	validator      *Validator
-	fallbacks      map[string]map[string]*Fallback // or nil
+	fallbacks      map[string]map[string]map[string]*Fallback // or nil
 	packetEncoding packetaddr.PacketAddrType
 }
 
@@ -62,19 +65,48 @@ func NewServer(ctx context.Context, config *ServerConfig) (*Server, error) {
 	}
 
 	if config.Fallbacks != nil {
-		server.fallbacks = make(map[string]map[string]*Fallback)
+		server.fallbacks = make(map[string]map[string]map[string]*Fallback)
 		for _, fb := range config.Fallbacks {
-			if server.fallbacks[fb.Alpn] == nil {
-				server.fallbacks[fb.Alpn] = make(map[string]*Fallback)
+			if server.fallbacks[fb.Name] == nil {
+				server.fallbacks[fb.Name] = make(map[string]map[string]*Fallback)
 			}
-			server.fallbacks[fb.Alpn][fb.Path] = fb
+			if server.fallbacks[fb.Name][fb.Alpn] == nil {
+				server.fallbacks[fb.Name][fb.Alpn] = make(map[string]*Fallback)
+			}
+			server.fallbacks[fb.Name][fb.Alpn][fb.Path] = fb
 		}
 		if server.fallbacks[""] != nil {
-			for alpn, pfb := range server.fallbacks {
-				if alpn != "" { // && alpn != "h2" {
-					for path, fb := range server.fallbacks[""] {
-						if pfb[path] == nil {
-							pfb[path] = fb
+			for name, apfb := range server.fallbacks {
+				if name != "" {
+					for alpn := range server.fallbacks[""] {
+						if apfb[alpn] == nil {
+							apfb[alpn] = make(map[string]*Fallback)
+						}
+					}
+				}
+			}
+		}
+		for _, apfb := range server.fallbacks {
+			if apfb[""] != nil {
+				for alpn, pfb := range apfb {
+					if alpn != "" { // && alpn != "h2" {
+						for path, fb := range apfb[""] {
+							if pfb[path] == nil {
+								pfb[path] = fb
+							}
+						}
+					}
+				}
+			}
+		}
+		if server.fallbacks[""] != nil {
+			for name, apfb := range server.fallbacks {
+				if name != "" {
+					for alpn, pfb := range server.fallbacks[""] {
+						for path, fb := range pfb {
+							if apfb[alpn][path] == nil {
+								apfb[alpn][path] = fb
+							}
 						}
 					}
 				}
@@ -114,8 +146,8 @@ func (s *Server) Process(ctx context.Context, network net.Network, conn internet
 		return newError("unable to set read deadline").Base(err).AtWarning()
 	}
 
-	first := buf.New()
-	defer first.Release()
+	first := buf.FromBytes(make([]byte, buf.Size))
+	first.Clear()
 
 	firstLen, err := first.ReadFrom(conn)
 	if err != nil {
@@ -130,8 +162,8 @@ func (s *Server) Process(ctx context.Context, network net.Network, conn internet
 
 	var user *protocol.MemoryUser
 
-	apfb := s.fallbacks
-	isfb := apfb != nil
+	napfb := s.fallbacks
+	isfb := napfb != nil
 
 	shouldFallback := false
 	if firstLen < 58 || first.Byte(56) != '\r' {
@@ -162,7 +194,7 @@ func (s *Server) Process(ctx context.Context, network net.Network, conn internet
 	}
 
 	if isfb && shouldFallback {
-		return s.fallback(ctx, sid, err, sessionPolicy, conn, iConn, apfb, first, firstLen, bufferedReader)
+		return s.fallback(ctx, sid, err, sessionPolicy, conn, iConn, napfb, first, firstLen, bufferedReader)
 	} else if shouldFallback {
 		return newError("invalid protocol or invalid user")
 	}
@@ -295,21 +327,52 @@ func (s *Server) handleConnection(ctx context.Context, sessionPolicy policy.Sess
 	return nil
 }
 
-func (s *Server) fallback(ctx context.Context, sid errors.ExportOption, err error, sessionPolicy policy.Session, connection internet.Connection, iConn internet.Connection, apfb map[string]map[string]*Fallback, first *buf.Buffer, firstLen int64, reader buf.Reader) error {
+func (s *Server) fallback(ctx context.Context, sid errors.ExportOption, err error, sessionPolicy policy.Session, connection internet.Connection, iConn internet.Connection, napfb map[string]map[string]map[string]*Fallback, first *buf.Buffer, firstLen int64, reader buf.Reader) error {
 	if err := connection.SetReadDeadline(time.Time{}); err != nil {
 		newError("unable to set back read deadline").Base(err).AtWarning().WriteToLog(sid)
 	}
 	newError("fallback starts").Base(err).AtInfo().WriteToLog(sid)
 
+	name := ""
 	alpn := ""
-	if len(apfb) > 1 || apfb[""] == nil {
-		if tlsConn, ok := iConn.(*tls.Conn); ok {
-			alpn = tlsConn.ConnectionState().NegotiatedProtocol
-			newError("realAlpn = " + alpn).AtInfo().WriteToLog(sid)
+	if tlsConn, ok := iConn.(*tls.Conn); ok {
+		cs := tlsConn.ConnectionState()
+		name = cs.ServerName
+		alpn = cs.NegotiatedProtocol
+		newError("realName = " + name).AtInfo().WriteToLog(sid)
+		newError("realAlpn = " + alpn).AtInfo().WriteToLog(sid)
+	} else if realityConn, ok := iConn.(*reality.Conn); ok {
+		cs := realityConn.ConnectionState()
+		name = cs.ServerName
+		alpn = cs.NegotiatedProtocol
+		newError("realName = " + name).AtInfo().WriteToLog(sid)
+		newError("realAlpn = " + alpn).AtInfo().WriteToLog(sid)
+	}
+	name = strings.ToLower(name)
+	alpn = strings.ToLower(alpn)
+
+	if len(napfb) > 1 || napfb[""] == nil {
+		if name != "" && napfb[name] == nil {
+			match := ""
+			for n := range napfb {
+				if n != "" && strings.Contains(name, n) && len(n) > len(match) {
+					match = n
+				}
+			}
+			name = match
 		}
-		if apfb[alpn] == nil {
-			alpn = ""
-		}
+	}
+
+	if napfb[name] == nil {
+		name = ""
+	}
+	apfb := napfb[name]
+	if apfb == nil {
+		return newError(`failed to find the default "name" config`).AtWarning()
+	}
+
+	if apfb[alpn] == nil {
+		alpn = ""
 	}
 	pfb := apfb[alpn]
 	if pfb == nil {
@@ -373,45 +436,13 @@ func (s *Server) fallback(ctx context.Context, sid errors.ExportOption, err erro
 	postRequest := func() error {
 		defer timer.SetTimeout(sessionPolicy.Timeouts.DownlinkOnly)
 		if fb.Xver != 0 {
-			remoteAddr, remotePort, err := net.SplitHostPort(connection.RemoteAddr().String())
-			if err != nil {
-				return err
-			}
-			localAddr, localPort, err := net.SplitHostPort(connection.LocalAddr().String())
-			if err != nil {
-				return err
-			}
-			ipv4 := true
-			for i := 0; i < len(remoteAddr); i++ {
-				if remoteAddr[i] == ':' {
-					ipv4 = false
-					break
-				}
-			}
 			pro := buf.New()
 			defer pro.Release()
-			switch fb.Xver {
-			case 1:
-				if ipv4 {
-					common.Must2(pro.Write([]byte("PROXY TCP4 " + remoteAddr + " " + localAddr + " " + remotePort + " " + localPort + "\r\n")))
-				} else {
-					common.Must2(pro.Write([]byte("PROXY TCP6 " + remoteAddr + " " + localAddr + " " + remotePort + " " + localPort + "\r\n")))
-				}
-			case 2:
-				common.Must2(pro.Write([]byte("\x0D\x0A\x0D\x0A\x00\x0D\x0A\x51\x55\x49\x54\x0A\x21"))) // signature + v2 + PROXY
-				if ipv4 {
-					common.Must2(pro.Write([]byte("\x11\x00\x0C"))) // AF_INET + STREAM + 12 bytes
-					common.Must2(pro.Write(net.ParseIP(remoteAddr).To4()))
-					common.Must2(pro.Write(net.ParseIP(localAddr).To4()))
-				} else {
-					common.Must2(pro.Write([]byte("\x21\x00\x24"))) // AF_INET6 + STREAM + 36 bytes
-					common.Must2(pro.Write(net.ParseIP(remoteAddr).To16()))
-					common.Must2(pro.Write(net.ParseIP(localAddr).To16()))
-				}
-				p1, _ := strconv.ParseUint(remotePort, 10, 16)
-				p2, _ := strconv.ParseUint(localPort, 10, 16)
-				common.Must2(pro.Write([]byte{byte(p1 >> 8), byte(p1), byte(p2 >> 8), byte(p2)}))
+
+			if _, err := proxyproto.HeaderProxyFromAddrs(byte(fb.Xver), connection.RemoteAddr(), connection.LocalAddr()).WriteTo(pro); err != nil {
+				return newError("failed to format PROXY protocol v", fb.Xver).Base(err).AtWarning()
 			}
+
 			if err := serverWriter.WriteMultiBuffer(buf.MultiBuffer{pro}); err != nil {
 				return newError("failed to set PROXY protocol v", fb.Xver).Base(err).AtWarning()
 			}

@@ -155,7 +155,7 @@ func init() {
 		ctx = cfgcommon.NewConfigureLoadingContext(ctx)
 
 		geoloadername := platform.NewEnvFlag("v2ray.conf.geoloader").GetValue(func() string {
-			return "standard"
+			return "memconservative"
 		})
 
 		if loader, err := geodata.GetGeoDataLoader(geoloadername); err == nil {
@@ -245,6 +245,11 @@ func init() {
 			rule.UserEmail = v.UserEmail
 			rule.InboundTag = v.InboundTag
 			rule.DomainMatcher = v.DomainMatcher
+
+			rule.UidList = v.UidList
+			rule.WifiSsidList = v.WifiSsidList
+			rule.NetworkType = v.NetworkType
+
 			switch s := v.TargetTag.(type) {
 			case *SimplifiedRoutingRule_Tag:
 				rule.TargetTag = &RoutingRule_Tag{s.Tag}

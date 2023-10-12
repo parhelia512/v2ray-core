@@ -7,16 +7,19 @@ import (
 	"strings"
 	"time"
 
+	goreality "github.com/xtls/reality"
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
 
 	"github.com/v2fly/v2ray-core/v5/common"
 	"github.com/v2fly/v2ray-core/v5/common/net"
+	"github.com/v2fly/v2ray-core/v5/common/net/cnc"
 	http_proto "github.com/v2fly/v2ray-core/v5/common/protocol/http"
 	"github.com/v2fly/v2ray-core/v5/common/serial"
 	"github.com/v2fly/v2ray-core/v5/common/session"
 	"github.com/v2fly/v2ray-core/v5/common/signal/done"
 	"github.com/v2fly/v2ray-core/v5/transport/internet"
+	"github.com/v2fly/v2ray-core/v5/transport/internet/reality"
 	"github.com/v2fly/v2ray-core/v5/transport/internet/tls"
 )
 
@@ -25,7 +28,6 @@ type Listener struct {
 	handler internet.ConnHandler
 	local   net.Addr
 	config  *Config
-	locker  *internet.FileLocker // for unix domain socket
 }
 
 func (l *Listener) Addr() net.Addr {
@@ -33,9 +35,6 @@ func (l *Listener) Addr() net.Addr {
 }
 
 func (l *Listener) Close() error {
-	if l.locker != nil {
-		l.locker.Release()
-	}
 	return l.server.Close()
 }
 
@@ -50,7 +49,7 @@ func (fw flushWriter) Write(p []byte) (n int, err error) {
 	}
 
 	n, err = fw.w.Write(p)
-	if f, ok := fw.w.(http.Flusher); ok {
+	if f, ok := fw.w.(http.Flusher); ok && err == nil {
 		f.Flush()
 	}
 	return
@@ -101,12 +100,12 @@ func (l *Listener) ServeHTTP(writer http.ResponseWriter, request *http.Request) 
 	}
 
 	done := done.New()
-	conn := net.NewConnection(
-		net.ConnectionOutput(request.Body),
-		net.ConnectionInput(flushWriter{w: writer, d: done}),
-		net.ConnectionOnClose(common.ChainedClosable{done, request.Body}),
-		net.ConnectionLocalAddr(l.Addr()),
-		net.ConnectionRemoteAddr(remoteAddr),
+	conn := cnc.NewConnection(
+		cnc.ConnectionOutput(request.Body),
+		cnc.ConnectionInput(flushWriter{w: writer, d: done}),
+		cnc.ConnectionOnClose(common.ChainedClosable{done, request.Body}),
+		cnc.ConnectionLocalAddr(l.Addr()),
+		cnc.ConnectionRemoteAddr(remoteAddr),
 	)
 	l.handler(conn)
 	<-done.Wait()
@@ -137,6 +136,7 @@ func Listen(ctx context.Context, address net.Address, port net.Port, streamSetti
 
 	var server *http.Server
 	config := tls.ConfigFromStreamSettings(streamSettings)
+	realityConfig := reality.ConfigFromStreamSettings(streamSettings)
 	if config == nil {
 		h2s := &http2.Server{}
 
@@ -171,10 +171,6 @@ func Listen(ctx context.Context, address net.Address, port net.Port, streamSetti
 				newError("failed to listen on ", address).Base(err).AtError().WriteToLog(session.ExportIDToError(ctx))
 				return
 			}
-			locker := ctx.Value(address.Domain())
-			if locker != nil {
-				listener.locker = locker.(*internet.FileLocker)
-			}
 		} else { // tcp
 			streamListener, err = internet.ListenSystem(ctx, &net.TCPAddr{
 				IP:   address.IP(),
@@ -187,9 +183,12 @@ func Listen(ctx context.Context, address net.Address, port net.Port, streamSetti
 		}
 
 		if config == nil {
+			if realityConfig != nil {
+				streamListener = goreality.NewListener(streamListener, realityConfig.GetREALITYConfig())
+			}
 			err = server.Serve(streamListener)
 			if err != nil {
-				newError("stopping serving H2C").Base(err).WriteToLog(session.ExportIDToError(ctx))
+				newError("stopping serving H2C or REALITY H2").Base(err).WriteToLog(session.ExportIDToError(ctx))
 			}
 		} else {
 			err = server.ServeTLS(streamListener, "", "")

@@ -10,6 +10,7 @@ import (
 	"github.com/v2fly/v2ray-core/v5/app/dispatcher"
 	"github.com/v2fly/v2ray-core/v5/app/proxyman"
 	"github.com/v2fly/v2ray-core/v5/app/stats"
+	"github.com/v2fly/v2ray-core/v5/common/net"
 	"github.com/v2fly/v2ray-core/v5/common/serial"
 	"github.com/v2fly/v2ray-core/v5/features"
 	"github.com/v2fly/v2ray-core/v5/infra/conf/cfgcommon"
@@ -20,30 +21,39 @@ import (
 	"github.com/v2fly/v2ray-core/v5/infra/conf/synthetic/dns"
 	"github.com/v2fly/v2ray-core/v5/infra/conf/synthetic/log"
 	"github.com/v2fly/v2ray-core/v5/infra/conf/synthetic/router"
+	"github.com/v2fly/v2ray-core/v5/transport/internet"
 )
 
 var (
 	inboundConfigLoader = loader.NewJSONConfigLoader(loader.ConfigCreatorCache{
-		"dokodemo-door": func() interface{} { return new(DokodemoConfig) },
-		"http":          func() interface{} { return new(HTTPServerConfig) },
-		"shadowsocks":   func() interface{} { return new(ShadowsocksServerConfig) },
-		"socks":         func() interface{} { return new(SocksServerConfig) },
-		"vless":         func() interface{} { return new(VLessInboundConfig) },
-		"vmess":         func() interface{} { return new(VMessInboundConfig) },
-		"trojan":        func() interface{} { return new(TrojanServerConfig) },
+		"dokodemo-door":          func() interface{} { return new(DokodemoConfig) },
+		"http":                   func() interface{} { return new(HTTPServerConfig) },
+		"shadowsocks":            func() interface{} { return new(ShadowsocksServerConfig) },
+		"socks":                  func() interface{} { return new(SocksServerConfig) },
+		"vless":                  func() interface{} { return new(VLessInboundConfig) },
+		"vmess":                  func() interface{} { return new(VMessInboundConfig) },
+		"trojan":                 func() interface{} { return new(TrojanServerConfig) },
+		"vliteu":                 func() interface{} { return new(VLiteUDPInboundConfig) },
+		"shadowsocks-2022":       func() interface{} { return new(Shadowsocks2022ServerConfig) },
+		"shadowsocks-2022-multi": func() interface{} { return new(Shadowsocks2022MultiUserServerConfig) },
+		"shadowsocks-2022-relay": func() interface{} { return new(Shadowsocks2022RelayServerConfig) },
+		"mixed":                  func() interface{} { return new(MixedServerConfig) },
 	}, "protocol", "settings")
 
 	outboundConfigLoader = loader.NewJSONConfigLoader(loader.ConfigCreatorCache{
-		"blackhole":   func() interface{} { return new(BlackholeConfig) },
-		"freedom":     func() interface{} { return new(FreedomConfig) },
-		"http":        func() interface{} { return new(HTTPClientConfig) },
-		"shadowsocks": func() interface{} { return new(ShadowsocksClientConfig) },
-		"socks":       func() interface{} { return new(SocksClientConfig) },
-		"vless":       func() interface{} { return new(VLessOutboundConfig) },
-		"vmess":       func() interface{} { return new(VMessOutboundConfig) },
-		"trojan":      func() interface{} { return new(TrojanClientConfig) },
-		"dns":         func() interface{} { return new(DNSOutboundConfig) },
-		"loopback":    func() interface{} { return new(LoopbackConfig) },
+		"blackhole":        func() interface{} { return new(BlackholeConfig) },
+		"freedom":          func() interface{} { return new(FreedomConfig) },
+		"http":             func() interface{} { return new(HTTPClientConfig) },
+		"shadowsocks":      func() interface{} { return new(ShadowsocksClientConfig) },
+		"socks":            func() interface{} { return new(SocksClientConfig) },
+		"ssh":              func() interface{} { return new(SSHClientConfig) },
+		"vless":            func() interface{} { return new(VLessOutboundConfig) },
+		"vmess":            func() interface{} { return new(VMessOutboundConfig) },
+		"trojan":           func() interface{} { return new(TrojanClientConfig) },
+		"dns":              func() interface{} { return new(DNSOutboundConfig) },
+		"loopback":         func() interface{} { return new(LoopbackConfig) },
+		"vliteu":           func() interface{} { return new(VLiteUDPOutboundConfig) },
+		"shadowsocks-2022": func() interface{} { return new(Shadowsocks2022ClientConfig) },
 	}, "protocol", "settings")
 )
 
@@ -187,8 +197,29 @@ func (c *InboundDetourConfig) Build() (*core.InboundHandlerConfig, error) {
 	if err != nil {
 		return nil, newError("failed to load inbound detour config.").Base(err)
 	}
-	if dokodemoConfig, ok := rawConfig.(*DokodemoConfig); ok {
-		receiverSettings.ReceiveOriginalDestination = dokodemoConfig.Redirect
+	if content, ok := rawConfig.(*DokodemoConfig); ok && content.Redirect {
+		receiverSettings.ReceiveOriginalDestination = true
+		if receiverSettings.StreamSettings == nil {
+			receiverSettings.StreamSettings = &internet.StreamConfig{}
+		}
+		if receiverSettings.StreamSettings.SocketSettings == nil {
+			receiverSettings.StreamSettings.SocketSettings = &internet.SocketConfig{}
+		}
+		receiverSettings.StreamSettings.SocketSettings.ReceiveOriginalDestAddress = true
+		if receiverSettings.StreamSettings.SocketSettings.Tproxy == internet.SocketConfig_Off {
+			receiverSettings.StreamSettings.SocketSettings.Tproxy = internet.SocketConfig_Redirect
+		}
+	}
+	if content, ok := rawConfig.(*SocksServerConfig); ok && content.UDP &&
+		(receiverSettings.Listen.AsAddress() == net.AnyIP || receiverSettings.Listen.AsAddress() == net.AnyIPv6) {
+		receiverSettings.ReceiveOriginalDestination = true
+		if receiverSettings.StreamSettings == nil {
+			receiverSettings.StreamSettings = &internet.StreamConfig{}
+		}
+		if receiverSettings.StreamSettings.SocketSettings == nil {
+			receiverSettings.StreamSettings.SocketSettings = &internet.SocketConfig{}
+		}
+		receiverSettings.StreamSettings.SocketSettings.ReceiveOriginalDestAddress = true
 	}
 	ts, err := rawConfig.(cfgcommon.Buildable).Build()
 	if err != nil {
@@ -253,6 +284,10 @@ func (c *OutboundDetourConfig) Build() (*core.OutboundHandlerConfig, error) {
 		senderSettings.DomainStrategy = proxyman.SenderConfig_USE_IP4
 	case "useip6", "useipv6", "use_ip6", "use_ipv6", "use_ip_v6", "use-ip6", "use-ipv6", "use-ip-v6":
 		senderSettings.DomainStrategy = proxyman.SenderConfig_USE_IP6
+	case "preferip4", "preferipv4", "prefer_ip4", "prefer_ipv4", "prefer_ip_v4", "prefer-ip4", "prefer-ipv4", "prefer-ip-v4":
+		senderSettings.DomainStrategy = proxyman.SenderConfig_PREFER_IP4
+	case "preferip6", "preferipv6", "prefer_ip6", "prefer_ipv6", "prefer_ip_v6", "prefer-ip6", "prefer-ipv6", "prefer-ip-v6":
+		senderSettings.DomainStrategy = proxyman.SenderConfig_PREFER_IP6
 	}
 
 	settings := []byte("{}")
@@ -319,6 +354,7 @@ type Config struct {
 	Observatory      *ObservatoryConfig      `json:"observatory"`
 	BurstObservatory *BurstObservatoryConfig `json:"burstObservatory"`
 	MultiObservatory *MultiObservatoryConfig `json:"multiObservatory"`
+	RestfulAPI       *RestfulAPIConfig       `json:"restfulAPI"`
 
 	Services map[string]*json.RawMessage `json:"services"`
 }
@@ -472,6 +508,14 @@ func (c *Config) Build() (*core.Config, error) {
 
 	if c.MultiObservatory != nil {
 		r, err := c.MultiObservatory.Build()
+		if err != nil {
+			return nil, err
+		}
+		config.App = append(config.App, serial.ToTypedMessage(r))
+	}
+
+	if c.RestfulAPI != nil {
+		r, err := c.RestfulAPI.Build()
 		if err != nil {
 			return nil, err
 		}

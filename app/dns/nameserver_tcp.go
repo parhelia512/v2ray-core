@@ -17,6 +17,7 @@ import (
 	"github.com/v2fly/v2ray-core/v5/common"
 	"github.com/v2fly/v2ray-core/v5/common/buf"
 	"github.com/v2fly/v2ray-core/v5/common/net"
+	"github.com/v2fly/v2ray-core/v5/common/net/cnc"
 	"github.com/v2fly/v2ray-core/v5/common/protocol/dns"
 	"github.com/v2fly/v2ray-core/v5/common/session"
 	"github.com/v2fly/v2ray-core/v5/common/signal/pubsub"
@@ -36,11 +37,12 @@ type TCPNameServer struct {
 	cleanup     *task.Periodic
 	reqID       uint32
 	dial        func(context.Context) (net.Conn, error)
+	protocol    string
 }
 
 // NewTCPNameServer creates DNS over TCP server object for remote resolving.
 func NewTCPNameServer(url *url.URL, dispatcher routing.Dispatcher) (*TCPNameServer, error) {
-	s, err := baseTCPNameServer(url, "TCP")
+	s, err := baseTCPNameServer(url, "TCP", net.Port(53), "v2ray.dns")
 	if err != nil {
 		return nil, err
 	}
@@ -51,9 +53,9 @@ func NewTCPNameServer(url *url.URL, dispatcher routing.Dispatcher) (*TCPNameServ
 			return nil, err
 		}
 
-		return net.NewConnection(
-			net.ConnectionInputMulti(link.Writer),
-			net.ConnectionOutputMulti(link.Reader),
+		return cnc.NewConnection(
+			cnc.ConnectionInputMulti(link.Writer),
+			cnc.ConnectionOutputMulti(link.Reader),
 		), nil
 	}
 
@@ -62,21 +64,20 @@ func NewTCPNameServer(url *url.URL, dispatcher routing.Dispatcher) (*TCPNameServ
 
 // NewTCPLocalNameServer creates DNS over TCP client object for local resolving
 func NewTCPLocalNameServer(url *url.URL) (*TCPNameServer, error) {
-	s, err := baseTCPNameServer(url, "TCPL")
+	s, err := baseTCPNameServer(url, "TCPL", net.Port(53), "v2ray.dns")
 	if err != nil {
 		return nil, err
 	}
 
 	s.dial = func(ctx context.Context) (net.Conn, error) {
-		return internet.DialSystem(ctx, s.destination, nil)
+		return internet.DialSystemDNS(ctx, s.destination, nil)
 	}
 
 	return s, nil
 }
 
-func baseTCPNameServer(url *url.URL, prefix string) (*TCPNameServer, error) {
+func baseTCPNameServer(url *url.URL, prefix string, port net.Port, protocol string) (*TCPNameServer, error) {
 	var err error
-	port := net.Port(53)
 	if url.Port() != "" {
 		port, err = net.PortFromString(url.Port())
 		if err != nil {
@@ -90,6 +91,7 @@ func baseTCPNameServer(url *url.URL, prefix string) (*TCPNameServer, error) {
 		ips:         make(map[string]record),
 		pub:         pubsub.NewService(),
 		name:        prefix + "//" + dest.NetAddr(),
+		protocol:    protocol,
 	}
 	s.cleanup = &task.Periodic{
 		Interval: time.Minute,
@@ -203,7 +205,7 @@ func (s *TCPNameServer) sendQuery(ctx context.Context, domain string, clientIP n
 			}
 
 			dnsCtx = session.ContextWithContent(dnsCtx, &session.Content{
-				Protocol:       "dns",
+				Protocol:       s.protocol,
 				SkipDNSResolve: true,
 			})
 
@@ -266,19 +268,21 @@ func (s *TCPNameServer) sendQuery(ctx context.Context, domain string, clientIP n
 	}
 }
 
-func (s *TCPNameServer) findIPsForDomain(domain string, option dns_feature.IPOption) ([]net.IP, error) {
+func (s *TCPNameServer) findIPsForDomain(domain string, option dns_feature.IPOption) ([]net.IP, uint32, time.Time, error) {
 	s.RLock()
 	record, found := s.ips[domain]
 	s.RUnlock()
 
 	if !found {
-		return nil, errRecordNotFound
+		return nil, 0, time.Time{}, errRecordNotFound
 	}
 
-	var ips []net.Address
-	var lastErr error
+	var ips, a, aaaa []net.Address
+	var ttl uint32
+	var expireAt time.Time
+	var err, lastErr error
 	if option.IPv4Enable {
-		a, err := record.A.getIPs()
+		a, ttl, expireAt, err = record.A.getIPsAndTTL()
 		if err != nil {
 			lastErr = err
 		}
@@ -286,7 +290,7 @@ func (s *TCPNameServer) findIPsForDomain(domain string, option dns_feature.IPOpt
 	}
 
 	if option.IPv6Enable {
-		aaaa, err := record.AAAA.getIPs()
+		aaaa, ttl, expireAt, err = record.AAAA.getIPsAndTTL()
 		if err != nil {
 			lastErr = err
 		}
@@ -294,27 +298,28 @@ func (s *TCPNameServer) findIPsForDomain(domain string, option dns_feature.IPOpt
 	}
 
 	if len(ips) > 0 {
-		return toNetIP(ips)
+		ips, err := toNetIP(ips)
+		return ips, ttl, expireAt, err
 	}
 
 	if lastErr != nil {
-		return nil, lastErr
+		return nil, ttl, expireAt, lastErr
 	}
 
-	return nil, dns_feature.ErrEmptyResponse
+	return nil, ttl, expireAt, dns_feature.ErrEmptyResponse
 }
 
-// QueryIP implements Server.
-func (s *TCPNameServer) QueryIP(ctx context.Context, domain string, clientIP net.IP, option dns_feature.IPOption, disableCache bool) ([]net.IP, error) {
+// QueryIPWithTTL implements ServerWithTTL.
+func (s *TCPNameServer) QueryIPWithTTL(ctx context.Context, domain string, clientIP net.IP, option dns_feature.IPOption, disableCache bool) ([]net.IP, uint32, time.Time, error) {
 	fqdn := Fqdn(domain)
 
 	if disableCache {
 		newError("DNS cache is disabled. Querying IP for ", domain, " at ", s.name).AtDebug().WriteToLog()
 	} else {
-		ips, err := s.findIPsForDomain(fqdn, option)
+		ips, ttl, expireAt, err := s.findIPsForDomain(fqdn, option)
 		if err != errRecordNotFound {
 			newError(s.name, " cache HIT ", domain, " -> ", ips).Base(err).AtDebug().WriteToLog()
-			return ips, err
+			return ips, ttl, expireAt, err
 		}
 	}
 
@@ -347,15 +352,21 @@ func (s *TCPNameServer) QueryIP(ctx context.Context, domain string, clientIP net
 	s.sendQuery(ctx, fqdn, clientIP, option)
 
 	for {
-		ips, err := s.findIPsForDomain(fqdn, option)
+		ips, ttl, expireAt, err := s.findIPsForDomain(fqdn, option)
 		if err != errRecordNotFound {
-			return ips, err
+			return ips, ttl, expireAt, err
 		}
 
 		select {
 		case <-ctx.Done():
-			return nil, ctx.Err()
+			return nil, ttl, expireAt, ctx.Err()
 		case <-done:
 		}
 	}
+}
+
+// QueryIP implements Server.
+func (s *TCPNameServer) QueryIP(ctx context.Context, domain string, clientIP net.IP, option dns_feature.IPOption, disableCache bool) ([]net.IP, error) {
+	ips, _, _, err := s.QueryIPWithTTL(ctx, domain, clientIP, option, disableCache)
+	return ips, err
 }

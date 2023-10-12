@@ -18,6 +18,7 @@ import (
 )
 
 type VLessInboundFallback struct {
+	Name string          `json:"name"`
 	Alpn string          `json:"alpn"`
 	Path string          `json:"path"`
 	Type string          `json:"type"`
@@ -71,6 +72,7 @@ func (c *VLessInboundConfig) Build() (proto.Message, error) {
 			_ = json.Unmarshal(fb.Dest, &s)
 		}
 		config.Fallbacks = append(config.Fallbacks, &inbound.Fallback{
+			Name: fb.Name,
 			Alpn: fb.Alpn,
 			Path: fb.Path,
 			Type: fb.Type,
@@ -127,7 +129,8 @@ type VLessOutboundVnext struct {
 }
 
 type VLessOutboundConfig struct {
-	Vnext []*VLessOutboundVnext `json:"vnext"`
+	Vnext          []*VLessOutboundVnext    `json:"vnext"`
+	PacketEncoding cfgcommon.PacketAddrType `json:"packetEncoding"`
 }
 
 // Build implements Buildable
@@ -169,6 +172,7 @@ func (c *VLessOutboundConfig) Build() (proto.Message, error) {
 		}
 		config.Vnext[idx] = spec
 	}
+	config.PacketEncoding = c.PacketEncoding.Build()
 
 	return config, nil
 }

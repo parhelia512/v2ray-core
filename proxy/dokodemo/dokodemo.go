@@ -99,11 +99,12 @@ func (d *Door) Process(ctx context.Context, network net.Network, conn internet.C
 	destinationOverridden := false
 	if d.config.FollowRedirect {
 		if outbound := session.OutboundFromContext(ctx); outbound != nil && outbound.Target.IsValid() {
-			dest = outbound.Target
-			destinationOverridden = true
+			if inbound := session.InboundFromContext(ctx); inbound == nil || outbound.Target != inbound.Gateway {
+				dest = outbound.Target
+				destinationOverridden = true
+			}
 		} else if handshake, ok := conn.(hasHandshakeAddress); ok {
-			addr := handshake.HandshakeAddress()
-			if addr != nil {
+			if addr := handshake.HandshakeAddress(); addr != nil {
 				dest.Address = addr
 				destinationOverridden = true
 			}
@@ -170,36 +171,28 @@ func (d *Door) Process(ctx context.Context, network net.Network, conn internet.C
 		if !destinationOverridden {
 			writer = &buf.SequentialWriter{Writer: conn}
 		} else {
-			sockopt := &internet.SocketConfig{
-				Tproxy: internet.SocketConfig_TProxy,
+			back := conn.RemoteAddr().(*net.UDPAddr)
+			if !dest.Address.Family().IsIP() {
+				if len(back.IP) == 4 {
+					dest.Address = net.AnyIP
+				} else {
+					dest.Address = net.AnyIPv6
+				}
 			}
-			if dest.Address.Family().IsIP() {
-				sockopt.BindAddress = dest.Address.IP()
-				sockopt.BindPort = uint32(dest.Port)
+			addr := &net.UDPAddr{
+				IP:   dest.Address.IP(),
+				Port: int(dest.Port),
 			}
+			var mark int
 			if d.sockopt != nil {
-				sockopt.Mark = d.sockopt.Mark
+				mark = int(d.sockopt.Mark)
 			}
-			tConn, err := internet.DialSystem(ctx, net.DestinationFromAddr(conn.RemoteAddr()), sockopt)
+			pConn, err := DialUDP(addr, mark)
 			if err != nil {
 				return err
 			}
-			defer tConn.Close()
-
-			writer = &buf.SequentialWriter{Writer: tConn}
-			tReader := buf.NewPacketReader(tConn)
-			requestCount++
-			tproxyRequest = func() error {
-				defer func() {
-					if atomic.AddInt32(&requestCount, -1) == 0 {
-						timer.SetTimeout(plcy.Timeouts.DownlinkOnly)
-					}
-				}()
-				if err := buf.Copy(tReader, link.Writer, buf.UpdateActivity(timer)); err != nil {
-					return newError("failed to transport request (TPROXY conn)").Base(err)
-				}
-				return nil
-			}
+			writer = NewPacketWriter(pConn, &dest, mark, back)
+			defer writer.(*PacketWriter).Close()
 		}
 	}
 
@@ -220,5 +213,74 @@ func (d *Door) Process(ctx context.Context, network net.Network, conn internet.C
 		return newError("connection ends").Base(err)
 	}
 
+	return nil
+}
+
+func NewPacketWriter(conn net.PacketConn, dest *net.Destination, mark int, back *net.UDPAddr) buf.Writer {
+	writer := &PacketWriter{
+		conn:  conn,
+		conns: make(map[net.Destination]net.PacketConn),
+		mark:  mark,
+		back:  back,
+	}
+	writer.conns[*dest] = conn
+	return writer
+}
+
+type PacketWriter struct {
+	conn  net.PacketConn
+	conns map[net.Destination]net.PacketConn
+	mark  int
+	back  *net.UDPAddr
+}
+
+func (w *PacketWriter) WriteMultiBuffer(mb buf.MultiBuffer) error {
+	for _, buffer := range mb {
+		if buffer == nil {
+			continue
+		}
+		var err error
+		if buffer.Endpoint != nil && buffer.Endpoint.Address.Family().IsIP() {
+			conn := w.conns[*buffer.Endpoint]
+			if conn == nil {
+				conn, err = DialUDP(
+					&net.UDPAddr{
+						IP:   buffer.Endpoint.Address.IP(),
+						Port: int(buffer.Endpoint.Port),
+					},
+					w.mark,
+				)
+				if err != nil {
+					newError(err).WriteToLog()
+					buffer.Release()
+					continue
+				}
+				w.conns[*buffer.Endpoint] = conn
+			}
+			_, err = conn.WriteTo(buffer.Bytes(), w.back)
+			if err != nil {
+				newError(err).WriteToLog()
+				w.conns[*buffer.Endpoint] = nil
+				conn.Close()
+			}
+			buffer.Release()
+		} else {
+			_, err = w.conn.WriteTo(buffer.Bytes(), w.back)
+			buffer.Release()
+			if err != nil {
+				buf.ReleaseMulti(mb)
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func (w *PacketWriter) Close() error {
+	for _, conn := range w.conns {
+		if conn != nil {
+			conn.Close()
+		}
+	}
 	return nil
 }

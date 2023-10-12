@@ -3,6 +3,7 @@ package http
 import (
 	"context"
 	gotls "crypto/tls"
+	gonet "net"
 	"net/http"
 	"net/url"
 	"sync"
@@ -13,38 +14,48 @@ import (
 	"github.com/v2fly/v2ray-core/v5/common"
 	"github.com/v2fly/v2ray-core/v5/common/buf"
 	"github.com/v2fly/v2ray-core/v5/common/net"
+	"github.com/v2fly/v2ray-core/v5/common/net/cnc"
 	"github.com/v2fly/v2ray-core/v5/transport/internet"
-	"github.com/v2fly/v2ray-core/v5/transport/internet/tls"
+	"github.com/v2fly/v2ray-core/v5/transport/internet/reality"
+	"github.com/v2fly/v2ray-core/v5/transport/internet/security"
 	"github.com/v2fly/v2ray-core/v5/transport/pipe"
 )
 
+type dialerConf struct {
+	net.Destination
+	*internet.MemoryStreamConfig
+}
+
 var (
-	globalDialerMap    map[net.Destination]*http.Client
+	globalDialerMap    map[dialerConf]*http.Client
 	globalDialerAccess sync.Mutex
 )
 
 type dialerCanceller func()
 
-func getHTTPClient(ctx context.Context, dest net.Destination, tlsSettings *tls.Config, streamSettings *internet.MemoryStreamConfig) (*http.Client, dialerCanceller) {
+func getHTTPClient(ctx context.Context, dest net.Destination, streamSettings *internet.MemoryStreamConfig) (*http.Client, dialerCanceller) {
 	globalDialerAccess.Lock()
 	defer globalDialerAccess.Unlock()
 
 	canceller := func() {
 		globalDialerAccess.Lock()
 		defer globalDialerAccess.Unlock()
-		delete(globalDialerMap, dest)
+		delete(globalDialerMap, dialerConf{dest, streamSettings})
 	}
 
 	if globalDialerMap == nil {
-		globalDialerMap = make(map[net.Destination]*http.Client)
+		globalDialerMap = make(map[dialerConf]*http.Client)
 	}
 
-	if client, found := globalDialerMap[dest]; found {
+	if client, found := globalDialerMap[dialerConf{dest, streamSettings}]; found {
 		return client, canceller
 	}
 
+	securityEngine, _ := security.CreateSecurityEngineFromSettings(ctx, streamSettings)
+	realitySettings := reality.ConfigFromStreamSettings(streamSettings)
+
 	transport := &http2.Transport{
-		DialTLS: func(network string, addr string, tlsConfig *gotls.Config) (net.Conn, error) {
+		DialTLSContext: func(ctx context.Context, network, addr string, tlsConfig *gotls.Config) (gonet.Conn, error) {
 			rawHost, rawPort, err := net.SplitHostPort(addr)
 			if err != nil {
 				return nil, err
@@ -64,40 +75,43 @@ func getHTTPClient(ctx context.Context, dest net.Destination, tlsSettings *tls.C
 				return nil, err
 			}
 
-			cn := gotls.Client(pconn, tlsConfig)
-			if err := cn.Handshake(); err != nil {
+			if realitySettings != nil {
+				return reality.UClient(pconn, realitySettings, ctx, dest)
+			}
+
+			cn, err := securityEngine.Client(pconn, security.OptionWithDestination{Dest: dest})
+			if err != nil {
 				return nil, err
 			}
-			if !tlsConfig.InsecureSkipVerify {
-				if err := cn.VerifyHostname(tlsConfig.ServerName); err != nil {
-					return nil, err
-				}
+
+			p, err := cn.GetConnectionApplicationProtocol()
+			if err != nil {
+				return nil, err
 			}
-			state := cn.ConnectionState()
-			if p := state.NegotiatedProtocol; p != http2.NextProtoTLS {
+			if p != http2.NextProtoTLS {
 				return nil, newError("http2: unexpected ALPN protocol " + p + "; want q" + http2.NextProtoTLS).AtError()
 			}
 			return cn, nil
 		},
-		TLSClientConfig: tlsSettings.GetTLSConfig(tls.WithDestination(dest)),
 	}
 
 	client := &http.Client{
 		Transport: transport,
 	}
 
-	globalDialerMap[dest] = client
+	globalDialerMap[dialerConf{dest, streamSettings}] = client
 	return client, canceller
 }
 
 // Dial dials a new TCP connection to the given destination.
 func Dial(ctx context.Context, dest net.Destination, streamSettings *internet.MemoryStreamConfig) (internet.Connection, error) {
 	httpSettings := streamSettings.ProtocolSettings.(*Config)
-	tlsConfig := tls.ConfigFromStreamSettings(streamSettings)
-	if tlsConfig == nil {
-		return nil, newError("TLS must be enabled for http transport.").AtWarning()
+	securityEngine, _ := security.CreateSecurityEngineFromSettings(ctx, streamSettings)
+	realityConfig := reality.ConfigFromStreamSettings(streamSettings)
+	if securityEngine == nil && realityConfig == nil {
+		return nil, newError("TLS or REALITY must be enabled for http transport.").AtWarning()
 	}
-	client, canceller := getHTTPClient(ctx, dest, tlsConfig, streamSettings)
+	client, canceller := getHTTPClient(ctx, dest, streamSettings)
 
 	opts := pipe.OptionsFromContext(ctx)
 	preader, pwriter := pipe.New(opts...)
@@ -144,10 +158,10 @@ func Dial(ctx context.Context, dest net.Destination, streamSettings *internet.Me
 
 	bwriter := buf.NewBufferedWriter(pwriter)
 	common.Must(bwriter.SetBuffered(false))
-	return net.NewConnection(
-		net.ConnectionOutput(response.Body),
-		net.ConnectionInput(bwriter),
-		net.ConnectionOnClose(common.ChainedClosable{breader, bwriter, response.Body}),
+	return cnc.NewConnection(
+		cnc.ConnectionOutput(response.Body),
+		cnc.ConnectionInput(bwriter),
+		cnc.ConnectionOnClose(common.ChainedClosable{breader, bwriter, response.Body}),
 	), nil
 }
 

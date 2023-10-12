@@ -6,11 +6,13 @@ import (
 	core "github.com/v2fly/v2ray-core/v5"
 	"github.com/v2fly/v2ray-core/v5/app/proxyman"
 	"github.com/v2fly/v2ray-core/v5/common"
+	"github.com/v2fly/v2ray-core/v5/common/buf"
 	"github.com/v2fly/v2ray-core/v5/common/dice"
 	"github.com/v2fly/v2ray-core/v5/common/environment"
 	"github.com/v2fly/v2ray-core/v5/common/environment/envctx"
 	"github.com/v2fly/v2ray-core/v5/common/mux"
 	"github.com/v2fly/v2ray-core/v5/common/net"
+	"github.com/v2fly/v2ray-core/v5/common/net/cnc"
 	"github.com/v2fly/v2ray-core/v5/common/net/packetaddr"
 	"github.com/v2fly/v2ray-core/v5/common/serial"
 	"github.com/v2fly/v2ray-core/v5/common/session"
@@ -52,16 +54,17 @@ func getStatCounter(v *core.Instance, tag string) (stats.Counter, stats.Counter)
 
 // Handler is an implements of outbound.Handler.
 type Handler struct {
-	ctx             context.Context
-	tag             string
-	senderSettings  *proxyman.SenderConfig
-	streamSettings  *internet.MemoryStreamConfig
-	proxy           proxy.Outbound
-	outboundManager outbound.Manager
-	mux             *mux.ClientManager
-	uplinkCounter   stats.Counter
-	downlinkCounter stats.Counter
-	dns             dns.Client
+	ctx               context.Context
+	tag               string
+	senderSettings    *proxyman.SenderConfig
+	streamSettings    *internet.MemoryStreamConfig
+	proxy             proxy.Outbound
+	outboundManager   outbound.Manager
+	mux               *mux.ClientManager
+	uplinkCounter     stats.Counter
+	downlinkCounter   stats.Counter
+	dns               dns.Client
+	muxPacketEncoding packetaddr.PacketAddrType
 }
 
 // NewHandler create a new Handler based on the given configuration.
@@ -114,6 +117,7 @@ func NewHandler(ctx context.Context, config *core.OutboundHandlerConfig) (outbou
 		if config.Concurrency < 1 || config.Concurrency > 1024 {
 			return nil, newError("invalid mux concurrency: ", config.Concurrency).AtWarning()
 		}
+		h.muxPacketEncoding = h.senderSettings.MultiplexSettings.PacketEncoding
 		h.mux = &mux.ClientManager{
 			Enabled: h.senderSettings.MultiplexSettings.Enabled,
 			Picker: &mux.IncrementalWorkerPicker{
@@ -151,7 +155,40 @@ func (h *Handler) Tag() string {
 
 // Dispatch implements proxy.Outbound.Dispatch.
 func (h *Handler) Dispatch(ctx context.Context, link *transport.Link) {
+	outbound := session.OutboundFromContext(ctx)
+	if outbound == nil {
+		outbound = new(session.Outbound)
+		ctx = session.ContextWithOutbound(ctx, outbound)
+	}
+	if h.senderSettings != nil && h.senderSettings.DomainStrategy != proxyman.SenderConfig_AS_IS {
+		if outbound.Target.Address != nil && outbound.Target.Address.Family().IsDomain() {
+			if addr := h.resolveIP(ctx, outbound.Target.Address.Domain(), h.Address()); addr != nil {
+				outbound.Target.Address = addr
+			}
+		}
+	}
+	if outbound.Target.Network == net.Network_UDP && outbound.OriginalTarget.Address != nil && outbound.OriginalTarget.Address != outbound.Target.Address {
+		link.Reader = &buf.EndpointOverrideReader{Reader: link.Reader, Dest: outbound.Target.Address, OriginalDest: outbound.OriginalTarget.Address}
+		link.Writer = &buf.EndpointOverrideWriter{Writer: link.Writer, Dest: outbound.Target.Address, OriginalDest: outbound.OriginalTarget.Address}
+	}
 	if h.mux != nil && (h.mux.Enabled || session.MuxPreferedFromContext(ctx)) {
+		if outbound.Target.Network == net.Network_UDP {
+			switch h.muxPacketEncoding {
+			case packetaddr.PacketAddrType_None:
+				link.Reader = &buf.EndpointErasureReader{Reader: link.Reader}
+				link.Writer = &buf.EndpointErasureWriter{Writer: link.Writer}
+			case packetaddr.PacketAddrType_XUDP:
+				break
+			case packetaddr.PacketAddrType_Packet:
+				link.Reader = packetaddr.NewReversePacketReader(link.Reader, outbound.Target)
+				link.Writer = packetaddr.NewReversePacketWriter(link.Writer)
+				outbound.Target = net.Destination{
+					Network: net.Network_UDP,
+					Address: net.DomainAddress(packetaddr.SeqPacketMagicAddress),
+					Port:    0,
+				}
+			}
+		}
 		if err := h.mux.Dispatch(ctx, link); err != nil {
 			err := newError("failed to process mux outbound traffic").Base(err)
 			session.SubmitOutboundErrorToOriginator(ctx, err)
@@ -197,7 +234,7 @@ func (h *Handler) Dial(ctx context.Context, dest net.Destination) (internet.Conn
 				downlinkReader, downlinkWriter := pipe.New(opts...)
 
 				go handler.Dispatch(ctx, &transport.Link{Reader: uplinkReader, Writer: downlinkWriter})
-				conn := net.NewConnection(net.ConnectionInputMulti(uplinkWriter), net.ConnectionOutputMulti(downlinkReader))
+				conn := cnc.NewConnection(cnc.ConnectionInputMulti(uplinkWriter), cnc.ConnectionOutputMulti(downlinkReader))
 
 				securityEngine, err := security.CreateSecurityEngineFromSettings(ctx, h.streamSettings)
 				if err != nil {
@@ -268,8 +305,8 @@ func (h *Handler) Dial(ctx context.Context, dest net.Destination) (internet.Conn
 func (h *Handler) resolveIP(ctx context.Context, domain string, localAddr net.Address) net.Address {
 	strategy := h.senderSettings.DomainStrategy
 	ips, err := dns.LookupIPWithOption(h.dns, domain, dns.IPOption{
-		IPv4Enable: strategy == proxyman.SenderConfig_USE_IP || strategy == proxyman.SenderConfig_USE_IP4 || (localAddr != nil && localAddr.Family().IsIPv4()),
-		IPv6Enable: strategy == proxyman.SenderConfig_USE_IP || strategy == proxyman.SenderConfig_USE_IP6 || (localAddr != nil && localAddr.Family().IsIPv6()),
+		IPv4Enable: strategy != proxyman.SenderConfig_USE_IP6 || (localAddr != nil && localAddr.Family().IsIPv4()),
+		IPv6Enable: strategy != proxyman.SenderConfig_USE_IP4 || (localAddr != nil && localAddr.Family().IsIPv6()),
 		FakeEnable: false,
 	})
 	if err != nil {
@@ -277,6 +314,20 @@ func (h *Handler) resolveIP(ctx context.Context, domain string, localAddr net.Ad
 	}
 	if len(ips) == 0 {
 		return nil
+	}
+	switch strategy {
+	case proxyman.SenderConfig_PREFER_IP4:
+		for _, ip := range ips {
+			if len(ip) == net.IPv4len {
+				return net.IPAddress(ip)
+			}
+		}
+	case proxyman.SenderConfig_PREFER_IP6:
+		for _, ip := range ips {
+			if len(ip) == net.IPv6len {
+				return net.IPAddress(ip)
+			}
+		}
 	}
 	return net.IPAddress(ips[dice.Roll(len(ips))])
 }

@@ -43,12 +43,21 @@ type Inbound struct {
 	Tag string
 	// User is the user that authencates for the inbound. May be nil if the protocol allows anounymous traffic.
 	User *protocol.MemoryUser
+	// Conn is actually internet.Connection. May be nil.
+	Conn net.Conn
+
+	// SagerNet private
+	Uid         uint32 // nolint: stylecheck
+	NetworkType string
+	WifiSSID    string
 }
 
 // Outbound is the metadata of an outbound connection.
 type Outbound struct {
 	// Target address of the outbound connection.
-	Target net.Destination
+	OriginalTarget net.Destination
+	Target         net.Destination
+	RouteTarget    net.Destination
 	// Gateway address
 	Gateway net.Address
 	// Domain resolver to use when dialing
@@ -60,6 +69,7 @@ type SniffingRequest struct {
 	OverrideDestinationForProtocol []string
 	Enabled                        bool
 	MetadataOnly                   bool
+	RouteOnly                      bool
 }
 
 // Content is the metadata of the connection content.

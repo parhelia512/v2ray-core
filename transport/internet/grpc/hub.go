@@ -6,6 +6,7 @@ package grpc
 import (
 	"context"
 
+	goreality "github.com/xtls/reality"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 
@@ -14,8 +15,11 @@ import (
 	"github.com/v2fly/v2ray-core/v5/common/session"
 	"github.com/v2fly/v2ray-core/v5/transport/internet"
 	"github.com/v2fly/v2ray-core/v5/transport/internet/grpc/encoding"
+	"github.com/v2fly/v2ray-core/v5/transport/internet/reality"
 	"github.com/v2fly/v2ray-core/v5/transport/internet/tls"
 )
+
+var _ encoding.GunServiceServer = (*Listener)(nil)
 
 type Listener struct {
 	encoding.UnimplementedGunServiceServer
@@ -23,7 +27,6 @@ type Listener struct {
 	handler internet.ConnHandler
 	local   net.Addr
 	config  *Config
-	locker  *internet.FileLocker // for unix domain socket
 
 	s *grpc.Server
 }
@@ -33,6 +36,17 @@ func (l Listener) Tun(server encoding.GunService_TunServer) error {
 	l.handler(encoding.NewGunConn(server, cancel))
 	<-tunCtx.Done()
 	return nil
+}
+
+func (l Listener) TunMulti(server encoding.GunService_TunMultiServer) error {
+	conn, done := encoding.NewMultiConn(server)
+	l.handler(conn)
+	<-done
+	return nil
+}
+
+func (l Listener) HandleConn(connection internet.Connection) {
+	l.handler(connection)
 }
 
 func (l Listener) Close() error {
@@ -70,6 +84,7 @@ func Listen(ctx context.Context, address net.Address, port net.Port, settings *i
 	listener.ctx = ctx
 
 	config := tls.ConfigFromStreamSettings(settings)
+	realityConfig := reality.ConfigFromStreamSettings(settings)
 
 	var s *grpc.Server
 	if config == nil {
@@ -96,10 +111,6 @@ func Listen(ctx context.Context, address net.Address, port net.Port, settings *i
 				newError("failed to listen on ", address).Base(err).AtError().WriteToLog(session.ExportIDToError(ctx))
 				return
 			}
-			locker := ctx.Value(address.Domain())
-			if locker != nil {
-				listener.locker = locker.(*internet.FileLocker)
-			}
 		} else { // tcp
 			streamListener, err = internet.ListenSystem(ctx, &net.TCPAddr{
 				IP:   address.IP(),
@@ -112,6 +123,10 @@ func Listen(ctx context.Context, address net.Address, port net.Port, settings *i
 		}
 
 		encoding.RegisterGunServiceServerX(s, listener, grpcSettings.ServiceName)
+
+		if realityConfig != nil {
+			streamListener = goreality.NewListener(streamListener, realityConfig.GetREALITYConfig())
+		}
 
 		if err = s.Serve(streamListener); err != nil {
 			newError("Listener for grpc ended").Base(err).WriteToLog()

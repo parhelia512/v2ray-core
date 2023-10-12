@@ -70,7 +70,12 @@ func (ctx *Context) GetTargetDomain() string {
 	if ctx.Outbound == nil || !ctx.Outbound.Target.IsValid() {
 		return ""
 	}
-	dest := ctx.Outbound.Target
+	dest := ctx.Outbound.RouteTarget
+	if dest.IsValid() && dest.Address.Family().IsDomain() {
+		return dest.Address.Domain()
+	}
+
+	dest = ctx.Outbound.Target
 	if !dest.Address.Family().IsDomain() {
 		return ""
 	}
@@ -115,6 +120,28 @@ func (ctx *Context) GetSkipDNSResolve() bool {
 		return false
 	}
 	return ctx.Content.SkipDNSResolve
+}
+
+// GetUid implements routing.Context.
+func (ctx *Context) GetUid() uint32 { // nolint: stylecheck
+	if ctx.Inbound == nil {
+		return 0
+	}
+	return ctx.Inbound.Uid
+}
+
+func (ctx *Context) GetWifiSsid() string {
+	if ctx.Inbound == nil {
+		return ""
+	}
+	return ctx.Inbound.WifiSSID
+}
+
+func (ctx *Context) GetNetworkType() string {
+	if ctx.Inbound == nil {
+		return ""
+	}
+	return ctx.Inbound.NetworkType
 }
 
 // AsRoutingContext creates a context from context.context with session info.

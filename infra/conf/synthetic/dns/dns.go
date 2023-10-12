@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/v2fly/v2ray-core/v5/app/dns"
@@ -34,38 +35,50 @@ type NameServerConfig struct {
 	cfgctx context.Context
 }
 
-func (c *NameServerConfig) UnmarshalJSON(data []byte) error {
+func (c *NameServerConfig) UnmarshalJSON(data []byte) (err error) {
 	var address cfgcommon.Address
-	if err := json.Unmarshal(data, &address); err == nil {
+	if err = json.Unmarshal(data, &address); err == nil {
 		c.Address = &address
-		return nil
+	} else {
+		var advanced struct {
+			Address          *cfgcommon.Address   `json:"address"`
+			ClientIP         *cfgcommon.Address   `json:"clientIp"`
+			Port             uint16               `json:"port"`
+			Tag              string               `json:"tag"`
+			QueryStrategy    string               `json:"queryStrategy"`
+			CacheStrategy    string               `json:"cacheStrategy"`
+			FallbackStrategy string               `json:"fallbackStrategy"`
+			SkipFallback     bool                 `json:"skipFallback"`
+			Domains          []string             `json:"domains"`
+			ExpectIPs        cfgcommon.StringList `json:"expectIps"`
+			FakeDNS          FakeDNSConfigExtend  `json:"fakedns"`
+		}
+		if err = json.Unmarshal(data, &advanced); err == nil {
+			c.Address = advanced.Address
+			c.ClientIP = advanced.ClientIP
+			c.Port = advanced.Port
+			c.Tag = advanced.Tag
+			c.QueryStrategy = advanced.QueryStrategy
+			c.CacheStrategy = advanced.CacheStrategy
+			c.FallbackStrategy = advanced.FallbackStrategy
+			c.SkipFallback = advanced.SkipFallback
+			c.Domains = advanced.Domains
+			c.ExpectIPs = advanced.ExpectIPs
+			c.FakeDNS = advanced.FakeDNS
+			return nil
+		}
 	}
 
-	var advanced struct {
-		Address          *cfgcommon.Address   `json:"address"`
-		ClientIP         *cfgcommon.Address   `json:"clientIp"`
-		Port             uint16               `json:"port"`
-		Tag              string               `json:"tag"`
-		QueryStrategy    string               `json:"queryStrategy"`
-		CacheStrategy    string               `json:"cacheStrategy"`
-		FallbackStrategy string               `json:"fallbackStrategy"`
-		SkipFallback     bool                 `json:"skipFallback"`
-		Domains          []string             `json:"domains"`
-		ExpectIPs        cfgcommon.StringList `json:"expectIps"`
-		FakeDNS          FakeDNSConfigExtend  `json:"fakedns"`
-	}
-	if err := json.Unmarshal(data, &advanced); err == nil {
-		c.Address = advanced.Address
-		c.ClientIP = advanced.ClientIP
-		c.Port = advanced.Port
-		c.Tag = advanced.Tag
-		c.QueryStrategy = advanced.QueryStrategy
-		c.CacheStrategy = advanced.CacheStrategy
-		c.FallbackStrategy = advanced.FallbackStrategy
-		c.SkipFallback = advanced.SkipFallback
-		c.Domains = advanced.Domains
-		c.ExpectIPs = advanced.ExpectIPs
-		c.FakeDNS = advanced.FakeDNS
+	if err == nil {
+		if c.Port == 0 && c.Address.Family().IsDomain() {
+			if host, port, err := net.SplitHostPort(c.Address.Domain()); err == nil {
+				port, err := strconv.Atoi(port)
+				if err == nil {
+					c.Address = &cfgcommon.Address{Address: net.ParseAddress(host)}
+					c.Port = uint16(port)
+				}
+			}
+		}
 		return nil
 	}
 
@@ -276,7 +289,7 @@ func (c *DNSConfig) Build() (*dns.Config, error) {
 		c.cfgctx = cfgcommon.NewConfigureLoadingContext(context.Background())
 
 		geoloadername := platform.NewEnvFlag("v2ray.conf.geoloader").GetValue(func() string {
-			return "standard"
+			return "memconservative"
 		})
 
 		if loader, err := geodata.GetGeoDataLoader(geoloadername); err == nil {

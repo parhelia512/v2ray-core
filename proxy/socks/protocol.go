@@ -195,12 +195,9 @@ func (s *ServerSession) handshake5(nMethod byte, reader io.Reader, writer io.Wri
 		if s.config.Address != nil {
 			// Use configured IP as remote address in the response to UdpAssociate
 			responseAddress = s.config.Address.AsAddress()
-		} else if s.clientAddress == net.LocalHostIP || s.clientAddress == net.LocalHostIPv6 {
-			// For localhost clients use loopback IP
-			responseAddress = s.clientAddress
 		} else {
-			// For non-localhost clients use inbound listening address
-			responseAddress = s.address
+			// Use conn.LocalAddr() IP as remote address in the response by default
+			responseAddress = s.clientAddress
 		}
 	}
 	if err := writeSocks5Response(writer, statusSuccess, responseAddress, responsePort); err != nil {
@@ -384,9 +381,12 @@ func (r *UDPReader) ReadMultiBuffer() (buf.MultiBuffer, error) {
 	if _, err := b.ReadFrom(r.reader); err != nil {
 		return nil, err
 	}
-	if _, err := DecodeUDPPacket(b); err != nil {
+	req, err := DecodeUDPPacket(b)
+	if err != nil {
 		return nil, err
 	}
+	dest := req.Destination()
+	b.Endpoint = &dest
 	return buf.MultiBuffer{b}, nil
 }
 
@@ -419,17 +419,34 @@ func NewUDPWriter(request *protocol.RequestHeader, writer io.Writer) *UDPWriter 
 	}
 }
 
-// Write implements io.Writer.
-func (w *UDPWriter) Write(b []byte) (int, error) {
-	eb, err := EncodeUDPPacket(w.request, b)
-	if err != nil {
-		return 0, err
+func (w *UDPWriter) WriteMultiBuffer(mb buf.MultiBuffer) error {
+	for _, b := range mb {
+		if b == nil {
+			continue
+		}
+		request := w.request
+		if b.Endpoint != nil {
+			request = &protocol.RequestHeader{
+				Version: socks5Version,
+				Command: protocol.RequestCommandUDP,
+				Address: b.Endpoint.Address,
+				Port:    b.Endpoint.Port,
+			}
+		}
+		packet, err := EncodeUDPPacket(request, b.Bytes())
+		b.Release()
+		if err != nil {
+			buf.ReleaseMulti(mb)
+			return err
+		}
+		_, err = w.writer.Write(packet.Bytes())
+		packet.Release()
+		if err != nil {
+			buf.ReleaseMulti(mb)
+			return err
+		}
 	}
-	defer eb.Release()
-	if _, err := w.writer.Write(eb.Bytes()); err != nil {
-		return 0, err
-	}
-	return len(b), nil
+	return nil
 }
 
 func (w *UDPWriter) WriteTo(payload []byte, addr gonet.Addr) (n int, err error) {
@@ -457,16 +474,6 @@ func ClientHandshake(request *protocol.RequestHeader, reader io.Reader, writer i
 	defer b.Release()
 
 	common.Must2(b.Write([]byte{socks5Version, 0x01, authByte}))
-	if authByte == authPassword {
-		account := request.User.Account.(*Account)
-
-		common.Must(b.WriteByte(0x01))
-		common.Must(b.WriteByte(byte(len(account.Username))))
-		common.Must2(b.WriteString(account.Username))
-		common.Must(b.WriteByte(byte(len(account.Password))))
-		common.Must2(b.WriteString(account.Password))
-	}
-
 	if err := buf.WriteAllBytes(writer, b.Bytes()); err != nil {
 		return nil, err
 	}
@@ -485,6 +492,17 @@ func ClientHandshake(request *protocol.RequestHeader, reader io.Reader, writer i
 
 	if authByte == authPassword {
 		b.Clear()
+		account := request.User.Account.(*Account)
+		common.Must(b.WriteByte(0x01))
+		common.Must(b.WriteByte(byte(len(account.Username))))
+		common.Must2(b.WriteString(account.Username))
+		common.Must(b.WriteByte(byte(len(account.Password))))
+		common.Must2(b.WriteString(account.Password))
+		if err := buf.WriteAllBytes(writer, b.Bytes()); err != nil {
+			return nil, err
+		}
+
+		b.Clear()
 		if _, err := b.ReadFullFrom(reader, 2); err != nil {
 			return nil, err
 		}
@@ -500,7 +518,9 @@ func ClientHandshake(request *protocol.RequestHeader, reader io.Reader, writer i
 		command = byte(cmdUDPAssociate)
 	}
 	common.Must2(b.Write([]byte{socks5Version, command, 0x00 /* reserved */}))
-	if err := addrParser.WriteAddressPort(b, request.Address, request.Port); err != nil {
+	if request.Command == protocol.RequestCommandUDP {
+		common.Must2(b.Write([]byte{1, 0, 0, 0, 0, 0, 0 /* RFC 1928 */}))
+	} else if err := addrParser.WriteAddressPort(b, request.Address, request.Port); err != nil {
 		return nil, err
 	}
 

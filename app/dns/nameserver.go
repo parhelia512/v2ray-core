@@ -25,6 +25,13 @@ type Server interface {
 	QueryIP(ctx context.Context, domain string, clientIP net.IP, option dns.IPOption, disableCache bool) ([]net.IP, error)
 }
 
+// ServerWithTTL is the interface for Name Server with TTL information.
+type ServerWithTTL interface {
+	Server
+	// QueryIPWithTTL sends IP queries to its configured server.
+	QueryIPWithTTL(ctx context.Context, domain string, clientIP net.IP, option dns.IPOption, disableCache bool) ([]net.IP, uint32, time.Time, error)
+}
+
 // Client is the interface for DNS client.
 type Client struct {
 	server   Server
@@ -68,8 +75,24 @@ func NewServer(ctx context.Context, dest net.Destination, onCreated func(Server)
 			return core.RequireFeatures(ctx, func(dispatcher routing.Dispatcher) error { return onCreatedWithError(NewTCPNameServer(u, dispatcher)) })
 		case strings.EqualFold(u.Scheme, "tcp+local"): // DNS-over-TCP Local mode
 			return onCreatedWithError(NewTCPLocalNameServer(u))
+		case strings.EqualFold(u.Scheme, "quic"): // DNS-over-QUIC Remote mode
+			return core.RequireFeatures(ctx, func(dispatcher routing.Dispatcher) error {
+				return onCreatedWithError(NewQUICRemoteNameServer(u, dispatcher))
+			})
 		case strings.EqualFold(u.Scheme, "quic+local"): // DNS-over-QUIC Local mode
 			return onCreatedWithError(NewQUICNameServer(u))
+		case strings.EqualFold(u.Scheme, "udp"): // UDP classic DNS Remote mode
+			return core.RequireFeatures(ctx, func(dispatcher routing.Dispatcher) error { return onCreatedWithError(NewUDPNameServer(u, dispatcher)) })
+		case strings.EqualFold(u.Scheme, "udp+local"): // UDP classic DNS Local mode
+			return onCreatedWithError(NewUDPLocalNameServer(u))
+		case strings.EqualFold(u.Scheme, "tls"): // DOT Remote mode
+			return core.RequireFeatures(ctx, func(dispatcher routing.Dispatcher) error { return onCreatedWithError(NewDoTNameServer(u, dispatcher)) })
+		case strings.EqualFold(u.Scheme, "tls+local"): // DOT Local mode
+			return onCreatedWithError(NewDoTLocalNameServer(u))
+		case strings.EqualFold(u.Scheme, "h3"): // H3 Remote mode
+			return core.RequireFeatures(ctx, func(dispatcher routing.Dispatcher) error { return onCreatedWithError(NewH3NameServer(u, dispatcher)) })
+		case strings.EqualFold(u.Scheme, "h3+local"): // H3 Local mode
+			return onCreated(NewH3LocalNameServer(u))
 		}
 	}
 	if dest.Network == net.Network_Unknown {
@@ -180,10 +203,16 @@ func (c *Client) Name() string {
 
 // QueryIP send DNS query to the name server with the client's IP and IP options.
 func (c *Client) QueryIP(ctx context.Context, domain string, option dns.IPOption) ([]net.IP, error) {
+	ips, _, _, err := c.QueryIPWithTTL(ctx, domain, option)
+	return ips, err
+}
+
+// QueryIPWithTTL send DNS query to the name server with the client's IP and IP options, with TTL information returned.
+func (c *Client) QueryIPWithTTL(ctx context.Context, domain string, option dns.IPOption) ([]net.IP, uint32, time.Time, error) {
 	queryOption := option.With(c.queryStrategy)
 	if !queryOption.IsValid() {
 		newError(c.server.Name(), " returns empty answer: ", domain, ". ", toReqTypes(option)).AtInfo().WriteToLog()
-		return nil, dns.ErrEmptyResponse
+		return nil, 0, time.Time{}, dns.ErrEmptyResponse
 	}
 	server := c.server
 	if queryOption.FakeEnable && c.fakeDNS != nil {
@@ -193,13 +222,22 @@ func (c *Client) QueryIP(ctx context.Context, domain string, option dns.IPOption
 
 	ctx = session.ContextWithInbound(ctx, &session.Inbound{Tag: c.tag})
 	ctx, cancel := context.WithTimeout(ctx, 4*time.Second)
-	ips, err := server.QueryIP(ctx, domain, c.clientIP, queryOption, disableCache)
+	var ips []net.IP
+	var ttl uint32 = 600
+	var expireAt time.Time
+	var err error
+	if serverWithTTL, ok := server.(ServerWithTTL); ok {
+		ips, ttl, expireAt, err = serverWithTTL.QueryIPWithTTL(ctx, domain, c.clientIP, queryOption, disableCache)
+	} else {
+		ips, err = server.QueryIP(ctx, domain, c.clientIP, queryOption, disableCache)
+	}
 	cancel()
 
 	if err != nil || queryOption.FakeEnable {
-		return ips, err
+		return ips, ttl, expireAt, err
 	}
-	return c.MatchExpectedIPs(domain, ips)
+	ips, err = c.MatchExpectedIPs(domain, ips)
+	return ips, ttl, expireAt, err
 }
 
 // MatchExpectedIPs matches queried domain IPs with expected IPs and returns matched ones.
