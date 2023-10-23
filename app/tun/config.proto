@@ -8,13 +8,14 @@ option java_multiple_files = true;
 
 
 import "app/router/config.proto";
+import "common/net/packetaddr/config.proto";
 import "transport/internet/config.proto";
 
 message Config {
     string name = 1;
     uint32 mtu = 2;
     uint32 user_level = 3;
-    reserved 4; // Reserved for PacketEncode
+    v2ray.core.net.packetaddr.PacketAddrType packet_encoding = 4;
     string tag = 5;
     repeated v2ray.core.app.router.CIDR ips = 6;
     repeated v2ray.core.app.router.CIDR routes = 7;
