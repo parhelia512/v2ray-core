@@ -4,12 +4,13 @@
 package tun
 
 import (
-	"github.com/v2fly/v2ray-core/v4/app/router"
 	"gvisor.dev/gvisor/pkg/tcpip"
 	"gvisor.dev/gvisor/pkg/tcpip/network/ipv4"
 	"gvisor.dev/gvisor/pkg/tcpip/network/ipv6"
 	"gvisor.dev/gvisor/pkg/tcpip/stack"
 	"gvisor.dev/gvisor/pkg/tcpip/transport/tcp"
+
+	"github.com/v2fly/v2ray-core/v4/app/router"
 )
 
 func CreateNIC(id tcpip.NICID, linkEndpoint stack.LinkEndpoint) StackOption {

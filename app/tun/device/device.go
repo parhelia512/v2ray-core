@@ -4,8 +4,9 @@
 package device
 
 import (
-	"github.com/v2fly/v2ray-core/v4/common"
 	"gvisor.dev/gvisor/pkg/tcpip/stack"
+
+	"github.com/v2fly/v2ray-core/v4/common"
 )
 
 //go:generate go run github.com/v2fly/v2ray-core/v4/common/errors/errorgen

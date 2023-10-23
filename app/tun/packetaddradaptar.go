@@ -4,10 +4,11 @@
 package tun
 
 import (
-	"github.com/v2fly/v2ray-core/v4/app/tun/device"
-	"github.com/v2fly/v2ray-core/v4/app/tun/tunsorter"
 	"gvisor.dev/gvisor/pkg/tcpip"
 	"gvisor.dev/gvisor/pkg/tcpip/stack"
+
+	"github.com/v2fly/v2ray-core/v4/app/tun/device"
+	"github.com/v2fly/v2ray-core/v4/app/tun/tunsorter"
 )
 
 func NewDeviceWithSorter(overlay device.Device, sorter *tunsorter.TunSorter) device.Device {
@@ -33,7 +34,7 @@ func (p *packetAddrDevice) DeliverNetworkPacket(protocol tcpip.NetworkProtocolNu
 }
 
 func (p *packetAddrDevice) DeliverLinkPacket(protocol tcpip.NetworkProtocolNumber, pkt stack.PacketBufferPtr) {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 

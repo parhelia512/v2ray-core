@@ -6,11 +6,14 @@ package packetparse
 import (
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
+
 	"github.com/v2fly/v2ray-core/v4/common/net"
 )
 
-var errNotIPPacket = newError("not an IP packet")
-var errNotUDPPacket = newError("not a UDP packet")
+var (
+	errNotIPPacket  = newError("not an IP packet")
+	errNotUDPPacket = newError("not a UDP packet")
+)
 
 var nullDestination = net.UnixDestination(net.DomainAddress("null"))
 
@@ -59,7 +62,7 @@ func TryParseAsUDPPacket(packet []byte) (src, dst net.Destination, data []byte, 
 	src = net.UDPDestination(srcIP, srcPort)
 	dst = net.UDPDestination(dstIP, dstPort)
 	data = udp.Payload
-	return
+	return // nolint: nakedret
 }
 
 func TryConstructUDPPacket(src, dst net.Destination, data []byte) ([]byte, error) {

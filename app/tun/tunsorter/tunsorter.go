@@ -5,6 +5,9 @@ package tunsorter
 
 import (
 	"context"
+	"io"
+	"sync"
+
 	"github.com/v2fly/v2ray-core/v4/app/tun/packetparse"
 	"github.com/v2fly/v2ray-core/v4/common/buf"
 	"github.com/v2fly/v2ray-core/v4/common/net"
@@ -12,8 +15,6 @@ import (
 	vudp "github.com/v2fly/v2ray-core/v4/common/protocol/udp"
 	"github.com/v2fly/v2ray-core/v4/features/routing"
 	"github.com/v2fly/v2ray-core/v4/transport/internet/udp"
-	"io"
-	"sync"
 )
 
 //go:generate go run github.com/v2fly/v2ray-core/v4/common/errors/errorgen
@@ -53,9 +54,9 @@ func (t *TunSorter) OnPacketReceived(b []byte) (n int, err error) {
 
 func (t *TunSorter) onNewConnection(connection *trackedUDPConnection) {
 	udpDispatcherConstructor := udp.NewSplitDispatcher
-	switch t.packetAddrType {
+	switch t.packetAddrType { // nolint: gocritic
 	case packetaddr.PacketAddrType_Packet:
-		ctx := context.WithValue(t.ctx, udp.DispatcherConnectionTerminationSignalReceiverMark, connection)
+		ctx := context.WithValue(t.ctx, udp.DispatcherConnectionTerminationSignalReceiverMark, connection) // nolint:staticcheck
 		packetAddrDispatcherFactory := udp.NewPacketAddrDispatcherCreator(ctx)
 		udpDispatcherConstructor = packetAddrDispatcherFactory.NewPacketAddrDispatcher
 	}
