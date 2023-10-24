@@ -481,7 +481,7 @@ type RoutingRule struct {
 	// List of CIDRs for target IP address matching.
 	// Deprecated. Use geoip below.
 	//
-	// Deprecated: Do not use.
+	// Deprecated: Marked as deprecated in app/router/config.proto.
 	Cidr []*CIDR `protobuf:"bytes,3,rep,name=cidr,proto3" json:"cidr,omitempty"`
 	// List of GeoIPs for target IP address matching. If this entry exists, the
 	// cidr above will have no effect. GeoIP fields with the same country code are
@@ -491,19 +491,19 @@ type RoutingRule struct {
 	// A range of port [from, to]. If the destination port is in this range, this
 	// rule takes effect. Deprecated. Use port_list.
 	//
-	// Deprecated: Do not use.
+	// Deprecated: Marked as deprecated in app/router/config.proto.
 	PortRange *net.PortRange `protobuf:"bytes,4,opt,name=port_range,json=portRange,proto3" json:"port_range,omitempty"`
 	// List of ports.
 	PortList *net.PortList `protobuf:"bytes,14,opt,name=port_list,json=portList,proto3" json:"port_list,omitempty"`
 	// List of networks. Deprecated. Use networks.
 	//
-	// Deprecated: Do not use.
+	// Deprecated: Marked as deprecated in app/router/config.proto.
 	NetworkList *net.NetworkList `protobuf:"bytes,5,opt,name=network_list,json=networkList,proto3" json:"network_list,omitempty"`
 	// List of networks for matching.
 	Networks []net.Network `protobuf:"varint,13,rep,packed,name=networks,proto3,enum=v2ray.core.common.net.Network" json:"networks,omitempty"`
 	// List of CIDRs for source IP address matching.
 	//
-	// Deprecated: Do not use.
+	// Deprecated: Marked as deprecated in app/router/config.proto.
 	SourceCidr []*CIDR `protobuf:"bytes,6,rep,name=source_cidr,json=sourceCidr,proto3" json:"source_cidr,omitempty"`
 	// List of GeoIPs for source IP address matching. If this entry exists, the
 	// source_cidr above will have no effect.
@@ -577,7 +577,7 @@ func (x *RoutingRule) GetDomain() []*Domain {
 	return nil
 }
 
-// Deprecated: Do not use.
+// Deprecated: Marked as deprecated in app/router/config.proto.
 func (x *RoutingRule) GetCidr() []*CIDR {
 	if x != nil {
 		return x.Cidr
@@ -592,7 +592,7 @@ func (x *RoutingRule) GetGeoip() []*GeoIP {
 	return nil
 }
 
-// Deprecated: Do not use.
+// Deprecated: Marked as deprecated in app/router/config.proto.
 func (x *RoutingRule) GetPortRange() *net.PortRange {
 	if x != nil {
 		return x.PortRange
@@ -607,7 +607,7 @@ func (x *RoutingRule) GetPortList() *net.PortList {
 	return nil
 }
 
-// Deprecated: Do not use.
+// Deprecated: Marked as deprecated in app/router/config.proto.
 func (x *RoutingRule) GetNetworkList() *net.NetworkList {
 	if x != nil {
 		return x.NetworkList
@@ -622,7 +622,7 @@ func (x *RoutingRule) GetNetworks() []net.Network {
 	return nil
 }
 
-// Deprecated: Do not use.
+// Deprecated: Marked as deprecated in app/router/config.proto.
 func (x *RoutingRule) GetSourceCidr() []*CIDR {
 	if x != nil {
 		return x.SourceCidr

@@ -227,7 +227,7 @@ type NameServer struct {
 	FakeDns           *fakedns.FakeDnsPoolMulti    `protobuf:"bytes,11,opt,name=fake_dns,json=fakeDns,proto3" json:"fake_dns,omitempty"`
 	// Deprecated. Use fallback_strategy.
 	//
-	// Deprecated: Do not use.
+	// Deprecated: Marked as deprecated in app/dns/config.proto.
 	SkipFallback     bool              `protobuf:"varint,6,opt,name=skipFallback,proto3" json:"skipFallback,omitempty"`
 	QueryStrategy    *QueryStrategy    `protobuf:"varint,8,opt,name=query_strategy,json=queryStrategy,proto3,enum=v2ray.core.app.dns.QueryStrategy,oneof" json:"query_strategy,omitempty"`
 	CacheStrategy    *CacheStrategy    `protobuf:"varint,9,opt,name=cache_strategy,json=cacheStrategy,proto3,enum=v2ray.core.app.dns.CacheStrategy,oneof" json:"cache_strategy,omitempty"`
@@ -315,7 +315,7 @@ func (x *NameServer) GetFakeDns() *fakedns.FakeDnsPoolMulti {
 	return nil
 }
 
-// Deprecated: Do not use.
+// Deprecated: Marked as deprecated in app/dns/config.proto.
 func (x *NameServer) GetSkipFallback() bool {
 	if x != nil {
 		return x.SkipFallback
@@ -353,14 +353,14 @@ type Config struct {
 	// the moment. A special value 'localhost' as a domain address can be set to
 	// use DNS on local system.
 	//
-	// Deprecated: Do not use.
+	// Deprecated: Marked as deprecated in app/dns/config.proto.
 	NameServers []*net.Endpoint `protobuf:"bytes,1,rep,name=NameServers,proto3" json:"NameServers,omitempty"`
 	// NameServer list used by this DNS client.
 	NameServer []*NameServer `protobuf:"bytes,5,rep,name=name_server,json=nameServer,proto3" json:"name_server,omitempty"`
 	// Static hosts. Domain to IP.
 	// Deprecated. Use static_hosts.
 	//
-	// Deprecated: Do not use.
+	// Deprecated: Marked as deprecated in app/dns/config.proto.
 	Hosts map[string]*net.IPOrDomain `protobuf:"bytes,2,rep,name=Hosts,proto3" json:"Hosts,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
 	// Client IP for EDNS client subnet. Must be 4 bytes (IPv4) or 16 bytes
 	// (IPv6).
@@ -376,15 +376,15 @@ type Config struct {
 	// DisableCache disables DNS cache
 	// Deprecated. Use cache_strategy.
 	//
-	// Deprecated: Do not use.
+	// Deprecated: Marked as deprecated in app/dns/config.proto.
 	DisableCache bool `protobuf:"varint,8,opt,name=disableCache,proto3" json:"disableCache,omitempty"`
 	// Deprecated. Use fallback_strategy.
 	//
-	// Deprecated: Do not use.
+	// Deprecated: Marked as deprecated in app/dns/config.proto.
 	DisableFallback bool `protobuf:"varint,10,opt,name=disableFallback,proto3" json:"disableFallback,omitempty"`
 	// Deprecated. Use fallback_strategy.
 	//
-	// Deprecated: Do not use.
+	// Deprecated: Marked as deprecated in app/dns/config.proto.
 	DisableFallbackIfMatch bool `protobuf:"varint,11,opt,name=disableFallbackIfMatch,proto3" json:"disableFallbackIfMatch,omitempty"`
 	// Default query strategy (IPv4, IPv6, or both) for each name server.
 	QueryStrategy QueryStrategy `protobuf:"varint,9,opt,name=query_strategy,json=queryStrategy,proto3,enum=v2ray.core.app.dns.QueryStrategy" json:"query_strategy,omitempty"`
@@ -426,7 +426,7 @@ func (*Config) Descriptor() ([]byte, []int) {
 	return file_app_dns_config_proto_rawDescGZIP(), []int{1}
 }
 
-// Deprecated: Do not use.
+// Deprecated: Marked as deprecated in app/dns/config.proto.
 func (x *Config) GetNameServers() []*net.Endpoint {
 	if x != nil {
 		return x.NameServers
@@ -441,7 +441,7 @@ func (x *Config) GetNameServer() []*NameServer {
 	return nil
 }
 
-// Deprecated: Do not use.
+// Deprecated: Marked as deprecated in app/dns/config.proto.
 func (x *Config) GetHosts() map[string]*net.IPOrDomain {
 	if x != nil {
 		return x.Hosts
@@ -484,7 +484,7 @@ func (x *Config) GetDomainMatcher() string {
 	return ""
 }
 
-// Deprecated: Do not use.
+// Deprecated: Marked as deprecated in app/dns/config.proto.
 func (x *Config) GetDisableCache() bool {
 	if x != nil {
 		return x.DisableCache
@@ -492,7 +492,7 @@ func (x *Config) GetDisableCache() bool {
 	return false
 }
 
-// Deprecated: Do not use.
+// Deprecated: Marked as deprecated in app/dns/config.proto.
 func (x *Config) GetDisableFallback() bool {
 	if x != nil {
 		return x.DisableFallback
@@ -500,7 +500,7 @@ func (x *Config) GetDisableFallback() bool {
 	return false
 }
 
-// Deprecated: Do not use.
+// Deprecated: Marked as deprecated in app/dns/config.proto.
 func (x *Config) GetDisableFallbackIfMatch() bool {
 	if x != nil {
 		return x.DisableFallbackIfMatch

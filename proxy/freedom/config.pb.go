@@ -120,7 +120,7 @@ type Config struct {
 	unknownFields protoimpl.UnknownFields
 
 	DomainStrategy Config_DomainStrategy `protobuf:"varint,1,opt,name=domain_strategy,json=domainStrategy,proto3,enum=v2ray.core.proxy.freedom.Config_DomainStrategy" json:"domain_strategy,omitempty"`
-	// Deprecated: Do not use.
+	// Deprecated: Marked as deprecated in proxy/freedom/config.proto.
 	Timeout             uint32               `protobuf:"varint,2,opt,name=timeout,proto3" json:"timeout,omitempty"`
 	DestinationOverride *DestinationOverride `protobuf:"bytes,3,opt,name=destination_override,json=destinationOverride,proto3" json:"destination_override,omitempty"`
 	UserLevel           uint32               `protobuf:"varint,4,opt,name=user_level,json=userLevel,proto3" json:"user_level,omitempty"`
@@ -165,7 +165,7 @@ func (x *Config) GetDomainStrategy() Config_DomainStrategy {
 	return Config_AS_IS
 }
 
-// Deprecated: Do not use.
+// Deprecated: Marked as deprecated in proxy/freedom/config.proto.
 func (x *Config) GetTimeout() uint32 {
 	if x != nil {
 		return x.Timeout
