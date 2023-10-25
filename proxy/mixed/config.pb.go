@@ -127,10 +127,10 @@ type ServerConfig struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Deprecated: Do not use.
+	// Deprecated: Marked as deprecated in proxy/mixed/config.proto.
 	AuthType AuthType          `protobuf:"varint,1,opt,name=auth_type,json=authType,proto3,enum=v2ray.core.proxy.mixed.AuthType" json:"auth_type,omitempty"`
 	Accounts map[string]string `protobuf:"bytes,2,rep,name=accounts,proto3" json:"accounts,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
-	// Deprecated: Do not use.
+	// Deprecated: Marked as deprecated in proxy/mixed/config.proto.
 	Timeout   uint32 `protobuf:"varint,3,opt,name=timeout,proto3" json:"timeout,omitempty"`
 	UserLevel uint32 `protobuf:"varint,4,opt,name=user_level,json=userLevel,proto3" json:"user_level,omitempty"`
 	// Socks
@@ -173,7 +173,7 @@ func (*ServerConfig) Descriptor() ([]byte, []int) {
 	return file_proxy_mixed_config_proto_rawDescGZIP(), []int{1}
 }
 
-// Deprecated: Do not use.
+// Deprecated: Marked as deprecated in proxy/mixed/config.proto.
 func (x *ServerConfig) GetAuthType() AuthType {
 	if x != nil {
 		return x.AuthType
@@ -188,7 +188,7 @@ func (x *ServerConfig) GetAccounts() map[string]string {
 	return nil
 }
 
-// Deprecated: Do not use.
+// Deprecated: Marked as deprecated in proxy/mixed/config.proto.
 func (x *ServerConfig) GetTimeout() uint32 {
 	if x != nil {
 		return x.Timeout

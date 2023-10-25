@@ -12,6 +12,11 @@ import (
 // Requires gRPC-Go v1.32.0 or later.
 const _ = grpc.SupportPackageIsVersion7
 
+const (
+	GunService_Tun_FullMethodName      = "/v2ray.core.transport.internet.grpc.encoding.GunService/Tun"
+	GunService_TunMulti_FullMethodName = "/v2ray.core.transport.internet.grpc.encoding.GunService/TunMulti"
+)
+
 // GunServiceClient is the client API for GunService service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
@@ -29,7 +34,7 @@ func NewGunServiceClient(cc grpc.ClientConnInterface) GunServiceClient {
 }
 
 func (c *gunServiceClient) Tun(ctx context.Context, opts ...grpc.CallOption) (GunService_TunClient, error) {
-	stream, err := c.cc.NewStream(ctx, &GunService_ServiceDesc.Streams[0], "/v2ray.core.transport.internet.grpc.encoding.GunService/Tun", opts...)
+	stream, err := c.cc.NewStream(ctx, &GunService_ServiceDesc.Streams[0], GunService_Tun_FullMethodName, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -60,7 +65,7 @@ func (x *gunServiceTunClient) Recv() (*Hunk, error) {
 }
 
 func (c *gunServiceClient) TunMulti(ctx context.Context, opts ...grpc.CallOption) (GunService_TunMultiClient, error) {
-	stream, err := c.cc.NewStream(ctx, &GunService_ServiceDesc.Streams[1], "/v2ray.core.transport.internet.grpc.encoding.GunService/TunMulti", opts...)
+	stream, err := c.cc.NewStream(ctx, &GunService_ServiceDesc.Streams[1], GunService_TunMulti_FullMethodName, opts...)
 	if err != nil {
 		return nil, err
 	}

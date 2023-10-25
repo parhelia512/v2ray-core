@@ -22,6 +22,7 @@ import (
 	"github.com/v2fly/v2ray-core/v5/common/task"
 	dns_feature "github.com/v2fly/v2ray-core/v5/features/dns"
 	"github.com/v2fly/v2ray-core/v5/features/routing"
+	"github.com/v2fly/v2ray-core/v5/transport/internet"
 	"github.com/v2fly/v2ray-core/v5/transport/internet/tls"
 )
 
@@ -40,7 +41,7 @@ type QUICNameServer struct {
 	reqID       uint32
 	name        string
 	destination net.Destination
-	connection  quic.Connection
+	connection  quic.EarlyConnection
 	dispatcher  routing.Dispatcher
 }
 
@@ -374,7 +375,7 @@ func (s *QUICNameServer) QueryIP(ctx context.Context, domain string, clientIP ne
 	return ips, err
 }
 
-func isActive(s quic.Connection) bool {
+func isActive(s quic.EarlyConnection) bool {
 	select {
 	case <-s.Context().Done():
 		return false
@@ -383,8 +384,8 @@ func isActive(s quic.Connection) bool {
 	}
 }
 
-func (s *QUICNameServer) getConnection(ctx context.Context) (quic.Connection, error) {
-	var conn quic.Connection
+func (s *QUICNameServer) getConnection(ctx context.Context) (quic.EarlyConnection, error) {
+	var conn quic.EarlyConnection
 	s.RLock()
 	conn = s.connection
 	if conn != nil && isActive(conn) {
@@ -417,7 +418,7 @@ func (s *QUICNameServer) getConnection(ctx context.Context) (quic.Connection, er
 	return conn, nil
 }
 
-func (s *QUICNameServer) openConnection(ctx context.Context) (quic.Connection, error) {
+func (s *QUICNameServer) openConnection(ctx context.Context) (quic.EarlyConnection, error) {
 	tlsConfig := tls.Config{
 		ServerName: func() string {
 			switch s.destination.Address.Family() {
@@ -433,7 +434,20 @@ func (s *QUICNameServer) openConnection(ctx context.Context) (quic.Connection, e
 	quicConfig := &quic.Config{
 		HandshakeIdleTimeout: handshakeIdleTimeout,
 	}
-
+	var destAddr *net.UDPAddr
+	if s.destination.Address.Family().IsIP() {
+		destAddr = &net.UDPAddr{
+			IP:   s.destination.Address.IP(),
+			Port: int(s.destination.Port),
+		}
+	} else {
+		addr, err := net.ResolveUDPAddr("udp", s.destination.NetAddr())
+		if err != nil {
+			return nil, err
+		}
+		destAddr = addr
+	}
+	tr := quic.Transport{}
 	if s.dispatcher != nil {
 		link, err := s.dispatcher.Dispatch(ctx, s.destination)
 		if err != nil {
@@ -443,19 +457,15 @@ func (s *QUICNameServer) openConnection(ctx context.Context) (quic.Connection, e
 			cnc.ConnectionInputMulti(link.Writer),
 			cnc.ConnectionOutputMultiUDP(link.Reader),
 		)
-		netAddr := &netAddrWrapper{network: "udp", dest: s.destination.NetAddr()}
-		qConn, err := quic.Dial(ctx, &packetConnWrapper{conn, netAddr}, netAddr, tlsConfig.GetTLSConfig(tls.WithNextProto(NextProtoDQ)), quicConfig)
-		if err != nil {
-			return nil, err
-		}
-		return qConn, nil
+		tr.Conn = &connWrapper{conn, destAddr}
 	} else {
-		conn, err := quic.DialAddr(ctx, s.destination.NetAddr(), tlsConfig.GetTLSConfig(tls.WithNextProto(NextProtoDQ)), quicConfig)
+		conn, err := internet.DialSystem(ctx, s.destination, nil)
 		if err != nil {
 			return nil, err
 		}
-		return conn, nil
+		tr.Conn = conn.(*internet.PacketConnWrapper).Conn.(*net.UDPConn)
 	}
+	return tr.DialEarly(ctx, destAddr, tlsConfig.GetTLSConfig(tls.WithNextProto(NextProtoDQ)), quicConfig)
 }
 
 func (s *QUICNameServer) openStream(ctx context.Context) (quic.Stream, error) {

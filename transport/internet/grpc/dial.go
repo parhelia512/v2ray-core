@@ -55,7 +55,14 @@ var (
 func dialgRPC(ctx context.Context, dest net.Destination, streamSettings *internet.MemoryStreamConfig) (net.Conn, error) {
 	grpcSettings := streamSettings.ProtocolSettings.(*Config)
 
-	conn, canceller, err := getGrpcClient(ctx, dest, streamSettings)
+	config := tls.ConfigFromStreamSettings(streamSettings)
+	dialOption := grpc.WithInsecure()
+
+	if config != nil {
+		dialOption = grpc.WithTransportCredentials(credentials.NewTLS(config.GetTLSConfig()))
+	}
+
+	conn, canceller, err := getGrpcClient(ctx, dest, dialOption, streamSettings)
 	if err != nil {
 		return nil, newError("Cannot dial grpc").Base(err)
 	}
@@ -81,7 +88,7 @@ func dialgRPC(ctx context.Context, dest net.Destination, streamSettings *interne
 	return nil, io.EOF
 }
 
-func getGrpcClient(ctx context.Context, dest net.Destination, streamSettings *internet.MemoryStreamConfig) (*grpc.ClientConn, dialerCanceller, error) {
+func getGrpcClient(ctx context.Context, dest net.Destination, dialOption grpc.DialOption, streamSettings *internet.MemoryStreamConfig) (*grpc.ClientConn, dialerCanceller, error) {
 	globalDialerAccess.Lock()
 	defer globalDialerAccess.Unlock()
 
@@ -100,14 +107,7 @@ func getGrpcClient(ctx context.Context, dest net.Destination, streamSettings *in
 		return client, canceller, nil
 	}
 
-	dialOption := grpc.WithInsecure()
-
-	tlsConfig := tls.ConfigFromStreamSettings(streamSettings)
 	realityConfig := reality.ConfigFromStreamSettings(streamSettings)
-
-	if tlsConfig != nil {
-		dialOption = grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig.GetTLSConfig()))
-	}
 
 	grpcOptions := []grpc.DialOption{
 		grpc.WithConnectParams(grpc.ConnectParams{

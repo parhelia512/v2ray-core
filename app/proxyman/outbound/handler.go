@@ -7,7 +7,6 @@ import (
 	"github.com/v2fly/v2ray-core/v5/app/proxyman"
 	"github.com/v2fly/v2ray-core/v5/common"
 	"github.com/v2fly/v2ray-core/v5/common/buf"
-	"github.com/v2fly/v2ray-core/v5/common/dice"
 	"github.com/v2fly/v2ray-core/v5/common/environment"
 	"github.com/v2fly/v2ray-core/v5/common/environment/envctx"
 	"github.com/v2fly/v2ray-core/v5/common/mux"
@@ -315,21 +314,16 @@ func (h *Handler) resolveIP(ctx context.Context, domain string, localAddr net.Ad
 	if len(ips) == 0 {
 		return nil
 	}
-	switch strategy {
-	case proxyman.SenderConfig_PREFER_IP4:
+	if strategy == proxyman.SenderConfig_PREFER_IP4 || strategy == proxyman.SenderConfig_PREFER_IP6 {
+		var addr net.Address
 		for _, ip := range ips {
-			if len(ip) == net.IPv4len {
-				return net.IPAddress(ip)
-			}
-		}
-	case proxyman.SenderConfig_PREFER_IP6:
-		for _, ip := range ips {
-			if len(ip) == net.IPv6len {
-				return net.IPAddress(ip)
+			addr = net.IPAddress(ip)
+			if addr.Family().IsIPv4() == (strategy == proxyman.SenderConfig_PREFER_IP4) {
+				return addr
 			}
 		}
 	}
-	return net.IPAddress(ips[dice.Roll(len(ips))])
+	return net.IPAddress(ips[0])
 }
 
 func (h *Handler) getStatCouterConnection(conn internet.Connection) internet.Connection {

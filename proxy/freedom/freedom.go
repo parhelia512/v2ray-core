@@ -9,7 +9,6 @@ import (
 	core "github.com/v2fly/v2ray-core/v5"
 	"github.com/v2fly/v2ray-core/v5/common"
 	"github.com/v2fly/v2ray-core/v5/common/buf"
-	"github.com/v2fly/v2ray-core/v5/common/dice"
 	"github.com/v2fly/v2ray-core/v5/common/net"
 	"github.com/v2fly/v2ray-core/v5/common/retry"
 	"github.com/v2fly/v2ray-core/v5/common/session"
@@ -77,21 +76,16 @@ func (h *Handler) resolveIP(ctx context.Context, domain string, localAddr net.Ad
 	if len(ips) == 0 {
 		return nil
 	}
-	switch h.config.DomainStrategy {
-	case Config_PREFER_IP4:
+	if h.config.DomainStrategy == Config_PREFER_IP4 || h.config.DomainStrategy == Config_PREFER_IP6 {
+		var addr net.Address
 		for _, ip := range ips {
-			if len(ip) == net.IPv4len {
-				return net.IPAddress(ip)
-			}
-		}
-	case Config_PREFER_IP6:
-		for _, ip := range ips {
-			if len(ip) == net.IPv6len {
-				return net.IPAddress(ip)
+			addr = net.IPAddress(ip)
+			if addr.Family().IsIPv4() == (h.config.DomainStrategy == Config_PREFER_IP4) {
+				return addr
 			}
 		}
 	}
-	return net.IPAddress(ips[dice.Roll(len(ips))])
+	return net.IPAddress(ips[0])
 }
 
 func isValidAddress(addr *net.IPOrDomain) bool {

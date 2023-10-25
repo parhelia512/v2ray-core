@@ -355,6 +355,7 @@ type Config struct {
 	BurstObservatory *BurstObservatoryConfig `json:"burstObservatory"`
 	MultiObservatory *MultiObservatoryConfig `json:"multiObservatory"`
 	RestfulAPI       *RestfulAPIConfig       `json:"restfulAPI"`
+	TUN              *TUNConfig              `json:"tun"`
 
 	Services map[string]*json.RawMessage `json:"services"`
 }
@@ -520,6 +521,14 @@ func (c *Config) Build() (*core.Config, error) {
 			return nil, err
 		}
 		config.App = append(config.App, serial.ToTypedMessage(r))
+	}
+
+	if c.TUN != nil {
+		t, err := c.TUN.Build() // nolint:staticcheck
+		if err != nil {         // nolint:staticcheck
+			return nil, err
+		}
+		config.App = append(config.App, serial.ToTypedMessage(t))
 	}
 
 	// Load Additional Services that do not have a json translator

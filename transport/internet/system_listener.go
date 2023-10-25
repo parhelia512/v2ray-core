@@ -28,12 +28,12 @@ type combinedListener struct {
 	locker *FileLocker // for unix domain socket
 }
 
-func (cl *combinedListener) Close() error {
-	if cl.locker != nil {
-		cl.locker.Release()
-		cl.locker = nil
+func (l *combinedListener) Close() error {
+	if l.locker != nil {
+		l.locker.Release()
+		l.locker = nil
 	}
-	return cl.Listener.Close()
+	return l.Listener.Close()
 }
 
 func getControlFunc(ctx context.Context, sockopt *SocketConfig, controllers []controller) func(network, address string, c syscall.RawConn) error {
@@ -56,9 +56,11 @@ func getControlFunc(ctx context.Context, sockopt *SocketConfig, controllers []co
 	}
 }
 
-func (dl *DefaultListener) Listen(ctx context.Context, addr net.Addr, sockopt *SocketConfig) (l net.Listener, err error) {
+func (dl *DefaultListener) Listen(ctx context.Context, addr net.Addr, sockopt *SocketConfig) (net.Listener, error) {
 	var lc net.ListenConfig
 	var network, address string
+	// callback is called after the Listen function returns
+	// this is used to wrap the listener and do some post processing
 	callback := func(l net.Listener, err error) (net.Listener, error) {
 		return l, err
 	}
@@ -84,47 +86,47 @@ func (dl *DefaultListener) Listen(ctx context.Context, addr net.Addr, sockopt *S
 			}
 		} else {
 			// normal unix domain socket
-			var filePerm *os.FileMode
+			var fileMode *os.FileMode
+			// parse file mode from address
 			if s := strings.Split(address, ","); len(s) == 2 {
-				address = s[0]
-				perm, perr := strconv.ParseUint(s[1], 8, 32)
-				if perr != nil {
-					return nil, newError("failed to parse permission: " + s[1]).Base(perr)
+				fMode, err := strconv.ParseUint(s[1], 8, 32)
+				if err != nil {
+					return nil, newError("failed to parse file mode").Base(err)
 				}
-
-				mode := os.FileMode(perm)
-				filePerm = &mode
+				address = s[0]
+				fm := os.FileMode(fMode)
+				fileMode = &fm
 			}
 			// normal unix domain socket needs lock
 			locker := &FileLocker{
 				path: address + ".lock",
 			}
-			err := locker.Acquire()
-			if err != nil {
+			if err := locker.Acquire(); err != nil {
 				return nil, err
 			}
+			// set file mode for unix domain socket when it is created
 			callback = func(l net.Listener, err error) (net.Listener, error) {
 				if err != nil {
 					locker.Release()
-					return l, err
+					return nil, err
 				}
 				l = &combinedListener{Listener: l, locker: locker}
-				if filePerm == nil {
-					return l, nil
+				if fileMode == nil {
+					return l, err
 				}
-				err = os.Chmod(address, *filePerm)
-				if err != nil {
+				if cerr := os.Chmod(address, *fileMode); cerr != nil {
+					// failed to set file mode, close the listener
 					l.Close()
-					return nil, newError("failed to set permission for " + address).Base(err)
+					return nil, newError("failed to set file mode for file: ", address).Base(cerr)
 				}
-				return l, nil
+				return l, err
 			}
 		}
 	}
 
-	l, err = lc.Listen(ctx, network, address)
+	l, err := lc.Listen(ctx, network, address)
 	l, err = callback(l, err)
-	if sockopt != nil && sockopt.AcceptProxyProtocol {
+	if err == nil && sockopt != nil && sockopt.AcceptProxyProtocol {
 		policyFunc := func(upstream net.Addr) (proxyproto.Policy, error) { return proxyproto.REQUIRE, nil }
 		l = &proxyproto.Listener{Listener: l, Policy: policyFunc}
 	}

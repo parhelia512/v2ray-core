@@ -35,9 +35,21 @@ func NewH3NameServer(url *url.URL, dispatcher routing.Dispatcher) (*DoHNameServe
 				cnc.ConnectionInputMulti(link.Writer),
 				cnc.ConnectionOutputMultiUDP(link.Reader),
 			)
-			netAddr := &netAddrWrapper{network: "udp", dest: addr}
+			var destAddr *net.UDPAddr
+			if dest.Address.Family().IsIP() {
+				destAddr = &net.UDPAddr{
+					IP:   dest.Address.IP(),
+					Port: int(dest.Port),
+				}
+			} else {
+				addr, err := net.ResolveUDPAddr("udp", dest.NetAddr())
+				if err != nil {
+					return nil, err
+				}
+				destAddr = addr
+			}
 			tr := quic.Transport{
-				Conn: &packetConnWrapper{conn, netAddr},
+				Conn: &connWrapper{conn, destAddr},
 			}
 			return tr.DialEarly(ctx, conn.RemoteAddr(), tlsCfg, cfg)
 		},
@@ -80,25 +92,12 @@ func NewH3LocalNameServer(url *url.URL) *DoHNameServer {
 	return s
 }
 
-type netAddrWrapper struct {
-	network string
-	dest    string
-}
-
-func (a *netAddrWrapper) Network() string {
-	return a.network
-}
-
-func (a *netAddrWrapper) String() string {
-	return a.dest
-}
-
-type packetConnWrapper struct {
+type connWrapper struct {
 	net.Conn
 	addr net.Addr
 }
 
-func (c *packetConnWrapper) ReadFrom(p []byte) (n int, addr net.Addr, err error) {
+func (c *connWrapper) ReadFrom(p []byte) (n int, addr net.Addr, err error) {
 	n, err = c.Read(p)
 	if err == nil {
 		addr = c.addr
@@ -106,13 +105,12 @@ func (c *packetConnWrapper) ReadFrom(p []byte) (n int, addr net.Addr, err error)
 	return
 }
 
-func (c *packetConnWrapper) WriteTo(p []byte, _ net.Addr) (n int, err error) {
+func (c *connWrapper) WriteTo(p []byte, _ net.Addr) (n int, err error) {
 	return c.Write(p)
 }
 
-func (c *packetConnWrapper) LocalAddr() net.Addr {
+func (c *connWrapper) LocalAddr() net.Addr {
 	// https://github.com/quic-go/quic-go/commit/8189e75be6121fdc31dc1d6085f17015e9154667#diff-4c6aaadced390f3ce9bec0a9c9bb5203d5fa85df79023e3e0eec423dc9baa946R48-R62
-	// quic-go says that it will remove this check one year later https://github.com/quic-go/quic-go/pull/4079 (September 11th, 2023)
 	uuid := uuid.New()
 	return &net.UnixAddr{Name: uuid.String()}
 }

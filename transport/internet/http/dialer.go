@@ -33,7 +33,7 @@ var (
 
 type dialerCanceller func()
 
-func getHTTPClient(ctx context.Context, dest net.Destination, streamSettings *internet.MemoryStreamConfig) (*http.Client, dialerCanceller) {
+func getHTTPClient(ctx context.Context, dest net.Destination, securityEngine *security.Engine, streamSettings *internet.MemoryStreamConfig) (*http.Client, dialerCanceller) {
 	globalDialerAccess.Lock()
 	defer globalDialerAccess.Unlock()
 
@@ -51,11 +51,10 @@ func getHTTPClient(ctx context.Context, dest net.Destination, streamSettings *in
 		return client, canceller
 	}
 
-	securityEngine, _ := security.CreateSecurityEngineFromSettings(ctx, streamSettings)
 	realitySettings := reality.ConfigFromStreamSettings(streamSettings)
 
 	transport := &http2.Transport{
-		DialTLSContext: func(ctx context.Context, network, addr string, tlsConfig *gotls.Config) (gonet.Conn, error) {
+		DialTLSContext: func(_ context.Context, network, addr string, tlsConfig *gotls.Config) (gonet.Conn, error) {
 			rawHost, rawPort, err := net.SplitHostPort(addr)
 			if err != nil {
 				return nil, err
@@ -79,17 +78,23 @@ func getHTTPClient(ctx context.Context, dest net.Destination, streamSettings *in
 				return reality.UClient(pconn, realitySettings, ctx, dest)
 			}
 
-			cn, err := securityEngine.Client(pconn, security.OptionWithDestination{Dest: dest})
+			cn, err := (*securityEngine).Client(pconn,
+				security.OptionWithDestination{Dest: dest})
 			if err != nil {
 				return nil, err
 			}
 
-			p, err := cn.GetConnectionApplicationProtocol()
-			if err != nil {
-				return nil, err
+			protocol := ""
+			if connAPLNGetter, ok := cn.(security.ConnectionApplicationProtocol); ok {
+				connectionALPN, err := connAPLNGetter.GetConnectionApplicationProtocol()
+				if err != nil {
+					return nil, newError("failed to get connection ALPN").Base(err).AtWarning()
+				}
+				protocol = connectionALPN
 			}
-			if p != http2.NextProtoTLS {
-				return nil, newError("http2: unexpected ALPN protocol " + p + "; want q" + http2.NextProtoTLS).AtError()
+
+			if protocol != http2.NextProtoTLS {
+				return nil, newError("http2: unexpected ALPN protocol " + protocol + "; want q" + http2.NextProtoTLS).AtError()
 			}
 			return cn, nil
 		},
@@ -111,7 +116,7 @@ func Dial(ctx context.Context, dest net.Destination, streamSettings *internet.Me
 	if securityEngine == nil && realityConfig == nil {
 		return nil, newError("TLS or REALITY must be enabled for http transport.").AtWarning()
 	}
-	client, canceller := getHTTPClient(ctx, dest, streamSettings)
+	client, canceller := getHTTPClient(ctx, dest, &securityEngine, streamSettings)
 
 	opts := pipe.OptionsFromContext(ctx)
 	preader, pwriter := pipe.New(opts...)
