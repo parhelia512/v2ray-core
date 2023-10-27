@@ -1,0 +1,12 @@
+syntax = "proto3";
+
+package v2ray.core.transport.internet.request.httpupgrade;
+option csharp_namespace = "V2Ray.Core.Transport.Internet.HttpUpgrade";
+option go_package = "github.com/v2fly/v2ray-core/v4/transport/internet/httpupgrade";
+option java_package = "com.v2ray.core.transport.internet.httpupgrade";
+option java_multiple_files = true;
+
+message Config {
+  string path = 1;
+  string host = 2;
+}
