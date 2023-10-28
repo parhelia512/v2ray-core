@@ -37,6 +37,7 @@ func (s *server) Handle(conn net.Conn) (internet.Connection, error) {
 	connection := strings.ToLower(req.Header.Get("Connection"))
 	upgrade := strings.ToLower(req.Header.Get("Upgrade"))
 	if connection != "upgrade" || upgrade != "websocket" {
+		_ = conn.Close()
 		return nil, newError("unrecognized request")
 	}
 	resp := &http.Response{
@@ -51,6 +52,7 @@ func (s *server) Handle(conn net.Conn) (internet.Connection, error) {
 	resp.Header.Set("Upgrade", "websocket")
 	err = resp.Write(conn)
 	if err != nil {
+		_ = conn.Close()
 		return nil, err
 	}
 	return internet.Connection(conn), nil
@@ -65,7 +67,6 @@ func (s *server) keepAccepting() {
 		handledConn, err := s.Handle(conn)
 		if err != nil {
 			newError("failed to handle request").Base(err).WriteToLog()
-			common.Must(handledConn.Close())
 			continue
 		}
 		s.addConn(handledConn)
