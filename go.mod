@@ -22,9 +22,9 @@ require (
 	github.com/mustafaturan/bus v1.0.2
 	github.com/pelletier/go-toml/v2 v2.1.0
 	github.com/pires/go-proxyproto v0.7.0
-	github.com/quic-go/quic-go v0.39.1
+	github.com/quic-go/quic-go v0.39.3
 	github.com/refraction-networking/utls v1.5.4
-	github.com/sagernet/sing v0.2.14
+	github.com/sagernet/sing v0.2.15
 	github.com/sagernet/sing-shadowsocks v0.2.5
 	github.com/sagernet/sing-shadowsocks2 v0.1.4
 	github.com/seiflotfy/cuckoofilter v0.0.0-20220411075957-e3b120b3f5fb
