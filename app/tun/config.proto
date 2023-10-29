@@ -6,20 +6,21 @@ option go_package = "github.com/v2fly/v2ray-core/v4/app/tun";
 option java_package = "com.v2ray.core.app.tun";
 option java_multiple_files = true;
 
-
+import "app/proxyman/config.proto";
 import "app/router/config.proto";
 import "common/net/packetaddr/config.proto";
 import "transport/internet/config.proto";
 
 message Config {
-    string name = 1;
-    uint32 mtu = 2;
-    uint32 user_level = 3;
-    v2ray.core.net.packetaddr.PacketAddrType packet_encoding = 4;
-    string tag = 5;
-    repeated v2ray.core.app.router.CIDR ips = 6;
-    repeated v2ray.core.app.router.CIDR routes = 7;
-    bool enable_promiscuous_mode = 8;
-    bool enable_spoofing = 9;
-    v2ray.core.transport.internet.SocketConfig socket_settings = 10;
+  string name = 1;
+  uint32 mtu = 2;
+  uint32 user_level = 3;
+  v2ray.core.net.packetaddr.PacketAddrType packet_encoding = 4;
+  string tag = 5;
+  repeated v2ray.core.app.router.CIDR ips = 6;
+  repeated v2ray.core.app.router.CIDR routes = 7;
+  bool enable_promiscuous_mode = 8;
+  bool enable_spoofing = 9;
+  v2ray.core.transport.internet.SocketConfig socket_settings = 10;
+  v2ray.core.app.proxyman.SniffingConfig sniffing_settings = 11;
 }
