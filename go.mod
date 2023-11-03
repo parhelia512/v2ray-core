@@ -10,6 +10,7 @@ require (
 	github.com/google/gopacket v1.1.19
 	github.com/gorilla/websocket v1.5.1
 	github.com/jhump/protoreflect v1.15.3
+	github.com/lunixbochs/struc v0.0.0-20200707160740-784aaebc1d40
 	github.com/miekg/dns v1.1.57
 	github.com/mustafaturan/bus v1.0.2
 	github.com/pires/go-proxyproto v0.7.0
@@ -31,6 +32,7 @@ require (
 	google.golang.org/protobuf v1.31.0
 	gvisor.dev/gvisor v0.0.0-20231020174304-b8a429915ff1
 	h12.io/socks v1.0.3
+	lukechampine.com/blake3 v1.2.1
 )
 
 require (
@@ -49,7 +51,6 @@ require (
 	github.com/klauspost/compress v1.16.7 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.5 // indirect
 	github.com/klauspost/reedsolomon v1.11.7 // indirect
-	github.com/lunixbochs/struc v0.0.0-20200707160740-784aaebc1d40 // indirect
 	github.com/mustafaturan/monoton v1.0.0 // indirect
 	github.com/onsi/ginkgo/v2 v2.10.0 // indirect
 	github.com/patrickmn/go-cache v2.1.0+incompatible // indirect
@@ -72,3 +73,5 @@ require (
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20230822172742-b8732ec3820d // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
+
+replace github.com/lunixbochs/struc v0.0.0-20200707160740-784aaebc1d40 => github.com/xiaokangwang/struc v0.0.0-20231031203518-0e381172f248
