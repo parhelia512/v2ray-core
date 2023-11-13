@@ -43,6 +43,7 @@ require (
 	golang.org/x/net v0.18.0
 	golang.org/x/sync v0.5.0
 	golang.org/x/sys v0.14.0
+	golang.zx2c4.com/wireguard v0.0.0-20231022001213-2e0774f246fb
 	google.golang.org/grpc v1.59.0
 	google.golang.org/protobuf v1.31.0
 	gopkg.in/yaml.v3 v3.0.1
@@ -92,6 +93,7 @@ require (
 	golang.org/x/text v0.14.0 // indirect
 	golang.org/x/time v0.3.0 // indirect
 	golang.org/x/tools v0.14.0 // indirect
+	golang.zx2c4.com/wintun v0.0.0-20230126152724-0fa3db229ce2 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20230822172742-b8732ec3820d // indirect
 )
 
