@@ -8,6 +8,7 @@ import (
 	"github.com/v2fly/v2ray-core/v5/app/router/routercommon"
 	"github.com/v2fly/v2ray-core/v5/app/tun"
 	"github.com/v2fly/v2ray-core/v5/infra/conf/cfgcommon"
+	"github.com/v2fly/v2ray-core/v5/infra/conf/cfgcommon/sniffer"
 	"github.com/v2fly/v2ray-core/v5/infra/conf/cfgcommon/socketcfg"
 	"github.com/v2fly/v2ray-core/v5/infra/conf/rule"
 )
@@ -23,6 +24,7 @@ type TUNConfig struct {
 	EnablePromiscuousMode bool                     `json:"enablePromiscuousMode"`
 	EnableSpoofing        bool                     `json:"enableSpoofing"`
 	SocketSettings        *socketcfg.SocketConfig  `json:"sockopt"`
+	SniffingConfig        *sniffer.SniffingConfig  `json:"sniffing"`
 }
 
 func (t *TUNConfig) Build() (proto.Message, error) {
@@ -55,6 +57,13 @@ func (t *TUNConfig) Build() (proto.Message, error) {
 			return nil, newError("Failed to build sockopt.").Base(err)
 		}
 		config.SocketSettings = ss
+	}
+	if t.SniffingConfig != nil {
+		sc, err := t.SniffingConfig.Build()
+		if err != nil {
+			return nil, newError("failed to build sniffing config").Base(err)
+		}
+		config.SniffingSettings = sc
 	}
 	config.Name = t.Name
 	config.Mtu = t.MTU
