@@ -5,11 +5,13 @@ package shadowsocks2022
 
 import (
 	"crypto/cipher"
+	"io"
+
 	"github.com/lunixbochs/struc"
+
 	"github.com/v2fly/v2ray-core/v4/common/buf"
 	"github.com/v2fly/v2ray-core/v4/common/net"
 	"github.com/v2fly/v2ray-core/v4/common/protocol"
-	"io"
 )
 
 //go:generate go run github.com/v2fly/v2ray-core/v4/common/errors/errorgen
@@ -81,10 +83,12 @@ type TCPResponseHeader struct {
 	Header              TCPResponseHeader2FixedLength
 }
 
-const TCPHeaderTypeClientToServerStream = byte(0x00)
-const TCPHeaderTypeServerToClientStream = byte(0x01)
-const TCPMinPaddingLength = 0
-const TCPMaxPaddingLength = 900
+const (
+	TCPHeaderTypeClientToServerStream = byte(0x00)
+	TCPHeaderTypeServerToClientStream = byte(0x01)
+	TCPMinPaddingLength               = 0
+	TCPMaxPaddingLength               = 900
+)
 
 var addrParser = protocol.NewAddressParser(
 	protocol.AddressFamilyByte(0x01, net.AddressFamilyIPv4),
@@ -106,8 +110,10 @@ type UDPResponse struct {
 	ClientSessionID [8]byte
 }
 
-const UDPHeaderTypeClientToServerStream = byte(0x00)
-const UDPHeaderTypeServerToClientStream = byte(0x01)
+const (
+	UDPHeaderTypeClientToServerStream = byte(0x00)
+	UDPHeaderTypeServerToClientStream = byte(0x01)
+)
 
 // UDPClientPacketProcessor
 // Caller retain and receive all ownership of the buffer

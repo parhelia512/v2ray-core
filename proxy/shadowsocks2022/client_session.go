@@ -6,13 +6,14 @@ package shadowsocks2022
 import (
 	"context"
 	"crypto/rand"
-	"github.com/v2fly/v2ray-core/v4/common/buf"
-	"github.com/v2fly/v2ray-core/v4/common/net"
-	"github.com/v2fly/v2ray-core/v4/transport/internet"
 	"io"
 	gonet "net"
 	"sync"
 	"time"
+
+	"github.com/v2fly/v2ray-core/v4/common/buf"
+	"github.com/v2fly/v2ray-core/v4/common/net"
+	"github.com/v2fly/v2ray-core/v4/transport/internet"
 )
 
 func NewClientUDPSession(ctx context.Context, conn io.ReadWriteCloser, packetProcessor UDPClientPacketProcessor) *ClientUDPSession {
@@ -168,7 +169,7 @@ func (c *ClientUDPSessionConn) ReadFrom(p []byte) (n int, addr net.Addr, err err
 	case resp := <-c.readChan:
 		n = copy(p, resp.Payload.Bytes())
 		resp.Payload.Release()
-		addr = &net.UDPAddr{IP: resp.Address.IP(), Port: int(resp.Port)}
+		addr = &net.UDPAddr{IP: resp.Address.IP(), Port: resp.Port}
 	}
 	return
 }

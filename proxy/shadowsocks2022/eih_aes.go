@@ -5,9 +5,12 @@ package shadowsocks2022
 
 import (
 	"crypto/subtle"
-	"github.com/lunixbochs/struc"
-	"github.com/v2fly/v2ray-core/v4/common/buf"
 	"io"
+
+	"github.com/lunixbochs/struc"
+
+	"github.com/v2fly/v2ray-core/v4/common/buf"
+
 	"lukechampine.com/blake3"
 )
 

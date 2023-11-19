@@ -6,10 +6,12 @@ package shadowsocks2022
 import (
 	"bytes"
 	"crypto/cipher"
+	"io"
+
 	"github.com/lunixbochs/struc"
+
 	"github.com/v2fly/v2ray-core/v4/common/buf"
 	"github.com/v2fly/v2ray-core/v4/common/net"
-	"io"
 )
 
 type AESUDPClientPacketProcessor struct {
@@ -143,7 +145,7 @@ func (p *AESUDPClientPacketProcessor) DecodeUDPResp(input []byte, resp *UDPRespo
 			}
 		}
 		resp.TimeStamp = headerStruct.TimeStamp
-		var addressReaderBuf = buf.New()
+		addressReaderBuf := buf.New()
 		defer addressReaderBuf.Release()
 		var port net.Port
 		resp.Address, port, err = addrParser.ReadAddressPort(addressReaderBuf, decryptedDestReader)
