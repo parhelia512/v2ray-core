@@ -6,6 +6,19 @@ import (
 	"github.com/v2fly/v2ray-core/v5/transport/internet"
 )
 
+type MonoDestUDPAddr struct {
+	Address net.Address
+	Port    net.Port
+}
+
+func (*MonoDestUDPAddr) Network() string {
+	return "udp"
+}
+
+func (a *MonoDestUDPAddr) String() string {
+	return a.Address.String() + ":" + a.Port.String()
+}
+
 func NewMonoDestUDPConn(conn internet.AbstractPacketConn, addr net.Addr) *MonoDestUDPConn {
 	return &MonoDestUDPConn{
 		AbstractPacketConn: conn,
@@ -33,6 +46,23 @@ func (m *MonoDestUDPConn) ReadMultiBuffer() (buf.MultiBuffer, error) {
 			Port:    net.Port(udpAddr.Port),
 			Network: net.Network_UDP,
 		}
+	} else if monoDestUDPAddr, ok := addr.(*MonoDestUDPAddr); ok {
+		buffer.Endpoint = &net.Destination{
+			Address: monoDestUDPAddr.Address,
+			Port:    monoDestUDPAddr.Port,
+			Network: net.Network_UDP,
+		}
+	} else {
+		dest, err := net.ParseDestination(addr.Network() + ":" + addr.String())
+		if err != nil {
+			buffer.Release()
+			return nil, newError("unable to parse destination").Base(err)
+		}
+		buffer.Endpoint = &net.Destination{
+			Address: dest.Address,
+			Port:    dest.Port,
+			Network: net.Network_UDP,
+		}
 	}
 	return buf.MultiBuffer{buffer}, nil
 }
@@ -41,8 +71,10 @@ func (m *MonoDestUDPConn) WriteMultiBuffer(buffer buf.MultiBuffer) error {
 	for _, b := range buffer {
 		dest := m.dest
 		if b.Endpoint != nil {
-			if d, _ := net.ResolveUDPAddr("udp", b.Endpoint.NetAddr()); d != nil {
-				dest = d
+			if !b.Endpoint.Address.Family().IsDomain() {
+				dest = &net.UDPAddr{IP: b.Endpoint.Address.IP(), Port: int(b.Endpoint.Port)}
+			} else {
+				dest = &MonoDestUDPAddr{Address: b.Endpoint.Address, Port: b.Endpoint.Port}
 			}
 		}
 		_, err := m.AbstractPacketConn.WriteTo(b.Bytes(), dest)
