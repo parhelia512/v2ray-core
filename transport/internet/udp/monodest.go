@@ -21,18 +21,31 @@ type MonoDestUDPConn struct {
 func (m *MonoDestUDPConn) ReadMultiBuffer() (buf.MultiBuffer, error) {
 	buffer := buf.New()
 	buffer.Extend(2048)
-	nBytes, _, err := m.AbstractPacketConn.ReadFrom(buffer.Bytes())
+	nBytes, addr, err := m.AbstractPacketConn.ReadFrom(buffer.Bytes())
 	if err != nil {
 		buffer.Release()
 		return nil, err
 	}
 	buffer.Resize(0, int32(nBytes))
+	if udpAddr, ok := addr.(*net.UDPAddr); ok {
+		buffer.Endpoint = &net.Destination{
+			Address: net.IPAddress(udpAddr.IP),
+			Port:    net.Port(udpAddr.Port),
+			Network: net.Network_UDP,
+		}
+	}
 	return buf.MultiBuffer{buffer}, nil
 }
 
 func (m *MonoDestUDPConn) WriteMultiBuffer(buffer buf.MultiBuffer) error {
 	for _, b := range buffer {
-		_, err := m.AbstractPacketConn.WriteTo(b.Bytes(), m.dest)
+		dest := m.dest
+		if b.Endpoint != nil {
+			if d, _ := net.ResolveUDPAddr("udp", b.Endpoint.NetAddr()); d != nil {
+				dest = d
+			}
+		}
+		_, err := m.AbstractPacketConn.WriteTo(b.Bytes(), dest)
 		if err != nil {
 			return err
 		}
