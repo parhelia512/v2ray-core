@@ -46,6 +46,12 @@ func (r *IPRecord) getIPs() ([]net.Address, error) {
 }
 
 func (r *IPRecord) getIPsAndTTL() ([]net.Address, uint32, time.Time, error) {
+	if r != nil && r.TTL == 0 {
+		// workaround zero ttl
+		ips, expireAt := r.IP, r.Expire
+		r = nil
+		return ips, 0, expireAt, nil
+	}
 	if r == nil || r.Expire.Before(time.Now()) {
 		return nil, 0, time.Time{}, errRecordNotFound
 	}
@@ -204,10 +210,8 @@ L:
 		}
 
 		// keeps ttl preferred
-		if ttl := ah.TTL; ttl > 0 {
-			ipRecord.Expire = now.Add(time.Duration(ttl) * time.Second)
-			ipRecord.TTL = ttl
-		}
+		ipRecord.Expire = now.Add(time.Duration(ah.TTL) * time.Second)
+		ipRecord.TTL = ah.TTL
 
 		switch ah.Type {
 		case dnsmessage.TypeA:

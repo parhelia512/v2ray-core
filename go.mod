@@ -2,8 +2,6 @@ module github.com/v2fly/v2ray-core/v5
 
 go 1.21.1
 
-toolchain go1.21.4
-
 require (
 	github.com/adrg/xdg v0.4.0
 	github.com/aead/chacha20 v0.0.0-20180709150244-8b13a72661da
@@ -20,15 +18,17 @@ require (
 	github.com/gorilla/websocket v1.5.1
 	github.com/jhump/protoreflect v1.15.3
 	github.com/kierdavis/cfb8 v0.0.0-20180105024805-3a17c36ee2f8
+	github.com/lunixbochs/struc v0.0.0-20200707160740-784aaebc1d40
 	github.com/miekg/dns v1.1.57
 	github.com/mustafaturan/bus v1.0.2
 	github.com/pelletier/go-toml/v2 v2.1.0
+	github.com/pion/transport/v3 v3.0.1
 	github.com/pires/go-proxyproto v0.7.0
 	github.com/quic-go/quic-go v0.40.0
 	github.com/refraction-networking/utls v1.5.4
 	github.com/sagernet/sing v0.2.17
 	github.com/sagernet/sing-shadowsocks v0.2.5
-	github.com/sagernet/sing-shadowsocks2 v0.1.4
+	github.com/sagernet/sing-shadowsocks2 v0.1.5
 	github.com/seiflotfy/cuckoofilter v0.0.0-20220411075957-e3b120b3f5fb
 	github.com/stretchr/testify v1.8.4
 	github.com/v2fly/BrowserBridge v0.0.0-20210430233438-0570fc1d7d08
@@ -36,7 +36,7 @@ require (
 	github.com/v2fly/ss-bloomring v0.0.0-20210312155135-28617310f63e
 	github.com/xiaokangwang/VLite v0.0.0-20220418190619-cff95160a432
 	github.com/xtls/reality v0.0.0-20231112171332-de1173cf2b19
-	go.starlark.net v0.0.0-20231101134539-556fd59b42f6
+	go.starlark.net v0.0.0-20231121155337-90ade8b19d09
 	go.uber.org/mock v0.3.0
 	go4.org/netipx v0.0.0-20230824141953-6213f710f925
 	golang.org/x/crypto v0.15.0
@@ -49,6 +49,7 @@ require (
 	gopkg.in/yaml.v3 v3.0.1
 	gvisor.dev/gvisor v0.0.0-20231030204515-37db95ffef4d
 	h12.io/socks v1.0.3
+	lukechampine.com/blake3 v1.2.1
 )
 
 require (
@@ -74,7 +75,6 @@ require (
 	github.com/klauspost/cpuid/v2 v2.0.12 // indirect
 	github.com/klauspost/reedsolomon v1.9.3 // indirect
 	github.com/leodido/go-urn v1.2.4 // indirect
-	github.com/lunixbochs/struc v0.0.0-20200707160740-784aaebc1d40 // indirect
 	github.com/mustafaturan/monoton v1.0.0 // indirect
 	github.com/onsi/ginkgo/v2 v2.9.5 // indirect
 	github.com/patrickmn/go-cache v2.1.0+incompatible // indirect
@@ -96,5 +96,6 @@ require (
 	golang.org/x/xerrors v0.0.0-20220907171357-04be3eba64a2 // indirect
 	golang.zx2c4.com/wintun v0.0.0-20230126152724-0fa3db229ce2 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20230822172742-b8732ec3820d // indirect
-	lukechampine.com/blake3 v1.2.1 // indirect
 )
+
+replace github.com/lunixbochs/struc v0.0.0-20200707160740-784aaebc1d40 => github.com/xiaokangwang/struc v0.0.0-20231031203518-0e381172f248

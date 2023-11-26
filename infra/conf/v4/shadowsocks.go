@@ -9,7 +9,7 @@ import (
 	"github.com/v2fly/v2ray-core/v5/common/serial"
 	"github.com/v2fly/v2ray-core/v5/infra/conf/cfgcommon"
 	"github.com/v2fly/v2ray-core/v5/proxy/shadowsocks"
-	shadowsocks_2022 "github.com/v2fly/v2ray-core/v5/proxy/shadowsocks_2022"
+	"github.com/v2fly/v2ray-core/v5/proxy/shadowsocks_2022"
 )
 
 type ShadowsocksUserConfig struct {

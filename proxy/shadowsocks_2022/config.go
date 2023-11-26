@@ -1,4 +1,4 @@
-package shadowsocks2022
+package shadowsocks_2022 //nolint:stylecheck
 
 import (
 	"github.com/v2fly/v2ray-core/v5/common/protocol"
