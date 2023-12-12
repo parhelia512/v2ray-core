@@ -15,7 +15,6 @@ func init() {
 		cmdLove,
 		tls.CmdTLS,
 		cmdUUID,
-		cmdVerify,
 
 		// documents
 		docFormat,
