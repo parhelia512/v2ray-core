@@ -1,9 +1,7 @@
 package v4
 
 import (
-	"context"
 	"encoding/json"
-	"fmt"
 	"path/filepath"
 	"strings"
 
@@ -24,7 +22,6 @@ import (
 	"github.com/v2fly/v2ray-core/v5/infra/conf/synthetic/dns"
 	"github.com/v2fly/v2ray-core/v5/infra/conf/synthetic/log"
 	"github.com/v2fly/v2ray-core/v5/infra/conf/synthetic/router"
-	"github.com/v2fly/v2ray-core/v5/infra/conf/v5cfg"
 	"github.com/v2fly/v2ray-core/v5/transport/internet"
 )
 
@@ -379,8 +376,6 @@ type Config struct {
 	Observatory      *ObservatoryConfig      `json:"observatory"`
 	BurstObservatory *BurstObservatoryConfig `json:"burstObservatory"`
 	MultiObservatory *MultiObservatoryConfig `json:"multiObservatory"`
-	RestfulAPI       *RestfulAPIConfig       `json:"restfulAPI"`
-	TUN              *TUNConfig              `json:"tun"`
 
 	Services map[string]*json.RawMessage `json:"services"`
 }
@@ -538,32 +533,6 @@ func (c *Config) Build() (*core.Config, error) {
 			return nil, err
 		}
 		config.App = append(config.App, serial.ToTypedMessage(r))
-	}
-
-	if c.RestfulAPI != nil {
-		r, err := c.RestfulAPI.Build()
-		if err != nil {
-			return nil, err
-		}
-		config.App = append(config.App, serial.ToTypedMessage(r))
-	}
-
-	if c.TUN != nil {
-		t, err := c.TUN.Build() // nolint:staticcheck
-		if err != nil {         // nolint:staticcheck
-			return nil, err
-		}
-		config.App = append(config.App, serial.ToTypedMessage(t))
-	}
-
-	// Load Additional Services that do not have a json translator
-
-	for serviceName, service := range c.Services {
-		servicePackedConfig, err := v5cfg.LoadHeterogeneousConfigFromRawJSON(context.Background(), "service", serviceName, *service)
-		if err != nil {
-			return nil, newError(fmt.Sprintf("failed to parse %v config in Services", serviceName)).Base(err)
-		}
-		config.App = append(config.App, serial.ToTypedMessage(servicePackedConfig))
 	}
 
 	var inbounds []InboundDetourConfig
