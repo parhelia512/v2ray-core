@@ -74,12 +74,6 @@ func (i *implementationRegistry) LoadImplementationByAlias(ctx context.Context, 
 		return nil, newError("unable to parse json content").Base(err)
 	}
 
-	if isRestrictedModeContext(ctx) {
-		if err := enforceRestriction(implementationConfigInstancev2); err != nil {
-			return nil, err
-		}
-	}
-
 	if err := protofilter.FilterProtoConfig(ctx, implementationConfigInstancev2); err != nil {
 		return nil, err
 	}
