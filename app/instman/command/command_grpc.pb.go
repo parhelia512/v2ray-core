@@ -9,8 +9,8 @@ import (
 
 // This is a compile-time assertion to ensure that this generated file
 // is compatible with the grpc package it is being compiled against.
-// Requires gRPC-Go v1.32.0 or later.
-const _ = grpc.SupportPackageIsVersion7
+// Requires gRPC-Go v1.62.0 or later.
+const _ = grpc.SupportPackageIsVersion8
 
 const (
 	InstanceManagementService_ListInstance_FullMethodName  = "/v2ray.core.app.instman.command.InstanceManagementService/ListInstance"
@@ -36,8 +36,9 @@ func NewInstanceManagementServiceClient(cc grpc.ClientConnInterface) InstanceMan
 }
 
 func (c *instanceManagementServiceClient) ListInstance(ctx context.Context, in *ListInstanceReq, opts ...grpc.CallOption) (*ListInstanceResp, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(ListInstanceResp)
-	err := c.cc.Invoke(ctx, InstanceManagementService_ListInstance_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, InstanceManagementService_ListInstance_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -45,8 +46,9 @@ func (c *instanceManagementServiceClient) ListInstance(ctx context.Context, in *
 }
 
 func (c *instanceManagementServiceClient) AddInstance(ctx context.Context, in *AddInstanceReq, opts ...grpc.CallOption) (*AddInstanceResp, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(AddInstanceResp)
-	err := c.cc.Invoke(ctx, InstanceManagementService_AddInstance_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, InstanceManagementService_AddInstance_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -54,8 +56,9 @@ func (c *instanceManagementServiceClient) AddInstance(ctx context.Context, in *A
 }
 
 func (c *instanceManagementServiceClient) StartInstance(ctx context.Context, in *StartInstanceReq, opts ...grpc.CallOption) (*StartInstanceResp, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(StartInstanceResp)
-	err := c.cc.Invoke(ctx, InstanceManagementService_StartInstance_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, InstanceManagementService_StartInstance_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
