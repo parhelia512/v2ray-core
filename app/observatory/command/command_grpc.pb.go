@@ -9,8 +9,8 @@ import (
 
 // This is a compile-time assertion to ensure that this generated file
 // is compatible with the grpc package it is being compiled against.
-// Requires gRPC-Go v1.32.0 or later.
-const _ = grpc.SupportPackageIsVersion7
+// Requires gRPC-Go v1.62.0 or later.
+const _ = grpc.SupportPackageIsVersion8
 
 const (
 	ObservatoryService_GetOutboundStatus_FullMethodName = "/v2ray.core.app.observatory.command.ObservatoryService/GetOutboundStatus"
@@ -32,8 +32,9 @@ func NewObservatoryServiceClient(cc grpc.ClientConnInterface) ObservatoryService
 }
 
 func (c *observatoryServiceClient) GetOutboundStatus(ctx context.Context, in *GetOutboundStatusRequest, opts ...grpc.CallOption) (*GetOutboundStatusResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(GetOutboundStatusResponse)
-	err := c.cc.Invoke(ctx, ObservatoryService_GetOutboundStatus_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, ObservatoryService_GetOutboundStatus_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
