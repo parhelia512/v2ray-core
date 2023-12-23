@@ -9,8 +9,8 @@ import (
 
 // This is a compile-time assertion to ensure that this generated file
 // is compatible with the grpc package it is being compiled against.
-// Requires gRPC-Go v1.32.0 or later.
-const _ = grpc.SupportPackageIsVersion7
+// Requires gRPC-Go v1.62.0 or later.
+const _ = grpc.SupportPackageIsVersion8
 
 const (
 	GunService_Tun_FullMethodName = "/v2ray.core.transport.internet.grpc.encoding.GunService/Tun"
@@ -32,11 +32,12 @@ func NewGunServiceClient(cc grpc.ClientConnInterface) GunServiceClient {
 }
 
 func (c *gunServiceClient) Tun(ctx context.Context, opts ...grpc.CallOption) (GunService_TunClient, error) {
-	stream, err := c.cc.NewStream(ctx, &GunService_ServiceDesc.Streams[0], GunService_Tun_FullMethodName, opts...)
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &GunService_ServiceDesc.Streams[0], GunService_Tun_FullMethodName, cOpts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &gunServiceTunClient{stream}
+	x := &gunServiceTunClient{ClientStream: stream}
 	return x, nil
 }
 
@@ -91,7 +92,7 @@ func RegisterGunServiceServer(s grpc.ServiceRegistrar, srv GunServiceServer) {
 }
 
 func _GunService_Tun_Handler(srv interface{}, stream grpc.ServerStream) error {
-	return srv.(GunServiceServer).Tun(&gunServiceTunServer{stream})
+	return srv.(GunServiceServer).Tun(&gunServiceTunServer{ServerStream: stream})
 }
 
 type GunService_TunServer interface {
