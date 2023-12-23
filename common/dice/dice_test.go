@@ -21,13 +21,13 @@ func BenchmarkRoll20(b *testing.B) {
 
 func BenchmarkIntn1(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		rand.Intn(1) //nolint:staticcheck
+		rand.Intn(2)
 	}
 }
 
 func BenchmarkIntn20(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		rand.Intn(20)
+		rand.Intn(21)
 	}
 }
 
