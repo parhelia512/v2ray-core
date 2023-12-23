@@ -5,6 +5,7 @@
 //
 //	mockgen -package mocks -destination testing/mocks/log.go -mock_names Handler=LogHandler github.com/v2fly/v2ray-core/v5/common/log Handler
 //
+
 // Package mocks is a generated GoMock package.
 package mocks
 

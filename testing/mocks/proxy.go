@@ -5,6 +5,7 @@
 //
 //	mockgen -package mocks -destination testing/mocks/proxy.go -mock_names Inbound=ProxyInbound,Outbound=ProxyOutbound github.com/v2fly/v2ray-core/v5/proxy Inbound,Outbound
 //
+
 // Package mocks is a generated GoMock package.
 package mocks
 

@@ -81,6 +81,7 @@ func (o *Observer) background() {
 
 		if !o.config.EnableConcurrency {
 			sort.Strings(outbounds)
+			slept := false
 			for _, v := range outbounds {
 				result := o.probe(v)
 				o.updateStatusForResult(v, &result)
@@ -88,8 +89,11 @@ func (o *Observer) background() {
 					return
 				}
 				time.Sleep(sleepTime)
+				slept = true
 			}
-			continue
+			if !slept {
+				time.Sleep(sleepTime)
+			}
 		}
 
 		ch := make(chan struct{}, len(outbounds))

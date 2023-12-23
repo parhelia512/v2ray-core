@@ -72,6 +72,7 @@ func (i *implementationRegistry) LoadImplementationByAlias(ctx context.Context, 
 	}
 
 	implementationConfigInstancev2 := proto.MessageV2(implementationConfigInstance)
+
 	if err := protofilter.FilterProtoConfig(ctx, implementationConfigInstancev2); err != nil {
 		return nil, err
 	}

@@ -5,6 +5,7 @@
 //
 //	mockgen -package mocks -destination testing/mocks/io.go -mock_names Reader=Reader,Writer=Writer io Reader,Writer
 //
+
 // Package mocks is a generated GoMock package.
 package mocks
 

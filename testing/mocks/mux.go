@@ -5,6 +5,7 @@
 //
 //	mockgen -package mocks -destination testing/mocks/mux.go -mock_names ClientWorkerFactory=MuxClientWorkerFactory github.com/v2fly/v2ray-core/v5/common/mux ClientWorkerFactory
 //
+
 // Package mocks is a generated GoMock package.
 package mocks
 

@@ -114,14 +114,6 @@ func (rr *RoutingRule) BuildCondition() (Condition, error) {
 		conds.Add(NewProtocolMatcher(rr.Protocol))
 	}
 
-	if len(rr.Attributes) > 0 {
-		cond, err := NewAttributeMatcher(rr.Attributes)
-		if err != nil {
-			return nil, err
-		}
-		conds.Add(cond)
-	}
-
 	if rr.UidList != nil && len(rr.UidList.Uid) > 0 {
 		conds.Add(NewUidMatcher(rr.UidList))
 	}

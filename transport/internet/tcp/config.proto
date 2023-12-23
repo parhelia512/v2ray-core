@@ -13,6 +13,7 @@ message Config {
   option (v2ray.core.common.protoext.message_opt).type = "transport";
   option (v2ray.core.common.protoext.message_opt).short_name = "tcp";
 
+
   reserved 1;
   google.protobuf.Any header_settings = 2;
   bool accept_proxy_protocol = 3;

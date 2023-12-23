@@ -5,6 +5,7 @@
 //
 //	mockgen -package mocks -destination testing/mocks/outbound.go -mock_names Manager=OutboundManager,HandlerSelector=OutboundHandlerSelector github.com/v2fly/v2ray-core/v5/features/outbound Manager,HandlerSelector
 //
+
 // Package mocks is a generated GoMock package.
 package mocks
 

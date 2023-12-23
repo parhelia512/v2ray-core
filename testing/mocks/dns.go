@@ -5,6 +5,7 @@
 //
 //	mockgen -package mocks -destination testing/mocks/dns.go -mock_names Client=DNSClient github.com/v2fly/v2ray-core/v5/features/dns Client
 //
+
 // Package mocks is a generated GoMock package.
 package mocks
 
