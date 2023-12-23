@@ -105,7 +105,7 @@ func file_common_serial_typed_message_proto_rawDescGZIP() []byte {
 }
 
 var file_common_serial_typed_message_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
-var file_common_serial_typed_message_proto_goTypes = []interface{}{
+var file_common_serial_typed_message_proto_goTypes = []any{
 	(*TypedMessage)(nil), // 0: v2ray.core.common.serial.TypedMessage
 }
 var file_common_serial_typed_message_proto_depIdxs = []int32{
@@ -122,7 +122,7 @@ func file_common_serial_typed_message_proto_init() {
 		return
 	}
 	if !protoimpl.UnsafeEnabled {
-		file_common_serial_typed_message_proto_msgTypes[0].Exporter = func(v interface{}, i int) interface{} {
+		file_common_serial_typed_message_proto_msgTypes[0].Exporter = func(v any, i int) any {
 			switch v := v.(*TypedMessage); i {
 			case 0:
 				return &v.state

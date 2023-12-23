@@ -171,7 +171,7 @@ func file_proxy_dokodemo_config_proto_rawDescGZIP() []byte {
 }
 
 var file_proxy_dokodemo_config_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
-var file_proxy_dokodemo_config_proto_goTypes = []interface{}{
+var file_proxy_dokodemo_config_proto_goTypes = []any{
 	(*Config)(nil),          // 0: v2ray.core.proxy.dokodemo.Config
 	(*net.IPOrDomain)(nil),  // 1: v2ray.core.common.net.IPOrDomain
 	(*net.NetworkList)(nil), // 2: v2ray.core.common.net.NetworkList
@@ -194,7 +194,7 @@ func file_proxy_dokodemo_config_proto_init() {
 		return
 	}
 	if !protoimpl.UnsafeEnabled {
-		file_proxy_dokodemo_config_proto_msgTypes[0].Exporter = func(v interface{}, i int) interface{} {
+		file_proxy_dokodemo_config_proto_msgTypes[0].Exporter = func(v any, i int) any {
 			switch v := v.(*Config); i {
 			case 0:
 				return &v.state

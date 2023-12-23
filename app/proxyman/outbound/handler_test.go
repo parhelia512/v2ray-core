@@ -5,16 +5,14 @@ import (
 	"testing"
 	_ "unsafe"
 
-	"github.com/v2fly/v2ray-core/v4/common/environment/systemnetworkimpl"
-
-	"github.com/v2fly/v2ray-core/v4/common/environment"
-	"github.com/v2fly/v2ray-core/v4/common/environment/envctx"
-	"github.com/v2fly/v2ray-core/v4/common/environment/transientstorageimpl"
-
 	core "github.com/v2fly/v2ray-core/v4"
 	"github.com/v2fly/v2ray-core/v4/app/policy"
 	. "github.com/v2fly/v2ray-core/v4/app/proxyman/outbound"
 	"github.com/v2fly/v2ray-core/v4/app/stats"
+	"github.com/v2fly/v2ray-core/v4/common/environment"
+	"github.com/v2fly/v2ray-core/v4/common/environment/envctx"
+	"github.com/v2fly/v2ray-core/v4/common/environment/systemnetworkimpl"
+	"github.com/v2fly/v2ray-core/v4/common/environment/transientstorageimpl"
 	"github.com/v2fly/v2ray-core/v4/common/net"
 	"github.com/v2fly/v2ray-core/v4/common/serial"
 	"github.com/v2fly/v2ray-core/v4/features/outbound"

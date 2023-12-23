@@ -108,7 +108,7 @@ func file_common_taggedfeatures_skeleton_proto_rawDescGZIP() []byte {
 }
 
 var file_common_taggedfeatures_skeleton_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
-var file_common_taggedfeatures_skeleton_proto_goTypes = []interface{}{
+var file_common_taggedfeatures_skeleton_proto_goTypes = []any{
 	(*Config)(nil),              // 0: v2ray.core.common.taggedfeatures.Config
 	nil,                         // 1: v2ray.core.common.taggedfeatures.Config.FeaturesEntry
 	(*serial.TypedMessage)(nil), // 2: v2ray.core.common.serial.TypedMessage
@@ -129,7 +129,7 @@ func file_common_taggedfeatures_skeleton_proto_init() {
 		return
 	}
 	if !protoimpl.UnsafeEnabled {
-		file_common_taggedfeatures_skeleton_proto_msgTypes[0].Exporter = func(v interface{}, i int) interface{} {
+		file_common_taggedfeatures_skeleton_proto_msgTypes[0].Exporter = func(v any, i int) any {
 			switch v := v.(*Config); i {
 			case 0:
 				return &v.state
