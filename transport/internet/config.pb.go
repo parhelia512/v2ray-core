@@ -698,7 +698,7 @@ func file_transport_internet_config_proto_rawDescGZIP() []byte {
 
 var file_transport_internet_config_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
 var file_transport_internet_config_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
-var file_transport_internet_config_proto_goTypes = []interface{}{
+var file_transport_internet_config_proto_goTypes = []any{
 	(TransportProtocol)(0),             // 0: v2ray.core.transport.internet.TransportProtocol
 	(SocketConfig_TCPFastOpenState)(0), // 1: v2ray.core.transport.internet.SocketConfig.TCPFastOpenState
 	(SocketConfig_TProxyMode)(0),       // 2: v2ray.core.transport.internet.SocketConfig.TProxyMode
@@ -730,7 +730,7 @@ func file_transport_internet_config_proto_init() {
 		return
 	}
 	if !protoimpl.UnsafeEnabled {
-		file_transport_internet_config_proto_msgTypes[0].Exporter = func(v interface{}, i int) interface{} {
+		file_transport_internet_config_proto_msgTypes[0].Exporter = func(v any, i int) any {
 			switch v := v.(*TransportConfig); i {
 			case 0:
 				return &v.state
@@ -742,7 +742,7 @@ func file_transport_internet_config_proto_init() {
 				return nil
 			}
 		}
-		file_transport_internet_config_proto_msgTypes[1].Exporter = func(v interface{}, i int) interface{} {
+		file_transport_internet_config_proto_msgTypes[1].Exporter = func(v any, i int) any {
 			switch v := v.(*StreamConfig); i {
 			case 0:
 				return &v.state
@@ -754,7 +754,7 @@ func file_transport_internet_config_proto_init() {
 				return nil
 			}
 		}
-		file_transport_internet_config_proto_msgTypes[2].Exporter = func(v interface{}, i int) interface{} {
+		file_transport_internet_config_proto_msgTypes[2].Exporter = func(v any, i int) any {
 			switch v := v.(*ProxyConfig); i {
 			case 0:
 				return &v.state
@@ -766,7 +766,7 @@ func file_transport_internet_config_proto_init() {
 				return nil
 			}
 		}
-		file_transport_internet_config_proto_msgTypes[3].Exporter = func(v interface{}, i int) interface{} {
+		file_transport_internet_config_proto_msgTypes[3].Exporter = func(v any, i int) any {
 			switch v := v.(*SocketConfig); i {
 			case 0:
 				return &v.state
