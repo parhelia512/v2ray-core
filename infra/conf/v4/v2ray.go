@@ -362,28 +362,6 @@ type Config struct {
 	Services map[string]*json.RawMessage `json:"services"`
 }
 
-func (c *Config) findInboundTag(tag string) int {
-	found := -1
-	for idx, ib := range c.InboundConfigs {
-		if ib.Tag == tag {
-			found = idx
-			break
-		}
-	}
-	return found
-}
-
-func (c *Config) findOutboundTag(tag string) int {
-	found := -1
-	for idx, ob := range c.OutboundConfigs {
-		if ob.Tag == tag {
-			found = idx
-			break
-		}
-	}
-	return found
-}
-
 func applyTransportConfig(s *StreamConfig, t *TransportConfig) {
 	if s.TCPSettings == nil {
 		s.TCPSettings = t.TCPConfig

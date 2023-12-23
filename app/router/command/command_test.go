@@ -5,10 +5,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/mock/gomock"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	"go.uber.org/mock/gomock"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/test/bufconn"
 
 	"github.com/v2fly/v2ray-core/v5/app/router"
@@ -82,7 +83,7 @@ func TestServiceSubscribeRoutingStats(t *testing.T) {
 	// Client goroutine
 	go func() {
 		defer lis.Close()
-		conn, err := grpc.DialContext(context.Background(), "bufnet", grpc.WithContextDialer(bufDialer), grpc.WithInsecure())
+		conn, err := grpc.DialContext(context.Background(), "bufnet", grpc.WithContextDialer(bufDialer), grpc.WithTransportCredentials(insecure.NewCredentials()))
 		if err != nil {
 			errCh <- err
 			return
@@ -216,7 +217,7 @@ func TestServiceSubscribeSubsetOfFields(t *testing.T) {
 	// Client goroutine
 	go func() {
 		defer lis.Close()
-		conn, err := grpc.DialContext(context.Background(), "bufnet", grpc.WithContextDialer(bufDialer), grpc.WithInsecure())
+		conn, err := grpc.DialContext(context.Background(), "bufnet", grpc.WithContextDialer(bufDialer), grpc.WithTransportCredentials(insecure.NewCredentials()))
 		if err != nil {
 			errCh <- err
 			return
@@ -339,7 +340,7 @@ func TestSerivceTestRoute(t *testing.T) {
 	// Client goroutine
 	go func() {
 		defer lis.Close()
-		conn, err := grpc.DialContext(context.Background(), "bufnet", grpc.WithContextDialer(bufDialer), grpc.WithInsecure())
+		conn, err := grpc.DialContext(context.Background(), "bufnet", grpc.WithContextDialer(bufDialer), grpc.WithTransportCredentials(insecure.NewCredentials()))
 		if err != nil {
 			errCh <- err
 		}
