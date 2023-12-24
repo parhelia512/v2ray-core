@@ -2,6 +2,7 @@ package v4
 
 import (
 	"encoding/json"
+	"path/filepath"
 	"runtime"
 	"strconv"
 	"syscall"
@@ -93,8 +94,8 @@ func (c *VLessInboundConfig) Build() (proto.Message, error) {
 			if fb.Dest == "serve-ws-none" {
 				fb.Type = "serve"
 			} else {
-				switch fb.Dest[0] {
-				case '@', '/':
+				switch {
+				case fb.Dest[0] == '@', filepath.IsAbs(fb.Dest):
 					fb.Type = "unix"
 					if fb.Dest[0] == '@' && len(fb.Dest) > 1 && fb.Dest[1] == '@' && (runtime.GOOS == "linux" || runtime.GOOS == "android") {
 						fullAddr := make([]byte, len(syscall.RawSockaddrUnix{}.Path)) // may need padding to work with haproxy
