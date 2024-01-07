@@ -3,7 +3,7 @@
 package v4
 
 import (
-	"github.com/golang/protobuf/proto"
+	"google.golang.org/protobuf/proto"
 )
 
 type TUNConfig struct{}
