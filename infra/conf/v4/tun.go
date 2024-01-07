@@ -3,7 +3,7 @@
 package v4
 
 import (
-	"github.com/golang/protobuf/proto"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/v2fly/v2ray-core/v5/app/router/routercommon"
 	"github.com/v2fly/v2ray-core/v5/app/tun"

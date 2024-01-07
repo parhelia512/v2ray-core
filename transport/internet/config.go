@@ -3,7 +3,7 @@ package internet
 import (
 	"context"
 
-	"github.com/golang/protobuf/proto"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/v2fly/v2ray-core/v5/common"
 	"github.com/v2fly/v2ray-core/v5/common/protoext"
@@ -140,7 +140,11 @@ func (m SocketConfig_TProxyMode) IsEnabled() bool {
 }
 
 func getOriginalMessageName(streamSettings *MemoryStreamConfig) string {
-	msgOpts, err := protoext.GetMessageOptions(proto.MessageV2(streamSettings.ProtocolSettings).ProtoReflect().Descriptor())
+	settings, ok := streamSettings.ProtocolSettings.(proto.Message)
+	if !ok {
+		return ""
+	}
+	msgOpts, err := protoext.GetMessageOptions(settings.ProtoReflect().Descriptor())
 	if err == nil {
 		if msgOpts.TransportOriginalName != "" {
 			return msgOpts.TransportOriginalName
