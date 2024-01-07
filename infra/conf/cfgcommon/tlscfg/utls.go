@@ -3,7 +3,7 @@ package tlscfg
 import (
 	"strings"
 
-	"github.com/golang/protobuf/proto"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/v2fly/v2ray-core/v5/transport/internet/tls"
 	"github.com/v2fly/v2ray-core/v5/transport/internet/tls/utls"
