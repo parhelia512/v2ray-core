@@ -11,15 +11,9 @@ import (
 	"io"
 	"strings"
 
-	"github.com/aead/chacha20"
-	"github.com/aead/chacha20/chacha"
-	"github.com/dgryski/go-camellia"
-	"github.com/dgryski/go-idea"
-	"github.com/dgryski/go-rc2"
-	"github.com/geeksbaek/seed"
-	"github.com/kierdavis/cfb8"
 	"golang.org/x/crypto/blowfish"
 	"golang.org/x/crypto/cast5"
+	"golang.org/x/crypto/chacha20"
 	"golang.org/x/crypto/chacha20poly1305"
 	"golang.org/x/crypto/hkdf"
 
@@ -27,6 +21,11 @@ import (
 	"github.com/v2fly/v2ray-core/v5/common/antireplay"
 	"github.com/v2fly/v2ray-core/v5/common/buf"
 	"github.com/v2fly/v2ray-core/v5/common/crypto"
+	"github.com/v2fly/v2ray-core/v5/common/crypto/camellia"
+	"github.com/v2fly/v2ray-core/v5/common/crypto/cfb8"
+	"github.com/v2fly/v2ray-core/v5/common/crypto/idea"
+	"github.com/v2fly/v2ray-core/v5/common/crypto/rc2"
+	"github.com/v2fly/v2ray-core/v5/common/crypto/seed"
 	"github.com/v2fly/v2ray-core/v5/common/protocol"
 )
 
@@ -317,35 +316,35 @@ func (a *Account) getCipher() (Cipher, error) {
 		}, nil
 	case CipherType_CHACHA20:
 		return &StreamCipher{
-			KeyBytes: chacha.KeySize,
-			IVBytes:  chacha.NonceSize,
+			KeyBytes: 32,
+			IVBytes:  8,
 			EncryptCreator: func(key []byte, iv []byte) (cipher.Stream, error) {
-				return chacha20.NewCipher(iv, key)
+				return crypto.NewChaCha20Stream(key, iv), nil
 			},
 			DecryptCreator: func(key []byte, iv []byte) (cipher.Stream, error) {
-				return chacha20.NewCipher(iv, key)
+				return crypto.NewChaCha20Stream(key, iv), nil
 			},
 		}, nil
 	case CipherType_CHACHA20_IETF:
 		return &StreamCipher{
-			KeyBytes: chacha.KeySize,
-			IVBytes:  chacha.INonceSize,
+			KeyBytes: chacha20.KeySize,
+			IVBytes:  chacha20.NonceSize,
 			EncryptCreator: func(key []byte, iv []byte) (cipher.Stream, error) {
-				return chacha20.NewCipher(iv, key)
+				return chacha20.NewUnauthenticatedCipher(key, iv)
 			},
 			DecryptCreator: func(key []byte, iv []byte) (cipher.Stream, error) {
-				return chacha20.NewCipher(iv, key)
+				return chacha20.NewUnauthenticatedCipher(key, iv)
 			},
 		}, nil
 	case CipherType_XCHACHA20:
 		return &StreamCipher{
-			KeyBytes: chacha.KeySize,
-			IVBytes:  chacha.XNonceSize,
+			KeyBytes: chacha20.KeySize,
+			IVBytes:  chacha20.NonceSizeX,
 			EncryptCreator: func(key []byte, iv []byte) (cipher.Stream, error) {
-				return chacha20.NewCipher(iv, key)
+				return chacha20.NewUnauthenticatedCipher(key, iv)
 			},
 			DecryptCreator: func(key []byte, iv []byte) (cipher.Stream, error) {
-				return chacha20.NewCipher(iv, key)
+				return chacha20.NewUnauthenticatedCipher(key, iv)
 			},
 		}, nil
 	default:
@@ -611,8 +610,6 @@ func CipherFromString(c string) CipherType {
 		return CipherType_CAMELLIA_192_CFB8
 	case "camellia-256-cfb8":
 		return CipherType_CAMELLIA_256_CFB8
-	case "salsa20":
-		return CipherType_SALSA20
 	case "chacha20":
 		return CipherType_CHACHA20
 	case "chacha20-ietf":

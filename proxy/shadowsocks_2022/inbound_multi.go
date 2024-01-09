@@ -105,7 +105,6 @@ func (i *MultiUserInbound) AddUser(ctx context.Context, u *protocol.MemoryUser) 
 	})
 
 	// sync to multi service
-	// Considering implements shadowsocks2022 in xray-core may have better performance.
 	i.service.UpdateUsersWithPasswords(
 		C.MapIndexed(i.users, func(index int, it *User) int { return index }),
 		C.Map(i.users, func(it *User) string { return it.Key }),
@@ -142,7 +141,6 @@ func (i *MultiUserInbound) RemoveUser(ctx context.Context, email string) error {
 	i.users = i.users[:ulen-1]
 
 	// sync to multi service
-	// Considering implements shadowsocks2022 in xray-core may have better performance.
 	i.service.UpdateUsersWithPasswords(
 		C.MapIndexed(i.users, func(index int, it *User) int { return index }),
 		C.Map(i.users, func(it *User) string { return it.Key }),

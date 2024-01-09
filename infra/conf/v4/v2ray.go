@@ -2,6 +2,7 @@ package v4
 
 import (
 	"encoding/json"
+	"path/filepath"
 	"strings"
 
 	"google.golang.org/protobuf/types/known/anypb"
@@ -133,7 +134,7 @@ func (c *InboundDetourConfig) Build() (*core.InboundHandlerConfig, error) {
 	} else {
 		// Listen on specific IP or Unix Domain Socket
 		receiverSettings.Listen = c.ListenOn.Build()
-		listenDS := c.ListenOn.Family().IsDomain() && (c.ListenOn.Domain()[0] == '/' || c.ListenOn.Domain()[0] == '@')
+		listenDS := c.ListenOn.Family().IsDomain() && (filepath.IsAbs(c.ListenOn.Domain()) || c.ListenOn.Domain()[0] == '@')
 		listenIP := c.ListenOn.Family().IsIP() || (c.ListenOn.Family().IsDomain() && c.ListenOn.Domain() == "localhost")
 		switch {
 		case listenIP:
@@ -358,28 +359,6 @@ type Config struct {
 	MultiObservatory *MultiObservatoryConfig `json:"multiObservatory"`
 
 	Services map[string]*json.RawMessage `json:"services"`
-}
-
-func (c *Config) findInboundTag(tag string) int {
-	found := -1
-	for idx, ib := range c.InboundConfigs {
-		if ib.Tag == tag {
-			found = idx
-			break
-		}
-	}
-	return found
-}
-
-func (c *Config) findOutboundTag(tag string) int {
-	found := -1
-	for idx, ob := range c.OutboundConfigs {
-		if ob.Tag == tag {
-			found = idx
-			break
-		}
-	}
-	return found
 }
 
 func applyTransportConfig(s *StreamConfig, t *TransportConfig) {

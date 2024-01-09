@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"strings"
 
-	"github.com/golang/protobuf/proto"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/v2fly/v2ray-core/v5/common/protocol"
 	"github.com/v2fly/v2ray-core/v5/common/serial"
@@ -317,6 +317,7 @@ type StreamConfig struct {
 	Security            string                  `json:"security"`
 	TLSSettings         *tlscfg.TLSConfig       `json:"tlsSettings"`
 	UTLSSettings        *tlscfg.UTLSConfig      `json:"utlsSettings"`
+	REALITYSettings     *tlscfg.REALITYConfig   `json:"realitySettings"`
 	TCPSettings         *TCPConfig              `json:"tcpSettings"`
 	KCPSettings         *KCPConfig              `json:"kcpSettings"`
 	WSSettings          *WebSocketConfig        `json:"wsSettings"`
@@ -328,8 +329,6 @@ type StreamConfig struct {
 	MeekSettings        *MeekConfig             `json:"meekSettings"`
 	HTTPUpgradeSettings *HTTPUpgradeConfig      `json:"httpUpgradeSettings"`
 	SocketSettings      *socketcfg.SocketConfig `json:"sockopt"`
-
-	REALITYSettings *tlscfg.REALITYConfig `json:"realitySettings"`
 }
 
 // Build implements Buildable.

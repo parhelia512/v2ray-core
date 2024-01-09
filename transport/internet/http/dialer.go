@@ -51,8 +51,6 @@ func getHTTPClient(ctx context.Context, dest net.Destination, securityEngine *se
 		return client, canceller
 	}
 
-	realitySettings := reality.ConfigFromStreamSettings(streamSettings)
-
 	transport := &http2.Transport{
 		DialTLSContext: func(_ context.Context, network, addr string, tlsConfig *gotls.Config) (gonet.Conn, error) {
 			rawHost, rawPort, err := net.SplitHostPort(addr)
@@ -74,7 +72,7 @@ func getHTTPClient(ctx context.Context, dest net.Destination, securityEngine *se
 				return nil, err
 			}
 
-			if realitySettings != nil {
+			if realitySettings := reality.ConfigFromStreamSettings(streamSettings); realitySettings != nil {
 				return reality.UClient(pconn, realitySettings, ctx, dest)
 			}
 

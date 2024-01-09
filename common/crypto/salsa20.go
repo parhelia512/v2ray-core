@@ -5,8 +5,6 @@ import (
 	"encoding/binary"
 
 	"golang.org/x/crypto/salsa20/salsa"
-
-	"github.com/v2fly/v2ray-core/v5/common"
 )
 
 var _ cipher.Stream = (*Salsa20Cipher)(nil)
@@ -19,7 +17,7 @@ type Salsa20Cipher struct {
 
 func (s *Salsa20Cipher) XORKeyStream(dst, src []byte) {
 	if len(dst) < len(src) {
-		common.Must(newError("dst is smaller than src"))
+		panic("dst is smaller than src")
 	}
 	padLen := int(s.counter % 64)
 	buf := make([]byte, len(src)+padLen)
@@ -40,7 +38,7 @@ func (s *Salsa20Cipher) XORKeyStream(dst, src []byte) {
 func NewSalsa20(key []byte, nonce []byte) (cipher.Stream, error) {
 	var fixedSizedKey [32]byte
 	if len(key) != 32 {
-		return nil, newError("key size must be 32")
+		panic("key size must be 32")
 	}
 	copy(fixedSizedKey[:], key)
 	return &Salsa20Cipher{

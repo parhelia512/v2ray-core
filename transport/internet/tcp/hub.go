@@ -19,13 +19,12 @@ import (
 
 // Listener is an internet.Listener that listens for TCP connections.
 type Listener struct {
-	listener   net.Listener
-	tlsConfig  *gotls.Config
-	authConfig internet.ConnectionAuthenticator
-	config     *Config
-	addConn    internet.ConnHandler
-
+	listener      net.Listener
+	tlsConfig     *gotls.Config
 	realityConfig *goreality.Config
+	authConfig    internet.ConnectionAuthenticator
+	config        *Config
+	addConn       internet.ConnHandler
 }
 
 // ListenTCP creates a new Listener based on configurations.

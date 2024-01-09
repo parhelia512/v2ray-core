@@ -30,7 +30,6 @@ type Handler struct {
 	policyManager policy.Manager
 	dns           dns.Client
 	// cached configuration
-	ipc              string
 	endpoints        []netip.Addr
 	hasIPv4, hasIPv6 bool
 	wgLock           sync.Mutex
@@ -50,7 +49,6 @@ func New(ctx context.Context, conf *DeviceConfig) (*Handler, error) {
 		conf:          conf,
 		policyManager: v.GetFeature(policy.ManagerType()).(policy.Manager),
 		dns:           d,
-		ipc:           createIPCRequest(conf),
 		endpoints:     endpoints,
 		hasIPv4:       hasIPv4,
 		hasIPv6:       hasIPv6,
@@ -209,7 +207,7 @@ func (h *Handler) makeVirtualTun(bind *netBindClient) (Tunnel, error) {
 	bind.dnsOption.IPv4Enable = h.hasIPv4
 	bind.dnsOption.IPv6Enable = h.hasIPv6
 
-	if err = t.BuildDevice(h.ipc, bind); err != nil {
+	if err = t.BuildDevice(h.createIPCRequest(bind, h.conf), bind); err != nil {
 		_ = t.Close()
 		return nil, err
 	}
@@ -249,7 +247,7 @@ func parseEndpoints(conf *DeviceConfig) ([]netip.Addr, bool, bool, error) {
 }
 
 // serialize the config into an IPC request
-func createIPCRequest(conf *DeviceConfig) string {
+func (h *Handler) createIPCRequest(bind *netBindClient, conf *DeviceConfig) string {
 	var request strings.Builder
 
 	request.WriteString(fmt.Sprintf("private_key=%s\n", conf.SecretKey))

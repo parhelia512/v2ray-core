@@ -136,7 +136,6 @@ func Listen(ctx context.Context, address net.Address, port net.Port, streamSetti
 
 	var server *http.Server
 	config := tls.ConfigFromStreamSettings(streamSettings)
-	realityConfig := reality.ConfigFromStreamSettings(streamSettings)
 	if config == nil {
 		h2s := &http2.Server{}
 
@@ -183,7 +182,7 @@ func Listen(ctx context.Context, address net.Address, port net.Port, streamSetti
 		}
 
 		if config == nil {
-			if realityConfig != nil {
+			if realityConfig := reality.ConfigFromStreamSettings(streamSettings); realityConfig != nil {
 				streamListener = goreality.NewListener(streamListener, realityConfig.GetREALITYConfig())
 			}
 			err = server.Serve(streamListener)

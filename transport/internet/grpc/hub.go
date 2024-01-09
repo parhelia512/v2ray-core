@@ -5,10 +5,12 @@ package grpc
 
 import (
 	"context"
+	"time"
 
 	goreality "github.com/xtls/reality"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/keepalive"
 
 	"github.com/v2fly/v2ray-core/v5/common"
 	"github.com/v2fly/v2ray-core/v5/common/net"
@@ -84,15 +86,20 @@ func Listen(ctx context.Context, address net.Address, port net.Port, settings *i
 	listener.ctx = ctx
 
 	config := tls.ConfigFromStreamSettings(settings)
-	realityConfig := reality.ConfigFromStreamSettings(settings)
 
-	var s *grpc.Server
-	if config == nil {
-		s = grpc.NewServer()
-	} else {
+	var options []grpc.ServerOption
+	if config != nil {
 		// gRPC server may silently ignore TLS errors
-		s = grpc.NewServer(grpc.Creds(credentials.NewTLS(config.GetTLSConfig(tls.WithNextProto("h2")))))
+		options = append(options, grpc.Creds(credentials.NewTLS(config.GetTLSConfig(tls.WithNextProto("h2")))))
 	}
+	if grpcSettings.IdleTimeout > 0 || grpcSettings.HealthCheckTimeout > 0 {
+		options = append(options, grpc.KeepaliveParams(keepalive.ServerParameters{
+			Time:    time.Second * time.Duration(grpcSettings.IdleTimeout),
+			Timeout: time.Second * time.Duration(grpcSettings.HealthCheckTimeout),
+		}))
+	}
+
+	s := grpc.NewServer(options...)
 	listener.s = s
 
 	if settings.SocketSettings != nil && settings.SocketSettings.AcceptProxyProtocol {
@@ -124,7 +131,7 @@ func Listen(ctx context.Context, address net.Address, port net.Port, settings *i
 
 		encoding.RegisterGunServiceServerX(s, listener, grpcSettings.ServiceName)
 
-		if realityConfig != nil {
+		if realityConfig := reality.ConfigFromStreamSettings(settings); realityConfig != nil {
 			streamListener = goreality.NewListener(streamListener, realityConfig.GetREALITYConfig())
 		}
 

@@ -5,12 +5,13 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"net/url"
+	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
 	"syscall"
 
-	"github.com/golang/protobuf/proto"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/v2fly/v2ray-core/v5/common/net"
 	"github.com/v2fly/v2ray-core/v5/transport/internet/reality"
@@ -51,8 +52,8 @@ func (c *REALITYConfig) Build() (proto.Message, error) {
 			_ = json.Unmarshal(c.Dest, &s)
 		}
 		if c.Type == "" && s != "" {
-			switch s[0] {
-			case '@', '/':
+			switch {
+			case s[0] == '@', filepath.IsAbs(s):
 				c.Type = "unix"
 				if s[0] == '@' && len(s) > 1 && s[1] == '@' && (runtime.GOOS == "linux" || runtime.GOOS == "android") {
 					fullAddr := make([]byte, len(syscall.RawSockaddrUnix{}.Path)) // may need padding to work with haproxy
@@ -199,7 +200,7 @@ func (c *REALITYConfig) Build() (proto.Message, error) {
 		} else {
 			config.Version[0] = 1 // Version_x
 			config.Version[1] = 8 // Version_y
-			config.Version[2] = 4 // Version_z
+			config.Version[2] = 7 // Version_z
 		}
 	}
 	return config, nil

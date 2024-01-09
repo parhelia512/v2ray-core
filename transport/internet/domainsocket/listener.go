@@ -1,5 +1,5 @@
-//go:build !windows && !wasm
-// +build !windows,!wasm
+//go:build !wasm
+// +build !wasm
 
 package domainsocket
 
@@ -10,7 +10,6 @@ import (
 	"strings"
 
 	goreality "github.com/xtls/reality"
-	"golang.org/x/sys/unix"
 
 	"github.com/v2fly/v2ray-core/v5/common"
 	"github.com/v2fly/v2ray-core/v5/common/net"
@@ -20,14 +19,13 @@ import (
 )
 
 type Listener struct {
-	addr      *net.UnixAddr
-	ln        net.Listener
-	tlsConfig *gotls.Config
-	config    *Config
-	addConn   internet.ConnHandler
-	locker    *fileLocker
-
+	addr          *net.UnixAddr
+	ln            net.Listener
+	tlsConfig     *gotls.Config
 	realityConfig *goreality.Config
+	config        *Config
+	addConn       internet.ConnHandler
+	locker        *fileLocker
 }
 
 func Listen(ctx context.Context, address net.Address, port net.Port, streamSettings *internet.MemoryStreamConfig, handler internet.ConnHandler) (internet.Listener, error) {
@@ -61,8 +59,7 @@ func Listen(ctx context.Context, address net.Address, port net.Port, streamSetti
 
 	if config := tls.ConfigFromStreamSettings(streamSettings); config != nil {
 		ln.tlsConfig = config.GetTLSConfig()
-	}
-	if config := reality.ConfigFromStreamSettings(streamSettings); config != nil {
+	} else if config := reality.ConfigFromStreamSettings(streamSettings); config != nil {
 		ln.realityConfig = config.GetREALITYConfig()
 	}
 
@@ -109,31 +106,6 @@ func (ln *Listener) run() {
 type fileLocker struct {
 	path string
 	file *os.File
-}
-
-func (fl *fileLocker) Acquire() error {
-	f, err := os.Create(fl.path)
-	if err != nil {
-		return err
-	}
-	if err := unix.Flock(int(f.Fd()), unix.LOCK_EX); err != nil {
-		f.Close()
-		return newError("failed to lock file: ", fl.path).Base(err)
-	}
-	fl.file = f
-	return nil
-}
-
-func (fl *fileLocker) Release() {
-	if err := unix.Flock(int(fl.file.Fd()), unix.LOCK_UN); err != nil {
-		newError("failed to unlock file: ", fl.path).Base(err).WriteToLog()
-	}
-	if err := fl.file.Close(); err != nil {
-		newError("failed to close file: ", fl.path).Base(err).WriteToLog()
-	}
-	if err := os.Remove(fl.path); err != nil {
-		newError("failed to remove file: ", fl.path).Base(err).WriteToLog()
-	}
 }
 
 func init() {

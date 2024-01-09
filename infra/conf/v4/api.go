@@ -3,6 +3,9 @@ package v4
 import (
 	"strings"
 
+	"google.golang.org/protobuf/reflect/protoreflect"
+	"google.golang.org/protobuf/reflect/protoregistry"
+	"google.golang.org/protobuf/types/dynamicpb"
 	"google.golang.org/protobuf/types/known/anypb"
 
 	"github.com/v2fly/v2ray-core/v5/app/commander"
@@ -39,6 +42,24 @@ func (c *APIConfig) Build() (*commander.Config, error) {
 			services = append(services, serial.ToTypedMessage(&observatoryservice.Config{}))
 		case "routingservice":
 			services = append(services, serial.ToTypedMessage(&routerservice.Config{}))
+		default:
+			if !strings.HasPrefix(s, "#") {
+				continue
+			}
+			mt, err := protoregistry.GlobalFiles.FindDescriptorByName(protoreflect.FullName(s[1:]))
+			if err != nil {
+				return nil, newError("Cannot find API", s, "").Base(err)
+			}
+
+			message, ok := mt.(protoreflect.MessageDescriptor)
+			if !ok {
+				return nil, newError("Cannot find API", s, "").Base(err)
+			}
+
+			serviceConfig := dynamicpb.NewMessage(message)
+			protoMsg := serviceConfig.Interface()
+
+			services = append(services, serial.ToTypedMessage(protoMsg))
 		}
 	}
 

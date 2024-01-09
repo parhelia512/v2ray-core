@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/golang/protobuf/proto"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 
 	core "github.com/v2fly/v2ray-core/v5"
@@ -28,7 +28,7 @@ import (
 	"github.com/v2fly/v2ray-core/v5/transport/internet/websocket"
 )
 
-//go:generate go run github.com/v2fly/self-core/v5/common/errors/errorgen
+//go:generate go run github.com/v2fly/v2ray-core/v5/common/errors/errorgen
 
 var _ shadowsocks.SIP003Plugin = (*Plugin)(nil)
 
