@@ -119,6 +119,9 @@ func (d *DefaultSystemDialer) Dial(ctx context.Context, src net.Address, dest ne
 type PacketConnWrapper struct {
 	Conn net.PacketConn
 	dest net.Addr
+
+	Destination         *net.Destination
+	OriginalDestination *net.Destination
 }
 
 func (c *PacketConnWrapper) Close() error {
