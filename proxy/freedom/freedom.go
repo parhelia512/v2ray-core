@@ -168,7 +168,7 @@ func (h *Handler) Process(ctx context.Context, link *transport.Link, dialer inte
 		if destination.Network == net.Network_TCP {
 			reader = buf.NewReader(conn)
 		} else {
-			reader = NewPacketReader(conn, redirect)
+			reader = NewPacketReader(conn, destination, redirect)
 		}
 		if err := buf.Copy(reader, output, buf.UpdateActivity(timer)); err != nil {
 			return newError("failed to process response").Base(err)
@@ -184,7 +184,7 @@ func (h *Handler) Process(ctx context.Context, link *transport.Link, dialer inte
 	return nil
 }
 
-func NewPacketReader(conn net.Conn, redirect net.Destination) buf.Reader {
+func NewPacketReader(conn net.Conn, dest net.Destination, redirect net.Destination) buf.Reader {
 	iConn := conn
 	statConn, ok := iConn.(*internet.StatCouterConnection)
 	if ok {
@@ -197,6 +197,7 @@ func NewPacketReader(conn net.Conn, redirect net.Destination) buf.Reader {
 	if c, ok := iConn.(*internet.PacketConnWrapper); ok && redirect.Address == nil && redirect.Port == 0 {
 		return &PacketReader{
 			conn:    c,
+			dest:    dest,
 			counter: counter,
 		}
 	}
@@ -205,6 +206,7 @@ func NewPacketReader(conn net.Conn, redirect net.Destination) buf.Reader {
 
 type PacketReader struct {
 	conn    *internet.PacketConnWrapper
+	dest    net.Destination
 	counter stats.Counter
 }
 
@@ -221,6 +223,9 @@ func (r *PacketReader) ReadMultiBuffer() (buf.MultiBuffer, error) {
 		Address: net.IPAddress(d.(*net.UDPAddr).IP),
 		Port:    net.Port(d.(*net.UDPAddr).Port),
 		Network: net.Network_UDP,
+	}
+	if d.String() == r.conn.Dest.String() && r.dest.Address.Family().IsDomain() {
+		b.Endpoint = &r.dest
 	}
 	if r.counter != nil {
 		r.counter.Add(int64(n))
