@@ -4,6 +4,7 @@ package freedom
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	core "github.com/v2fly/v2ray-core/v5"
@@ -45,6 +46,7 @@ type Handler struct {
 	policyManager policy.Manager
 	dns           dns.Client
 	config        *Config
+	destMap       sync.Map
 }
 
 // Init initializes the Handler with necessary parameters.
@@ -86,6 +88,17 @@ func (h *Handler) resolveIP(ctx context.Context, domain string, localAddr net.Ad
 		}
 	}
 	return net.IPAddress(ips[0])
+}
+
+func (h *Handler) storeDomainDest(dest *net.UDPAddr, endpoint *net.Destination) {
+	h.destMap.Store(dest.String(), endpoint)
+}
+
+func (h *Handler) loadDomainDest(dest *net.UDPAddr) (*net.Destination, bool) {
+	if endpoint, loaded := h.destMap.Load(dest.String()); loaded {
+		return endpoint.(*net.Destination), true
+	}
+	return nil, false
 }
 
 func isValidAddress(addr *net.IPOrDomain) bool {
@@ -168,7 +181,7 @@ func (h *Handler) Process(ctx context.Context, link *transport.Link, dialer inte
 		if destination.Network == net.Network_TCP {
 			reader = buf.NewReader(conn)
 		} else {
-			reader = NewPacketReader(conn, redirect)
+			reader = NewPacketReader(conn, h, redirect)
 		}
 		if err := buf.Copy(reader, output, buf.UpdateActivity(timer)); err != nil {
 			return newError("failed to process response").Base(err)
@@ -184,7 +197,7 @@ func (h *Handler) Process(ctx context.Context, link *transport.Link, dialer inte
 	return nil
 }
 
-func NewPacketReader(conn net.Conn, redirect net.Destination) buf.Reader {
+func NewPacketReader(conn net.Conn, h *Handler, redirect net.Destination) buf.Reader {
 	iConn := conn
 	statConn, ok := iConn.(*internet.StatCouterConnection)
 	if ok {
@@ -196,6 +209,7 @@ func NewPacketReader(conn net.Conn, redirect net.Destination) buf.Reader {
 	}
 	if c, ok := iConn.(*internet.PacketConnWrapper); ok && redirect.Address == nil && redirect.Port == 0 {
 		return &PacketReader{
+			handler: h,
 			conn:    c,
 			counter: counter,
 		}
@@ -204,6 +218,7 @@ func NewPacketReader(conn net.Conn, redirect net.Destination) buf.Reader {
 }
 
 type PacketReader struct {
+	handler *Handler
 	conn    *internet.PacketConnWrapper
 	counter stats.Counter
 }
@@ -221,6 +236,9 @@ func (r *PacketReader) ReadMultiBuffer() (buf.MultiBuffer, error) {
 		Address: net.IPAddress(d.(*net.UDPAddr).IP),
 		Port:    net.Port(d.(*net.UDPAddr).Port),
 		Network: net.Network_UDP,
+	}
+	if endpoint, loaded := r.handler.loadDomainDest(d.(*net.UDPAddr)); loaded {
+		b.Endpoint = endpoint
 	}
 	if r.counter != nil {
 		r.counter.Add(int64(n))
@@ -282,6 +300,9 @@ func (w *PacketWriter) WriteMultiBuffer(mb buf.MultiBuffer) error {
 			if destAddr == nil {
 				b.Release()
 				continue
+			}
+			if b.Endpoint.Address.Family().IsDomain() {
+				w.handler.storeDomainDest(destAddr, b.Endpoint)
 			}
 			n, err = w.conn.WriteTo(b.Bytes(), destAddr)
 		} else {
