@@ -10,6 +10,7 @@ import (
 	"github.com/v2fly/v2ray-core/v5/common"
 	"github.com/v2fly/v2ray-core/v5/common/buf"
 	"github.com/v2fly/v2ray-core/v5/common/net"
+	"github.com/v2fly/v2ray-core/v5/common/platform"
 	"github.com/v2fly/v2ray-core/v5/common/retry"
 	"github.com/v2fly/v2ray-core/v5/common/session"
 	"github.com/v2fly/v2ray-core/v5/common/signal"
@@ -38,7 +39,12 @@ func init() {
 		fullConfig := &Config{}
 		return common.CreateObject(ctx, fullConfig)
 	}))
+
+	defaultFlagValue := "false"
+	udpDisableDomainUnmapping = platform.NewEnvFlag("v2ray.freedom.disable.udp.domain.unmapping").GetValue(func() string { return defaultFlagValue }) != defaultFlagValue
 }
+
+var udpDisableDomainUnmapping bool
 
 // Handler handles Freedom connections.
 type Handler struct {
@@ -222,6 +228,14 @@ func (r *PacketReader) ReadMultiBuffer() (buf.MultiBuffer, error) {
 		Port:    net.Port(d.(*net.UDPAddr).Port),
 		Network: net.Network_UDP,
 	}
+	if r.conn.Destination != nil && r.conn.OriginalDestination != nil {
+		if b.Endpoint.Address == r.conn.Destination.Address && b.Endpoint.Port == r.conn.Destination.Port {
+			b.Endpoint = r.conn.OriginalDestination
+		}
+		if r.conn.OriginalDestination.Port == r.conn.Destination.Port && b.Endpoint.Address == r.conn.Destination.Address {
+			b.Endpoint.Address = r.conn.OriginalDestination.Address
+		}
+	}
 	if r.counter != nil {
 		r.counter.Add(int64(n))
 	}
@@ -266,6 +280,7 @@ func (w *PacketWriter) WriteMultiBuffer(mb buf.MultiBuffer) error {
 		var n int
 		var err error
 		if b.Endpoint != nil {
+			originalDestination := b.Endpoint
 			if w.redirect.Address != nil {
 				b.Endpoint.Address = w.redirect.Address
 			}
@@ -282,6 +297,15 @@ func (w *PacketWriter) WriteMultiBuffer(mb buf.MultiBuffer) error {
 			if destAddr == nil {
 				b.Release()
 				continue
+			}
+			b.Endpoint = &net.Destination{
+				Address: net.IPAddress(destAddr.IP),
+				Port:    net.Port(destAddr.Port),
+				Network: net.Network_UDP,
+			}
+			if w.conn.OriginalDestination == nil && w.conn.Destination == nil && !udpDisableDomainUnmapping && b.Endpoint.Address != originalDestination.Address || b.Endpoint.Port != originalDestination.Port {
+				w.conn.OriginalDestination = originalDestination
+				w.conn.Destination = b.Endpoint
 			}
 			n, err = w.conn.WriteTo(b.Bytes(), destAddr)
 		} else {
