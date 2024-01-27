@@ -69,7 +69,7 @@ func (d *DefaultSystemDialer) Dial(ctx context.Context, src net.Address, dest ne
 		}
 		return &PacketConnWrapper{
 			Conn: packetConn,
-			dest: destAddr,
+			Dest: destAddr,
 		}, nil
 	}
 	goStdKeepAlive := time.Duration(0)
@@ -110,7 +110,7 @@ func (d *DefaultSystemDialer) Dial(ctx context.Context, src net.Address, dest ne
 
 type PacketConnWrapper struct {
 	Conn net.PacketConn
-	dest net.Addr
+	Dest net.Addr
 }
 
 func (c *PacketConnWrapper) Close() error {
@@ -122,11 +122,11 @@ func (c *PacketConnWrapper) LocalAddr() net.Addr {
 }
 
 func (c *PacketConnWrapper) RemoteAddr() net.Addr {
-	return c.dest
+	return c.Dest
 }
 
 func (c *PacketConnWrapper) Write(p []byte) (int, error) {
-	return c.Conn.WriteTo(p, c.dest)
+	return c.Conn.WriteTo(p, c.Dest)
 }
 
 func (c *PacketConnWrapper) Read(p []byte) (int, error) {
