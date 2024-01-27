@@ -217,10 +217,14 @@ func (r *PacketReader) ReadMultiBuffer() (buf.MultiBuffer, error) {
 		return nil, err
 	}
 	b.Resize(0, int32(n))
-	b.Endpoint = &net.Destination{
-		Address: net.IPAddress(d.(*net.UDPAddr).IP),
-		Port:    net.Port(d.(*net.UDPAddr).Port),
-		Network: net.Network_UDP,
+	if r.conn.IPEndpoint != nil && r.conn.DomainEndpoint != nil && d.String() == r.conn.IPEndpoint.String() {
+		b.Endpoint = r.conn.DomainEndpoint
+	} else {
+		b.Endpoint = &net.Destination{
+			Address: net.IPAddress(d.(*net.UDPAddr).IP),
+			Port:    net.Port(d.(*net.UDPAddr).Port),
+			Network: net.Network_UDP,
+		}
 	}
 	if r.counter != nil {
 		r.counter.Add(int64(n))
@@ -282,6 +286,11 @@ func (w *PacketWriter) WriteMultiBuffer(mb buf.MultiBuffer) error {
 			if destAddr == nil {
 				b.Release()
 				continue
+			}
+
+			if b.Endpoint.Address.Family().IsDomain() {
+				w.conn.IPEndpoint = destAddr
+				w.conn.DomainEndpoint = b.Endpoint
 			}
 			n, err = w.conn.WriteTo(b.Bytes(), destAddr)
 		} else {
