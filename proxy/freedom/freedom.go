@@ -4,6 +4,7 @@ package freedom
 
 import (
 	"context"
+	"net/netip"
 	"time"
 
 	core "github.com/v2fly/v2ray-core/v5"
@@ -155,6 +156,8 @@ func (h *Handler) Process(ctx context.Context, link *transport.Link, dialer inte
 	ctx, cancel := context.WithCancel(ctx)
 	timer := signal.CancelAfterInactivity(ctx, cancel, plcy.Timeouts.ConnectionIdle)
 
+	addrPort := &addrPort{}
+
 	requestDone := func() error {
 		defer timer.SetTimeout(plcy.Timeouts.DownlinkOnly)
 
@@ -165,7 +168,7 @@ func (h *Handler) Process(ctx context.Context, link *transport.Link, dialer inte
 		case redirect.Address != nil, redirect.Port != 0:
 			writer = &buf.SequentialWriter{Writer: conn}
 		default:
-			writer = NewPacketWriter(ctx, h, conn)
+			writer = NewPacketWriter(ctx, h, conn, destination, addrPort)
 		}
 
 		if err := buf.Copy(input, writer, buf.UpdateActivity(timer)); err != nil {
@@ -185,7 +188,7 @@ func (h *Handler) Process(ctx context.Context, link *transport.Link, dialer inte
 		case redirect.Address != nil, redirect.Port != 0:
 			reader = &buf.PacketReader{Reader: conn}
 		default:
-			reader = NewPacketReader(conn)
+			reader = NewPacketReader(conn, destination, addrPort)
 		}
 		if err := buf.Copy(reader, output, buf.UpdateActivity(timer)); err != nil {
 			return newError("failed to process response").Base(err)
@@ -201,7 +204,12 @@ func (h *Handler) Process(ctx context.Context, link *transport.Link, dialer inte
 	return nil
 }
 
-func NewPacketReader(conn net.Conn) buf.Reader {
+type addrPort struct {
+	netip.Addr
+	net.Port
+}
+
+func NewPacketReader(conn net.Conn, dest net.Destination, addrPort *addrPort) buf.Reader {
 	iConn := conn
 	statConn, ok := iConn.(*internet.StatCouterConnection)
 	if ok {
@@ -214,7 +222,9 @@ func NewPacketReader(conn net.Conn) buf.Reader {
 	if c, ok := iConn.(net.PacketConn); ok {
 		return &PacketReader{
 			packetConn: c,
+			dest:       dest,
 			counter:    counter,
+			addrPort:   addrPort,
 		}
 	}
 	return &buf.PacketReader{Reader: conn}
@@ -222,7 +232,9 @@ func NewPacketReader(conn net.Conn) buf.Reader {
 
 type PacketReader struct {
 	packetConn net.PacketConn
+	dest       net.Destination
 	counter    stats.Counter
+	addrPort   *addrPort
 }
 
 func (r *PacketReader) ReadMultiBuffer() (buf.MultiBuffer, error) {
@@ -239,13 +251,16 @@ func (r *PacketReader) ReadMultiBuffer() (buf.MultiBuffer, error) {
 		Port:    net.Port(d.(*net.UDPAddr).Port),
 		Network: net.Network_UDP,
 	}
+	if d.(*net.UDPAddr).AddrPort().Addr() == r.addrPort.Addr {
+		b.Endpoint.Address = r.dest.Address
+	}
 	if r.counter != nil {
 		r.counter.Add(int64(n))
 	}
 	return buf.MultiBuffer{b}, nil
 }
 
-func NewPacketWriter(ctx context.Context, h *Handler, conn net.Conn) buf.Writer {
+func NewPacketWriter(ctx context.Context, h *Handler, conn net.Conn, dest net.Destination, addrPort *addrPort) buf.Writer {
 	iConn := conn
 	statConn, ok := iConn.(*internet.StatCouterConnection)
 	if ok {
@@ -260,8 +275,10 @@ func NewPacketWriter(ctx context.Context, h *Handler, conn net.Conn) buf.Writer 
 			ctx:        ctx,
 			handler:    h,
 			packetConn: c,
+			dest:       dest,
 			counter:    counter,
 			conn:       iConn,
+			addrPort:   addrPort,
 		}
 	}
 	return &buf.SequentialWriter{Writer: conn}
@@ -271,8 +288,10 @@ type PacketWriter struct {
 	ctx        context.Context
 	handler    *Handler
 	packetConn net.PacketConn
+	dest       net.Destination
 	counter    stats.Counter
 	conn       net.Conn
+	addrPort   *addrPort
 }
 
 func (w *PacketWriter) WriteMultiBuffer(mb buf.MultiBuffer) error {
@@ -283,6 +302,7 @@ func (w *PacketWriter) WriteMultiBuffer(mb buf.MultiBuffer) error {
 		var n int
 		var err error
 		if b.Endpoint != nil {
+			endpoint := *b.Endpoint
 			if w.handler.config.useIP() && b.Endpoint.Address.Family().IsDomain() {
 				ip := w.handler.resolveIP(w.ctx, b.Endpoint.Address.Domain(), nil)
 				if ip != nil {
@@ -293,6 +313,10 @@ func (w *PacketWriter) WriteMultiBuffer(mb buf.MultiBuffer) error {
 			if destAddr == nil {
 				b.Release()
 				continue
+			}
+			if w.dest.Address.Family().IsDomain() && w.dest.Address == endpoint.Address && !w.addrPort.Addr.IsValid() {
+				w.addrPort.Addr = destAddr.AddrPort().Addr()
+				w.addrPort.Port = net.Port(destAddr.Port)
 			}
 			n, err = w.packetConn.WriteTo(b.Bytes(), destAddr)
 		} else {
