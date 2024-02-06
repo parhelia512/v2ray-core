@@ -7,7 +7,7 @@ func applyOutboundSocketOptions(network string, address string, fd uintptr, conf
 	return nil
 }
 
-func applyInboundSocketOptions(network string, fd uintptr, config *SocketConfig) error {
+func applyInboundSocketOptions(network string, address string, fd uintptr, config *SocketConfig) error {
 	return nil
 }
 

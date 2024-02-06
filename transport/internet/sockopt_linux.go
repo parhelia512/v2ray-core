@@ -111,7 +111,7 @@ func applyOutboundSocketOptions(network string, address string, fd uintptr, conf
 	return nil
 }
 
-func applyInboundSocketOptions(network string, fd uintptr, config *SocketConfig) error {
+func applyInboundSocketOptions(network string, address string, fd uintptr, config *SocketConfig) error {
 	if config.Mark != 0 {
 		if err := syscall.SetsockoptInt(int(fd), syscall.SOL_SOCKET, syscall.SO_MARK, int(config.Mark)); err != nil {
 			return newError("failed to set SO_MARK").Base(err)
