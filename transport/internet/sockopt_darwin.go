@@ -119,11 +119,19 @@ func applyOutboundSocketOptions(network string, address string, fd uintptr, conf
 		if err != nil {
 			return newError("failed to get interface ", config.BindToDevice).Base(err)
 		}
-		if err := unix.SetsockoptInt(int(fd), unix.IPPROTO_IP, unix.IP_BOUND_IF, iface.Index); err != nil {
-			return newError("failed to set IP_BOUND_IF", err)
+		host, _, err := net.SplitHostPort(address)
+		if err != nil {
+			return err
 		}
-		if err := unix.SetsockoptInt(int(fd), unix.IPPROTO_IPV6, unix.IPV6_BOUND_IF, iface.Index); err != nil {
-			return newError("failed to set IPV6_BOUND_IF", err)
+		switch v2net.ParseAddress(host).Family() {
+		case v2net.AddressFamilyIPv4:
+			if err := unix.SetsockoptInt(int(fd), unix.IPPROTO_IP, unix.IP_BOUND_IF, iface.Index); err != nil {
+				return newError("failed to set IP_BOUND_IF", err)
+			}
+		case v2net.AddressFamilyIPv6:
+			if err := unix.SetsockoptInt(int(fd), unix.IPPROTO_IPV6, unix.IPV6_BOUND_IF, iface.Index); err != nil {
+				return newError("failed to set IPV6_BOUND_IF", err)
+			}
 		}
 	}
 
@@ -142,7 +150,7 @@ func applyOutboundSocketOptions(network string, address string, fd uintptr, conf
 	return nil
 }
 
-func applyInboundSocketOptions(network string, fd uintptr, config *SocketConfig) error {
+func applyInboundSocketOptions(network string, address string, fd uintptr, config *SocketConfig) error {
 	if isTCPSocket(network) {
 		switch config.Tfo {
 		case SocketConfig_Enable:
@@ -176,11 +184,20 @@ func applyInboundSocketOptions(network string, fd uintptr, config *SocketConfig)
 		if err != nil {
 			return newError("failed to get interface ", config.BindToDevice).Base(err)
 		}
-		if err := unix.SetsockoptInt(int(fd), unix.IPPROTO_IP, unix.IP_BOUND_IF, iface.Index); err != nil {
-			return newError("failed to set IP_BOUND_IF", err)
+		host, _, err := net.SplitHostPort(address)
+		if err != nil {
+			return err
 		}
-		if err := unix.SetsockoptInt(int(fd), unix.IPPROTO_IPV6, unix.IPV6_BOUND_IF, iface.Index); err != nil {
-			return newError("failed to set IPV6_BOUND_IF", err)
+		addr := v2net.ParseAddress(host)
+		switch {
+		case addr.Family().IsIP() && addr.IP().IsUnspecified(), addr.Family().IsIPv6():
+			if err := unix.SetsockoptInt(int(fd), unix.IPPROTO_IPV6, unix.IPV6_BOUND_IF, iface.Index); err != nil {
+				return newError("failed to set IPV6_BOUND_IF", err)
+			}
+		case addr.Family().IsIPv4():
+			if err := unix.SetsockoptInt(int(fd), unix.IPPROTO_IP, unix.IP_BOUND_IF, iface.Index); err != nil {
+				return newError("failed to set IP_BOUND_IF", err)
+			}
 		}
 	}
 
