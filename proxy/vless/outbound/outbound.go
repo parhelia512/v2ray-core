@@ -155,7 +155,6 @@ func (h *Handler) Process(ctx context.Context, link *transport.Link, dialer inte
 			if !allowUDP443 && request.Port == 443 {
 				return newError("XTLS rejected UDP/443 traffic").AtInfo()
 			}
-			requestAddons.Flow = ""
 		case protocol.RequestCommandMux:
 			fallthrough // let server break Mux connections that contain TCP requests
 		case protocol.RequestCommandTCP:
@@ -192,13 +191,11 @@ func (h *Handler) Process(ctx context.Context, link *transport.Link, dialer inte
 	packetEncoding := packetaddr.PacketAddrType_None
 	if command == protocol.RequestCommandUDP && target.Port > 0 {
 		switch {
-		case requestAddons.Flow == vless.XRV, h.packetEncoding == packetaddr.PacketAddrType_XUDP:
-			if request.Port != 53 && request.Port != 443 {
-				packetEncoding = packetaddr.PacketAddrType_XUDP
-				request.Command = protocol.RequestCommandMux
-				request.Address = net.DomainAddress("v1.mux.cool")
-				request.Port = 0
-			}
+		case requestAddons.Flow == vless.XRV, h.packetEncoding == packetaddr.PacketAddrType_XUDP && request.Port != 53 && request.Port != 443:
+			packetEncoding = packetaddr.PacketAddrType_XUDP
+			request.Command = protocol.RequestCommandMux
+			request.Address = net.DomainAddress("v1.mux.cool")
+			request.Port = 0
 		case h.packetEncoding == packetaddr.PacketAddrType_Packet:
 			packetEncoding = packetaddr.PacketAddrType_Packet
 			request.Address = net.DomainAddress(packetaddr.SeqPacketMagicAddress)

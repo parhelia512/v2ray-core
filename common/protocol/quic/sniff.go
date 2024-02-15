@@ -159,6 +159,9 @@ func SniffQUIC(b []byte) (*SniffHeader, error) {
 	default:
 		return nil, errNotQuicInitial
 	}
+	if packetNumber != 0 && packetNumber != 1 {
+		return nil, errNotQuicInitial
+	}
 
 	extHdrLen := hdrLen + int(packetNumberLength)
 	copy(b[extHdrLen:hdrLen+4], origPNBytes[packetNumberLength:])

@@ -71,7 +71,6 @@ func (v *Plugin) Init(localHost string, localPort string, remoteHost string, rem
 	}
 
 	err = instance.Start()
-
 	if err != nil {
 		return newError("start core for v2ray-plugin").Base(err)
 	}

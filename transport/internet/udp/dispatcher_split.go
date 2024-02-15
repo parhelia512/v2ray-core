@@ -110,15 +110,13 @@ func handleInput(ctx context.Context, conn *connEntry, dest net.Destination, cal
 		}
 		timer.Update()
 		for _, b := range mb {
-			p := &udp.Packet{
+			if b.Endpoint != nil {
+				dest = *b.Endpoint
+			}
+			callback(ctx, &udp.Packet{
 				Payload: b,
-			}
-			if b.Endpoint == nil {
-				p.Source = dest
-			} else {
-				p.Source = *b.Endpoint
-			}
-			callback(ctx, p)
+				Source:  dest,
+			})
 		}
 	}
 }

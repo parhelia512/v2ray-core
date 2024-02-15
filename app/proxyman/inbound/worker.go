@@ -358,8 +358,7 @@ func (w *udpWorker) callback(b *buf.Buffer, source net.Destination, originalDest
 
 			if originalDest.IsValid() {
 				ctx = session.ContextWithOutbound(ctx, &session.Outbound{
-					OriginalTarget: originalDest,
-					Target:         originalDest,
+					Target: originalDest,
 				})
 			}
 			ctx = session.ContextWithInbound(ctx, &session.Inbound{

@@ -195,9 +195,12 @@ func (s *ServerSession) handshake5(nMethod byte, reader io.Reader, writer io.Wri
 		if s.config.Address != nil {
 			// Use configured IP as remote address in the response to UdpAssociate
 			responseAddress = s.config.Address.AsAddress()
-		} else {
-			// Use conn.LocalAddr() IP as remote address in the response by default
+		} else if s.clientAddress == net.LocalHostIP || s.clientAddress == net.LocalHostIPv6 {
+			// For localhost clients use loopback IP
 			responseAddress = s.clientAddress
+		} else {
+			// For non-localhost clients use inbound listening address
+			responseAddress = s.address
 		}
 	}
 	if err := writeSocks5Response(writer, statusSuccess, responseAddress, responsePort); err != nil {
@@ -519,7 +522,7 @@ func ClientHandshake(request *protocol.RequestHeader, reader io.Reader, writer i
 	}
 	common.Must2(b.Write([]byte{socks5Version, command, 0x00 /* reserved */}))
 	if request.Command == protocol.RequestCommandUDP {
-		common.Must2(b.Write([]byte{1, 0, 0, 0, 0, 0, 0 /* RFC 1928 */}))
+		common.Must2(b.Write([]byte{1, 0, 0, 0, 0, 0, 0}))
 	} else if err := addrParser.WriteAddressPort(b, request.Address, request.Port); err != nil {
 		return nil, err
 	}
