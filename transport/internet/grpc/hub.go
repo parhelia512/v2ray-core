@@ -5,9 +5,11 @@ package grpc
 
 import (
 	"context"
+	"strings"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/metadata"
 
 	"github.com/v2fly/v2ray-core/v5/common"
 	"github.com/v2fly/v2ray-core/v5/common/net"
@@ -29,7 +31,23 @@ type Listener struct {
 
 func (l Listener) Tun(server encoding.GunService_TunServer) error {
 	tunCtx, cancel := context.WithCancel(l.ctx)
-	l.handler(encoding.NewGunConn(server, cancel))
+	gunConn := encoding.NewGunConn(server, cancel)
+	var remoteAddr net.Addr
+	md, ok := metadata.FromIncomingContext(server.Context())
+	if ok && l.config.AcceptXForwardFor {
+		if addr := ParseXForwardFor(md); addr != nil {
+			remoteAddr = addr
+		}
+	}
+	if ok && l.config.AcceptXRealIP {
+		if addr := ParseXRealIP(md); addr != nil {
+			remoteAddr = addr
+		}
+	}
+	if remoteAddr != nil {
+		gunConn.SetRemoteAddr(remoteAddr)
+	}
+	l.handler(gunConn)
 	<-tunCtx.Done()
 	return nil
 }
@@ -114,6 +132,38 @@ func Listen(ctx context.Context, address net.Address, port net.Port, settings *i
 	}()
 
 	return listener, nil
+}
+
+func ParseXRealIP(md metadata.MD) net.Addr {
+	xri := md.Get("X-Real-IP")
+	if len(xri) == 0 {
+		return nil
+	}
+	if addr := net.ParseAddress(xri[0]); addr.Family().IsIP() {
+		return &net.TCPAddr{
+			IP:   addr.IP(),
+			Port: int(0),
+		}
+	}
+	return nil
+}
+
+func ParseXForwardFor(md metadata.MD) net.Addr {
+	xff := md.Get("X-Forwarded-For")
+	if len(xff) == 0 {
+		return nil
+	}
+	list := strings.Split(xff[0], ",")
+	if len(list) == 0 {
+		return nil
+	}
+	if addr := net.ParseAddress(list[len(list)-1]); addr.Family().IsIP() {
+		return &net.TCPAddr{
+			IP:   addr.IP(),
+			Port: int(0),
+		}
+	}
+	return nil
 }
 
 func init() {

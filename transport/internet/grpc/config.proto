@@ -17,4 +17,6 @@ message Config {
 
   string host = 1;
   string service_name = 2;
+  bool acceptXRealIP = 3;
+  bool accept_x_forward_for = 4;
 }
