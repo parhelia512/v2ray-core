@@ -6,11 +6,14 @@ package grpc
 import (
 	"context"
 	"strings"
+	"time"
 
 	goreality "github.com/xtls/reality"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/peer"
 
 	"github.com/v2fly/v2ray-core/v5/common"
 	"github.com/v2fly/v2ray-core/v5/common/net"
@@ -54,6 +57,34 @@ func (l Listener) Tun(server encoding.GunService_TunServer) error {
 	return nil
 }
 
+func (l Listener) TunMulti(server encoding.GunService_TunMultiServer) error {
+	tunCtx, cancel := context.WithCancel(l.ctx)
+	var remoteAddr net.Addr
+	if peer, ok := peer.FromContext(server.Context()); ok {
+		remoteAddr = peer.Addr
+	} else {
+		remoteAddr = &net.TCPAddr{
+			IP:   []byte{0, 0, 0, 0},
+			Port: 0,
+		}
+	}
+	md, ok := metadata.FromIncomingContext(server.Context())
+	if ok && l.config.AcceptXForwardFor {
+		if addr := ParseXForwardFor(md); addr != nil {
+			remoteAddr = addr
+		}
+	}
+	if ok && l.config.AcceptXRealIP {
+		if addr := ParseXRealIP(md); addr != nil {
+			remoteAddr = addr
+		}
+	}
+	multiConn := encoding.NewGunMultiConn0(server, cancel, remoteAddr)
+	l.handler(multiConn)
+	<-tunCtx.Done()
+	return nil
+}
+
 func (l Listener) Close() error {
 	l.s.Stop()
 	return nil
@@ -90,13 +121,19 @@ func Listen(ctx context.Context, address net.Address, port net.Port, settings *i
 
 	config := tls.ConfigFromStreamSettings(settings)
 
-	var s *grpc.Server
-	if config == nil {
-		s = grpc.NewServer()
-	} else {
+	var options []grpc.ServerOption
+	if config != nil {
 		// gRPC server may silently ignore TLS errors
-		s = grpc.NewServer(grpc.Creds(credentials.NewTLS(config.GetTLSConfig(tls.WithNextProto("h2")))))
+		options = append(options, grpc.Creds(credentials.NewTLS(config.GetTLSConfig(tls.WithNextProto("h2")))))
 	}
+	if grpcSettings.IdleTimeout > 0 || grpcSettings.HealthCheckTimeout > 0 {
+		options = append(options, grpc.KeepaliveParams(keepalive.ServerParameters{
+			Time:    time.Second * time.Duration(grpcSettings.IdleTimeout),
+			Timeout: time.Second * time.Duration(grpcSettings.HealthCheckTimeout),
+		}))
+	}
+
+	s := grpc.NewServer(options...)
 	listener.s = s
 
 	if settings.SocketSettings != nil && settings.SocketSettings.AcceptProxyProtocol {

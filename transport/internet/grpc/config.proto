@@ -8,6 +8,11 @@ option java_multiple_files = true;
 
 import "common/protoext/extensions.proto";
 
+enum Mode {
+  Gun = 0;
+  Multi = 1;
+}
+
 message Config {
   option (v2ray.core.common.protoext.message_opt).type = "transport";
   option (v2ray.core.common.protoext.message_opt).short_name = "grpc";
@@ -16,6 +21,11 @@ message Config {
 
   string host = 1;
   string service_name = 2;
-  bool acceptXRealIP = 3;
-  bool accept_x_forward_for = 4;
+  Mode mode = 3;
+  int32 idle_timeout = 4;
+  int32 health_check_timeout = 5;
+  bool permit_without_stream = 6;
+  int32 initial_windows_size = 7;
+  bool acceptXRealIP = 8;
+  bool accept_x_forward_for = 9;
 }
