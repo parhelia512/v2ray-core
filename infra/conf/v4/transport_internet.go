@@ -146,6 +146,8 @@ type WebSocketConfig struct {
 	MaxEarlyData         int32             `json:"maxEarlyData"`
 	UseBrowserForwarding bool              `json:"useBrowserForwarding"`
 	EarlyDataHeaderName  string            `json:"earlyDataHeaderName"`
+	AcceptXRealIP        bool              `json:"acceptXRealIP"`
+	AcceptXForwardFor    bool              `json:"acceptXForwardFor"`
 }
 
 // Build implements Buildable.
@@ -164,6 +166,8 @@ func (c *WebSocketConfig) Build() (proto.Message, error) {
 		MaxEarlyData:         c.MaxEarlyData,
 		UseBrowserForwarding: c.UseBrowserForwarding,
 		EarlyDataHeaderName:  c.EarlyDataHeaderName,
+		AcceptXRealIP:        c.AcceptXRealIP,
+		AcceptXForwardFor:    c.AcceptXForwardFor,
 	}
 	if c.AcceptProxyProtocol {
 		config.AcceptProxyProtocol = c.AcceptProxyProtocol
@@ -172,10 +176,12 @@ func (c *WebSocketConfig) Build() (proto.Message, error) {
 }
 
 type HTTPConfig struct {
-	Host    *cfgcommon.StringList            `json:"host"`
-	Path    string                           `json:"path"`
-	Method  string                           `json:"method"`
-	Headers map[string]*cfgcommon.StringList `json:"headers"`
+	Host              *cfgcommon.StringList            `json:"host"`
+	Path              string                           `json:"path"`
+	Method            string                           `json:"method"`
+	Headers           map[string]*cfgcommon.StringList `json:"headers"`
+	AcceptXRealIP     bool                             `json:"acceptXRealIP"`
+	AcceptXForwardFor bool                             `json:"acceptXForwardFor"`
 }
 
 // Build implements Buildable.
@@ -203,6 +209,8 @@ func (c *HTTPConfig) Build() (proto.Message, error) {
 			})
 		}
 	}
+	config.AcceptXRealIP = c.AcceptXRealIP
+	config.AcceptXForwardFor = c.AcceptXForwardFor
 	return config, nil
 }
 

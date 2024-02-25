@@ -434,20 +434,8 @@ func (s *QUICNameServer) openConnection(ctx context.Context) (quic.EarlyConnecti
 	quicConfig := &quic.Config{
 		HandshakeIdleTimeout: handshakeIdleTimeout,
 	}
-	var destAddr *net.UDPAddr
-	if s.destination.Address.Family().IsIP() {
-		destAddr = &net.UDPAddr{
-			IP:   s.destination.Address.IP(),
-			Port: int(s.destination.Port),
-		}
-	} else {
-		addr, err := net.ResolveUDPAddr("udp", s.destination.NetAddr())
-		if err != nil {
-			return nil, err
-		}
-		destAddr = addr
-	}
-	tr := quic.Transport{}
+	var pConn net.PacketConn
+	var remoteAddr net.Addr
 	if s.dispatcher != nil {
 		link, err := s.dispatcher.Dispatch(ctx, s.destination)
 		if err != nil {
@@ -457,15 +445,20 @@ func (s *QUICNameServer) openConnection(ctx context.Context) (quic.EarlyConnecti
 			cnc.ConnectionInputMulti(link.Writer),
 			cnc.ConnectionOutputMultiUDP(link.Reader),
 		)
-		tr.Conn = &connWrapper{conn, destAddr}
+		pConn = &connWrapper{conn}
+		remoteAddr = conn.RemoteAddr()
 	} else {
-		conn, err := internet.DialSystem(ctx, s.destination, nil)
+		conn, err := internet.DialSystemDNS(ctx, s.destination, nil)
 		if err != nil {
 			return nil, err
 		}
-		tr.Conn = conn.(*internet.PacketConnWrapper).Conn.(*net.UDPConn)
+		pConn = conn.(*internet.PacketConnWrapper).Conn.(*net.UDPConn)
+		remoteAddr = conn.RemoteAddr()
 	}
-	return tr.DialEarly(ctx, destAddr, tlsConfig.GetTLSConfig(tls.WithNextProto(NextProtoDQ)), quicConfig)
+	tr := quic.Transport{
+		Conn: pConn,
+	}
+	return tr.DialEarly(ctx, remoteAddr, tlsConfig.GetTLSConfig(tls.WithNextProto(NextProtoDQ)), quicConfig)
 }
 
 func (s *QUICNameServer) openStream(ctx context.Context) (quic.Stream, error) {

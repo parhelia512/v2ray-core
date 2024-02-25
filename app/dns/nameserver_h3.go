@@ -10,6 +10,7 @@ import (
 	"github.com/quic-go/quic-go"
 	"github.com/quic-go/quic-go/http3"
 
+	core "github.com/v2fly/v2ray-core/v5"
 	"github.com/v2fly/v2ray-core/v5/common/net"
 	"github.com/v2fly/v2ray-core/v5/common/net/cnc"
 	"github.com/v2fly/v2ray-core/v5/common/uuid"
@@ -27,6 +28,7 @@ func NewH3NameServer(url *url.URL, dispatcher routing.Dispatcher) (*DoHNameServe
 			if err != nil {
 				return nil, err
 			}
+			ctx = core.ToBackgroundDetachedContext(ctx)
 			link, err := dispatcher.Dispatch(ctx, dest)
 			if err != nil {
 				return nil, err
@@ -35,30 +37,15 @@ func NewH3NameServer(url *url.URL, dispatcher routing.Dispatcher) (*DoHNameServe
 				cnc.ConnectionInputMulti(link.Writer),
 				cnc.ConnectionOutputMultiUDP(link.Reader),
 			)
-			var destAddr *net.UDPAddr
-			if dest.Address.Family().IsIP() {
-				destAddr = &net.UDPAddr{
-					IP:   dest.Address.IP(),
-					Port: int(dest.Port),
-				}
-			} else {
-				addr, err := net.ResolveUDPAddr("udp", dest.NetAddr())
-				if err != nil {
-					return nil, err
-				}
-				destAddr = addr
-			}
 			tr := quic.Transport{
-				Conn: &connWrapper{conn, destAddr},
+				Conn: &connWrapper{conn},
 			}
 			return tr.DialEarly(ctx, conn.RemoteAddr(), tlsCfg, cfg)
 		},
 	}
 	dispatchedClient := &http.Client{
 		Transport: tr,
-		Timeout:   180 * time.Second,
 	}
-
 	s.httpClient = dispatchedClient
 	newError("DNS: created Remote H3 client for ", url.String()).AtInfo().WriteToLog()
 	return s, nil
@@ -94,15 +81,11 @@ func NewH3LocalNameServer(url *url.URL) *DoHNameServer {
 
 type connWrapper struct {
 	net.Conn
-	addr net.Addr
 }
 
 func (c *connWrapper) ReadFrom(p []byte) (n int, addr net.Addr, err error) {
 	n, err = c.Read(p)
-	if err == nil {
-		addr = c.addr
-	}
-	return
+	return n, c.RemoteAddr(), err
 }
 
 func (c *connWrapper) WriteTo(p []byte, _ net.Addr) (n int, err error) {

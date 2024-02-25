@@ -8,6 +8,7 @@ import (
 	"math/big"
 	"runtime"
 	"strconv"
+	"time"
 
 	"github.com/pires/go-proxyproto"
 
@@ -436,7 +437,8 @@ func CopyRawConnIfExist(ctx context.Context, readerConn net.Conn, writerConn net
 	if inbound := session.InboundFromContext(ctx); inbound != nil {
 		if tc, ok := writerConn.(*net.TCPConn); ok && readerConn != nil && writerConn != nil && (runtime.GOOS == "linux" || runtime.GOOS == "android") {
 			newError("CopyRawConn splice").WriteToLog(session.ExportIDToError(ctx))
-			runtime.Gosched() // necessary
+			//runtime.Gosched() // necessary
+			time.Sleep(time.Millisecond) // without this, there will be a rare ssl error for freedom splice
 			w, err := tc.ReadFrom(readerConn)
 			if readCounter != nil {
 				readCounter.Add(w)

@@ -5,12 +5,15 @@ package grpc
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	goreality "github.com/xtls/reality"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/keepalive"
+	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/peer"
 
 	"github.com/v2fly/v2ray-core/v5/common"
 	"github.com/v2fly/v2ray-core/v5/common/net"
@@ -20,8 +23,6 @@ import (
 	"github.com/v2fly/v2ray-core/v5/transport/internet/reality"
 	"github.com/v2fly/v2ray-core/v5/transport/internet/tls"
 )
-
-var _ encoding.GunServiceServer = (*Listener)(nil)
 
 type Listener struct {
 	encoding.UnimplementedGunServiceServer
@@ -35,20 +36,53 @@ type Listener struct {
 
 func (l Listener) Tun(server encoding.GunService_TunServer) error {
 	tunCtx, cancel := context.WithCancel(l.ctx)
-	l.handler(encoding.NewGunConn(server, cancel))
+	gunConn := encoding.NewGunConn(server, cancel)
+	var remoteAddr net.Addr
+	md, ok := metadata.FromIncomingContext(server.Context())
+	if ok && l.config.AcceptXForwardFor {
+		if addr := ParseXForwardFor(md); addr != nil {
+			remoteAddr = addr
+		}
+	}
+	if ok && l.config.AcceptXRealIP {
+		if addr := ParseXRealIP(md); addr != nil {
+			remoteAddr = addr
+		}
+	}
+	if remoteAddr != nil {
+		gunConn.SetRemoteAddr(remoteAddr)
+	}
+	l.handler(gunConn)
 	<-tunCtx.Done()
 	return nil
 }
 
 func (l Listener) TunMulti(server encoding.GunService_TunMultiServer) error {
-	conn, done := encoding.NewMultiConn(server)
-	l.handler(conn)
-	<-done
+	tunCtx, cancel := context.WithCancel(l.ctx)
+	var remoteAddr net.Addr
+	if peer, ok := peer.FromContext(server.Context()); ok {
+		remoteAddr = peer.Addr
+	} else {
+		remoteAddr = &net.TCPAddr{
+			IP:   []byte{0, 0, 0, 0},
+			Port: 0,
+		}
+	}
+	md, ok := metadata.FromIncomingContext(server.Context())
+	if ok && l.config.AcceptXForwardFor {
+		if addr := ParseXForwardFor(md); addr != nil {
+			remoteAddr = addr
+		}
+	}
+	if ok && l.config.AcceptXRealIP {
+		if addr := ParseXRealIP(md); addr != nil {
+			remoteAddr = addr
+		}
+	}
+	multiConn := encoding.NewGunMultiConn0(server, cancel, remoteAddr)
+	l.handler(multiConn)
+	<-tunCtx.Done()
 	return nil
-}
-
-func (l Listener) HandleConn(connection internet.Connection) {
-	l.handler(connection)
 }
 
 func (l Listener) Close() error {
@@ -141,6 +175,38 @@ func Listen(ctx context.Context, address net.Address, port net.Port, settings *i
 	}()
 
 	return listener, nil
+}
+
+func ParseXRealIP(md metadata.MD) net.Addr {
+	xri := md.Get("X-Real-IP")
+	if len(xri) == 0 {
+		return nil
+	}
+	if addr := net.ParseAddress(xri[0]); addr.Family().IsIP() {
+		return &net.TCPAddr{
+			IP:   addr.IP(),
+			Port: int(0),
+		}
+	}
+	return nil
+}
+
+func ParseXForwardFor(md metadata.MD) net.Addr {
+	xff := md.Get("X-Forwarded-For")
+	if len(xff) == 0 {
+		return nil
+	}
+	list := strings.Split(xff[0], ",")
+	if len(list) == 0 {
+		return nil
+	}
+	if addr := net.ParseAddress(list[len(list)-1]); addr.Family().IsIP() {
+		return &net.TCPAddr{
+			IP:   addr.IP(),
+			Port: int(0),
+		}
+	}
+	return nil
 }
 
 func init() {

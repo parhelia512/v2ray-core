@@ -5,8 +5,8 @@ package grpc
 
 import (
 	"context"
-	"io"
 	gonet "net"
+	"net/url"
 	"sync"
 	"time"
 
@@ -78,15 +78,14 @@ func dialgRPC(ctx context.Context, dest net.Destination, streamSettings *interne
 		}
 		return encoding.NewGunConn(gunService, nil), nil
 	case Mode_Multi:
-		gunService, err := client.(encoding.GunServiceClientX).TunMultiCustomName(ctx, grpcSettings.ServiceName)
+		gunService, err := client.(encoding.GunServiceClientX).TunMultiCustomName(ctx, url.PathEscape(grpcSettings.ServiceName))
 		if err != nil {
 			canceller()
 			return nil, newError("Cannot dial grpc").Base(err)
 		}
-		conn, _ := encoding.NewMultiConn(gunService)
-		return conn, nil
+		return encoding.NewGunMultiConn(gunService, nil), nil
 	}
-	return nil, io.EOF
+	return nil, newError("Cannot dial grpc").Base(err)
 }
 
 func getGrpcClient(ctx context.Context, dest net.Destination, dialOption grpc.DialOption, streamSettings *internet.MemoryStreamConfig) (*grpc.ClientConn, dialerCanceller, error) {

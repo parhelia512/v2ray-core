@@ -4,75 +4,140 @@ import (
 	"context"
 	"io"
 
+	"google.golang.org/grpc/peer"
+
 	"github.com/v2fly/v2ray-core/v5/common/buf"
+	"github.com/v2fly/v2ray-core/v5/common/net"
 	"github.com/v2fly/v2ray-core/v5/common/net/cnc"
 	"github.com/v2fly/v2ray-core/v5/common/signal/done"
-	"github.com/v2fly/v2ray-core/v5/transport/internet"
 )
 
-type Stream interface {
+type GunMultiConn interface {
 	Context() context.Context
+	Send(*MultiHunk) error
+	Recv() (*MultiHunk, error)
 	SendMsg(m interface{}) error
 	RecvMsg(m interface{}) error
 }
 
-type SendCloser interface {
+type StreamCloser interface {
 	CloseSend() error
 }
 
-type MultiConn struct {
-	stream Stream
+type GunMultiReaderWriter struct {
+	hc     GunMultiConn
+	cancel context.CancelFunc
 	done   *done.Instance
+
+	buf [][]byte
 }
 
-func NewMultiConn(stream Stream) (internet.Connection, <-chan struct{}) {
-	c := &MultiConn{stream: stream, done: done.New()}
-	return cnc.NewConnection(cnc.ConnectionOutputMulti(c), cnc.ConnectionInputMulti(c), cnc.ConnectionOnClose(c)), c.done.Wait()
+func NewGunMultiReadWriter(hc GunMultiConn, cancel context.CancelFunc) *GunMultiReaderWriter {
+	return &GunMultiReaderWriter{hc, cancel, done.New(), nil}
 }
 
-func (c *MultiConn) ReadMultiBuffer() (buf.MultiBuffer, error) {
-	if c.done.Done() {
+func NewGunMultiConn(hc GunMultiConn, cancel context.CancelFunc) net.Conn {
+	var rAddr net.Addr
+	pr, ok := peer.FromContext(hc.Context())
+	if ok {
+		rAddr = pr.Addr
+	} else {
+		rAddr = &net.TCPAddr{
+			IP:   []byte{0, 0, 0, 0},
+			Port: 0,
+		}
+	}
+
+	wrc := NewGunMultiReadWriter(hc, cancel)
+	return cnc.NewConnection(
+		cnc.ConnectionInputMulti(wrc),
+		cnc.ConnectionOutputMulti(wrc),
+		cnc.ConnectionOnClose(wrc),
+		cnc.ConnectionRemoteAddr(rAddr),
+	)
+}
+
+func NewGunMultiConn0(hc GunMultiConn, cancel context.CancelFunc, rAddr net.Addr) net.Conn {
+	wrc := NewGunMultiReadWriter(hc, cancel)
+	return cnc.NewConnection(
+		cnc.ConnectionInputMulti(wrc),
+		cnc.ConnectionOutputMulti(wrc),
+		cnc.ConnectionOnClose(wrc),
+		cnc.ConnectionRemoteAddr(rAddr),
+	)
+}
+
+func (h *GunMultiReaderWriter) forceFetch() error {
+	hunk, err := h.hc.Recv()
+	if err != nil {
+		if err == io.EOF {
+			return err
+		}
+
+		return newError("failed to fetch hunk from gRPC tunnel").Base(err)
+	}
+
+	h.buf = hunk.Data
+
+	return nil
+}
+
+func (h *GunMultiReaderWriter) ReadMultiBuffer() (buf.MultiBuffer, error) {
+	if h.done.Done() {
 		return nil, io.EOF
 	}
-	message := new(MultiHunk)
-	err := c.stream.RecvMsg(message)
-	if err == io.EOF {
+
+	if err := h.forceFetch(); err != nil {
 		return nil, err
-	} else if err != nil {
-		return nil, newError("failed to fetch data from gRPC tunnel").Base(err)
 	}
 
-	mb := buf.MultiBuffer{}
-	for _, data := range message.Data {
-		if len(data) == 0 {
+	mb := make(buf.MultiBuffer, 0, len(h.buf))
+	for _, b := range h.buf {
+		if len(b) == 0 {
 			continue
 		}
-		mb = buf.MergeBytes(mb, data)
+
+		if cap(b) >= buf.Size {
+			mb = append(mb, buf.NewExisted(b))
+		} else {
+			nb := buf.New()
+			nb.Extend(int32(len(b)))
+			copy(nb.Bytes(), b)
+
+			mb = append(mb, nb)
+		}
 	}
 	return mb, nil
 }
 
-func (c *MultiConn) WriteMultiBuffer(mb buf.MultiBuffer) error {
+func (h *GunMultiReaderWriter) WriteMultiBuffer(mb buf.MultiBuffer) error {
 	defer buf.ReleaseMulti(mb)
-	if c.done.Done() {
+	if h.done.Done() {
 		return io.ErrClosedPipe
 	}
 
 	hunks := make([][]byte, 0, len(mb))
+
 	for _, b := range mb {
 		if b.Len() > 0 {
 			hunks = append(hunks, b.Bytes())
 		}
 	}
-	return c.stream.SendMsg(&MultiHunk{Data: hunks})
+
+	err := h.hc.Send(&MultiHunk{Data: hunks})
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
-func (c *MultiConn) Close() error {
-	c.done.Close()
-
-	if c, ok := c.stream.(SendCloser); ok {
-		return c.CloseSend()
+func (h *GunMultiReaderWriter) Close() error {
+	if h.cancel != nil {
+		h.cancel()
+	}
+	if sc, match := h.hc.(StreamCloser); match {
+		return sc.CloseSend()
 	}
 
-	return nil
+	return h.done.Close()
 }

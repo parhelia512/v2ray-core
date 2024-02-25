@@ -125,6 +125,9 @@ func ApplySockopt(sockopt *SocketConfig, dest net.Destination, fd uintptr, ctx c
 type PacketConnWrapper struct {
 	Conn net.PacketConn
 	Dest net.Addr
+
+	IPEndpoint     net.Addr
+	DomainEndpoint *net.Destination
 }
 
 func (c *PacketConnWrapper) Close() error {
