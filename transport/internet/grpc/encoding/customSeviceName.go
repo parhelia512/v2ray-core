@@ -21,12 +21,6 @@ func ServerDesc(name string) grpc.ServiceDesc {
 				ServerStreams: true,
 				ClientStreams: true,
 			},
-			{
-				StreamName:    "TunMulti",
-				Handler:       _GunService_TunMulti_Handler,
-				ServerStreams: true,
-				ClientStreams: true,
-			},
 		},
 		Metadata: "gun.proto",
 	}
@@ -41,22 +35,9 @@ func (c *gunServiceClient) TunCustomName(ctx context.Context, name string, opts 
 	return x, nil
 }
 
-func (c *gunServiceClient) TunMultiCustomName(ctx context.Context, name string, opts ...grpc.CallOption) (GunService_TunMultiClient, error) {
-	stream, err := c.cc.NewStream(ctx, &ServerDesc(name).Streams[1], "/"+name+"/TunMulti", opts...)
-	if err != nil {
-		return nil, err
-	}
-	x := &gunServiceTunMultiClient{stream}
-	return x, nil
-}
-
-var _ GunServiceClientX = (*gunServiceClient)(nil)
-
 type GunServiceClientX interface {
 	TunCustomName(ctx context.Context, name string, opts ...grpc.CallOption) (GunService_TunClient, error)
-	TunMultiCustomName(ctx context.Context, name string, opts ...grpc.CallOption) (GunService_TunMultiClient, error)
 	Tun(ctx context.Context, opts ...grpc.CallOption) (GunService_TunClient, error)
-	TunMulti(ctx context.Context, opts ...grpc.CallOption) (GunService_TunMultiClient, error)
 }
 
 func RegisterGunServiceServerX(s *grpc.Server, srv GunServiceServer, name string) {

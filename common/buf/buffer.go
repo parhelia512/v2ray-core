@@ -49,23 +49,6 @@ func NewWithSize(size int32) *Buffer {
 	}
 }
 
-// NewExisted creates a managed, standard size Buffer with an existed bytearray
-func NewExisted(b []byte) *Buffer {
-	if cap(b) < Size {
-		panic("Invalid buffer")
-	}
-
-	oLen := len(b)
-	if oLen < Size {
-		b = b[:Size]
-	}
-
-	return &Buffer{
-		v:   b,
-		end: int32(oLen),
-	}
-}
-
 // FromBytes creates a Buffer with an existed bytearray
 func FromBytes(data []byte) *Buffer {
 	return &Buffer{

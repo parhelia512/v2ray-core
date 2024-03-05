@@ -88,10 +88,6 @@ func (*GunConn) SetWriteDeadline(time.Time) error {
 	return nil
 }
 
-func (c *GunConn) SetRemoteAddr(addr net.Addr) {
-	c.remote = addr
-}
-
 // NewGunConn creates GunConn which handles gun tunnel
 func NewGunConn(service GunService, over context.CancelFunc) *GunConn {
 	conn := &GunConn{

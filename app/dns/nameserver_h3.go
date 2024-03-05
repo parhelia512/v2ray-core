@@ -18,7 +18,7 @@ import (
 	"github.com/v2fly/v2ray-core/v5/transport/internet"
 )
 
-// NewH3NameServer creates DOH server object for remote resolving.
+// NewH3NameServer creates H3 server object for remote resolving.
 func NewH3NameServer(url *url.URL, dispatcher routing.Dispatcher) (*DoHNameServer, error) {
 	url.Scheme = "https"
 	s := baseDOHNameServer(url, "H3", "quic")

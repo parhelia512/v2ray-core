@@ -91,20 +91,11 @@ func (l *Listener) ServeHTTP(writer http.ResponseWriter, request *http.Request) 
 		}
 	}
 
-	if l.config.AcceptXForwardFor {
-		if xff := http_proto.ParseXForwardedFor(request.Header); len(xff) > 0 && xff[len(xff)-1].Family().IsIP() {
-			remoteAddr = &net.TCPAddr{
-				IP:   xff[len(xff)-1].IP(),
-				Port: 0,
-			}
-		}
-	}
-	if l.config.AcceptXRealIP {
-		if xri := http_proto.ParseXRealIP(request.Header); xri != nil && xri.Family().IsIP() {
-			remoteAddr = &net.TCPAddr{
-				IP:   xri.IP(),
-				Port: 0,
-			}
+	forwardedAddress := http_proto.ParseXForwardedFor(request.Header)
+	if len(forwardedAddress) > 0 && forwardedAddress[0].Family().IsIP() {
+		remoteAddr = &net.TCPAddr{
+			IP:   forwardedAddress[0].IP(),
+			Port: 0,
 		}
 	}
 

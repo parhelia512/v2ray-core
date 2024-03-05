@@ -8,16 +8,6 @@ import (
 	"github.com/v2fly/v2ray-core/v5/common/net"
 )
 
-// ParseXRealIP parses X-Real-IP header in http headers, and return the IP in it.
-func ParseXRealIP(header http.Header) net.Address {
-	xri := header.Get("X-Real-IP")
-	if xri == "" {
-		return nil
-	}
-
-	return net.ParseAddress(xri)
-}
-
 // ParseXForwardedFor parses X-Forwarded-For header in http headers, and return the IP list in it.
 func ParseXForwardedFor(header http.Header) []net.Address {
 	xff := header.Get("X-Forwarded-For")

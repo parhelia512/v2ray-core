@@ -279,6 +279,9 @@ func (h *Handler) Process(ctx context.Context, link *transport.Link, dialer inte
 
 		// default: serverReader := buf.NewReader(conn)
 		serverReader := encoding.DecodeBodyAddons(conn, request, responseAddons)
+		if requestAddons.Flow == vless.XRV {
+			serverReader = encoding.NewVisionReader(serverReader, trafficState, ctx)
+		}
 		switch packetEncoding {
 		case packetaddr.PacketAddrType_Packet:
 			serverReader = packetaddr.NewPacketReader(serverReader)

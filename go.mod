@@ -2,6 +2,8 @@ module github.com/v2fly/v2ray-core/v5
 
 go 1.21.4
 
+toolchain go1.22.0
+
 require (
 	github.com/adrg/xdg v0.4.0
 	github.com/google/go-cmp v0.6.0
@@ -14,21 +16,21 @@ require (
 	github.com/pires/go-proxyproto v0.7.0
 	github.com/quic-go/quic-go v0.41.0
 	github.com/refraction-networking/utls v1.6.3
-	github.com/sagernet/sing v0.3.2
+	github.com/sagernet/sing v0.3.4
 	github.com/sagernet/sing-shadowsocks v0.2.6
 	github.com/sagernet/sing-shadowsocks2 v0.2.0
 	github.com/seiflotfy/cuckoofilter v0.0.0-20220411075957-e3b120b3f5fb
-	github.com/stretchr/testify v1.8.4
+	github.com/stretchr/testify v1.9.0
 	github.com/v2fly/BrowserBridge v0.0.0-20210430233438-0570fc1d7d08
 	github.com/v2fly/ss-bloomring v0.0.0-20210312155135-28617310f63e
 	github.com/xiaokangwang/VLite v0.0.0-20231225174116-75fa4b06e9f2
 	github.com/xtls/reality v0.0.0-20231112171332-de1173cf2b19
 	go.uber.org/mock v0.4.0
 	go4.org/netipx v0.0.0-20231129151722-fdeea329fbba
-	golang.org/x/crypto v0.19.0
-	golang.org/x/net v0.21.0
+	golang.org/x/crypto v0.21.0
+	golang.org/x/net v0.22.0
 	golang.org/x/sync v0.6.0
-	golang.org/x/sys v0.17.0
+	golang.org/x/sys v0.18.0
 	golang.zx2c4.com/wireguard v0.0.0-20231211153847-12269c276173
 	google.golang.org/grpc v1.62.0
 	google.golang.org/protobuf v1.32.0

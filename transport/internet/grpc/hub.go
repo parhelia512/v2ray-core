@@ -5,15 +5,10 @@ package grpc
 
 import (
 	"context"
-	"strings"
-	"time"
 
 	goreality "github.com/xtls/reality"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
-	"google.golang.org/grpc/keepalive"
-	"google.golang.org/grpc/metadata"
-	"google.golang.org/grpc/peer"
 
 	"github.com/v2fly/v2ray-core/v5/common"
 	"github.com/v2fly/v2ray-core/v5/common/net"
@@ -36,51 +31,7 @@ type Listener struct {
 
 func (l Listener) Tun(server encoding.GunService_TunServer) error {
 	tunCtx, cancel := context.WithCancel(l.ctx)
-	gunConn := encoding.NewGunConn(server, cancel)
-	var remoteAddr net.Addr
-	md, ok := metadata.FromIncomingContext(server.Context())
-	if ok && l.config.AcceptXForwardFor {
-		if addr := ParseXForwardFor(md); addr != nil {
-			remoteAddr = addr
-		}
-	}
-	if ok && l.config.AcceptXRealIP {
-		if addr := ParseXRealIP(md); addr != nil {
-			remoteAddr = addr
-		}
-	}
-	if remoteAddr != nil {
-		gunConn.SetRemoteAddr(remoteAddr)
-	}
-	l.handler(gunConn)
-	<-tunCtx.Done()
-	return nil
-}
-
-func (l Listener) TunMulti(server encoding.GunService_TunMultiServer) error {
-	tunCtx, cancel := context.WithCancel(l.ctx)
-	var remoteAddr net.Addr
-	if peer, ok := peer.FromContext(server.Context()); ok {
-		remoteAddr = peer.Addr
-	} else {
-		remoteAddr = &net.TCPAddr{
-			IP:   []byte{0, 0, 0, 0},
-			Port: 0,
-		}
-	}
-	md, ok := metadata.FromIncomingContext(server.Context())
-	if ok && l.config.AcceptXForwardFor {
-		if addr := ParseXForwardFor(md); addr != nil {
-			remoteAddr = addr
-		}
-	}
-	if ok && l.config.AcceptXRealIP {
-		if addr := ParseXRealIP(md); addr != nil {
-			remoteAddr = addr
-		}
-	}
-	multiConn := encoding.NewGunMultiConn0(server, cancel, remoteAddr)
-	l.handler(multiConn)
+	l.handler(encoding.NewGunConn(server, cancel))
 	<-tunCtx.Done()
 	return nil
 }
@@ -121,19 +72,13 @@ func Listen(ctx context.Context, address net.Address, port net.Port, settings *i
 
 	config := tls.ConfigFromStreamSettings(settings)
 
-	var options []grpc.ServerOption
-	if config != nil {
+	var s *grpc.Server
+	if config == nil {
+		s = grpc.NewServer()
+	} else {
 		// gRPC server may silently ignore TLS errors
-		options = append(options, grpc.Creds(credentials.NewTLS(config.GetTLSConfig(tls.WithNextProto("h2")))))
+		s = grpc.NewServer(grpc.Creds(credentials.NewTLS(config.GetTLSConfig(tls.WithNextProto("h2")))))
 	}
-	if grpcSettings.IdleTimeout > 0 || grpcSettings.HealthCheckTimeout > 0 {
-		options = append(options, grpc.KeepaliveParams(keepalive.ServerParameters{
-			Time:    time.Second * time.Duration(grpcSettings.IdleTimeout),
-			Timeout: time.Second * time.Duration(grpcSettings.HealthCheckTimeout),
-		}))
-	}
-
-	s := grpc.NewServer(options...)
 	listener.s = s
 
 	if settings.SocketSettings != nil && settings.SocketSettings.AcceptProxyProtocol {
@@ -175,38 +120,6 @@ func Listen(ctx context.Context, address net.Address, port net.Port, settings *i
 	}()
 
 	return listener, nil
-}
-
-func ParseXRealIP(md metadata.MD) net.Addr {
-	xri := md.Get("X-Real-IP")
-	if len(xri) == 0 {
-		return nil
-	}
-	if addr := net.ParseAddress(xri[0]); addr.Family().IsIP() {
-		return &net.TCPAddr{
-			IP:   addr.IP(),
-			Port: int(0),
-		}
-	}
-	return nil
-}
-
-func ParseXForwardFor(md metadata.MD) net.Addr {
-	xff := md.Get("X-Forwarded-For")
-	if len(xff) == 0 {
-		return nil
-	}
-	list := strings.Split(xff[0], ",")
-	if len(list) == 0 {
-		return nil
-	}
-	if addr := net.ParseAddress(list[len(list)-1]); addr.Family().IsIP() {
-		return &net.TCPAddr{
-			IP:   addr.IP(),
-			Port: int(0),
-		}
-	}
-	return nil
 }
 
 func init() {
