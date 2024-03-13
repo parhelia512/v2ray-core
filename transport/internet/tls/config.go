@@ -268,6 +268,27 @@ func (c *Config) GetTLSConfig(opts ...Option) *tls.Config {
 		config.NextProtos = []string{"h2", "http/1.1"}
 	}
 
+	switch c.MinVersion {
+	case tls.VersionTLS10:
+		config.MinVersion = tls.VersionTLS10
+	case tls.VersionTLS11:
+		config.MinVersion = tls.VersionTLS11
+	case tls.VersionTLS12:
+		config.MinVersion = tls.VersionTLS12
+	case tls.VersionTLS13:
+		config.MinVersion = tls.VersionTLS13
+	}
+
+	switch c.MaxVersion {
+	case tls.VersionTLS10:
+		config.MaxVersion = tls.VersionTLS10
+	case tls.VersionTLS11:
+		config.MaxVersion = tls.VersionTLS11
+	case tls.VersionTLS12:
+		config.MaxVersion = tls.VersionTLS12
+	case tls.VersionTLS13:
+		config.MaxVersion = tls.VersionTLS13
+	}
 	return config
 }
 
