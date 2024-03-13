@@ -6,13 +6,14 @@ package router
 import (
 	"context"
 
+	"google.golang.org/protobuf/runtime/protoiface"
+
 	core "github.com/v2fly/v2ray-core/v4"
 	"github.com/v2fly/v2ray-core/v4/app/observatory"
 	"github.com/v2fly/v2ray-core/v4/common"
 	"github.com/v2fly/v2ray-core/v4/common/dice"
 	"github.com/v2fly/v2ray-core/v4/features"
 	"github.com/v2fly/v2ray-core/v4/features/extension"
-	"google.golang.org/protobuf/runtime/protoiface"
 )
 
 // RandomStrategy represents a random balancing strategy
