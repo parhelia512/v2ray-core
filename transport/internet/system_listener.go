@@ -9,6 +9,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/database64128/tfo-go/v2"
 	"github.com/pires/go-proxyproto"
 
 	"github.com/v2fly/v2ray-core/v5/common/net"
@@ -123,8 +124,17 @@ func (dl *DefaultListener) Listen(ctx context.Context, addr net.Addr, sockopt *S
 			}
 		}
 	}
-
-	l, err := lc.Listen(ctx, network, address)
+	var l net.Listener
+	var err error
+	if sockopt != nil && sockopt.Tfo == SocketConfig_Enable {
+		tfolc := tfo.ListenConfig{
+			ListenConfig: lc,
+			Backlog:      int(sockopt.TfoQueueLength),
+		}
+		l, err = tfolc.Listen(ctx, network, address)
+	} else {
+		l, err = lc.Listen(ctx, network, address)
+	}
 	l, err = callback(l, err)
 	if err == nil && sockopt != nil && sockopt.AcceptProxyProtocol {
 		policyFunc := func(upstream net.Addr) (proxyproto.Policy, error) { return proxyproto.REQUIRE, nil }
