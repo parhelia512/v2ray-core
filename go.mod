@@ -1,9 +1,10 @@
 module github.com/v2fly/v2ray-core/v5
 
-go 1.21.4
+go 1.21.8
 
 require (
 	github.com/adrg/xdg v0.4.0
+	github.com/database64128/tfo-go/v2 v2.2.0
 	github.com/go-chi/chi/v5 v5.0.12
 	github.com/go-chi/render v1.0.3
 	github.com/go-playground/validator/v10 v10.19.0
