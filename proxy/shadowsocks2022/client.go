@@ -3,6 +3,7 @@ package shadowsocks2022
 import (
 	"context"
 	gonet "net"
+	"strconv"
 	"sync"
 	"time"
 
@@ -16,6 +17,7 @@ import (
 	"github.com/v2fly/v2ray-core/v5/common/session"
 	"github.com/v2fly/v2ray-core/v5/common/signal"
 	"github.com/v2fly/v2ray-core/v5/common/task"
+	"github.com/v2fly/v2ray-core/v5/proxy/shadowsocks"
 	"github.com/v2fly/v2ray-core/v5/transport"
 	"github.com/v2fly/v2ray-core/v5/transport/internet"
 	"github.com/v2fly/v2ray-core/v5/transport/internet/udp"
@@ -24,6 +26,17 @@ import (
 type Client struct {
 	config *ClientConfig
 	ctx    context.Context
+
+	plugin         shadowsocks.SIP003Plugin
+	pluginOverride net.Destination
+	streamPlugin   shadowsocks.StreamPlugin
+}
+
+func (c *Client) Close() error {
+	if c.plugin != nil {
+		return c.plugin.Close()
+	}
+	return nil
 }
 
 const UDPConnectionState = "UDPConnectionState"
@@ -100,7 +113,12 @@ func (c *Client) Process(ctx context.Context, link *transport.Link, dialer inter
 	if network == net.Network_TCP {
 		var conn internet.Connection
 		err := retry.ExponentialBackoff(5, 100).On(func() error {
-			dest := net.TCPDestination(c.config.Address.AsAddress(), net.Port(c.config.Port))
+			var dest net.Destination
+			if network == net.Network_TCP && c.plugin != nil {
+				dest = c.pluginOverride
+			} else {
+				dest = net.TCPDestination(c.config.Address.AsAddress(), net.Port(c.config.Port))
+			}
 			dest.Network = network
 			rawConn, err := dialer.Dial(ctx, dest)
 			if err != nil {
@@ -238,10 +256,43 @@ func NewClient(ctx context.Context, config *ClientConfig) (*Client, error) {
 	}
 	storage.Put(ctx, UDPConnectionState, udpState)
 
-	return &Client{
+	c := &Client{
 		config: config,
 		ctx:    ctx,
-	}, nil
+	}
+
+	if config.Plugin != "" {
+		var plugin shadowsocks.SIP003Plugin
+		if pc := shadowsocks.Plugins[config.Plugin]; pc != nil {
+			plugin = pc()
+		} else if shadowsocks.PluginLoader == nil {
+			return nil, newError("plugin loader not registered")
+		} else {
+			plugin = shadowsocks.PluginLoader(config.Plugin)
+		}
+		if streamPlugin, ok := plugin.(shadowsocks.StreamPlugin); ok {
+			c.streamPlugin = streamPlugin
+			if err := plugin.Init("", "", "", "", config.PluginOpts, config.PluginArgs, nil); err != nil {
+				return nil, newError("failed to start plugin").Base(err)
+			}
+		} else {
+			port, err := net.GetFreePort()
+			if err != nil {
+				return nil, newError("failed to get free port for shadowsocks plugin").Base(err)
+			}
+			c.pluginOverride = net.Destination{
+				Network: net.Network_TCP,
+				Address: net.LocalHostIP,
+				Port:    net.Port(port),
+			}
+			if err := plugin.Init(net.LocalHostIP.String(), strconv.Itoa(port), config.Address.AsAddress().String(), net.Port(config.Port).String(), config.PluginOpts, config.PluginArgs, nil); err != nil {
+				return nil, newError("failed to start plugin").Base(err)
+			}
+			c.plugin = plugin
+		}
+	}
+
+	return c, nil
 }
 
 func init() {
