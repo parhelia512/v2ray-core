@@ -29,16 +29,17 @@ import (
 )
 
 type Server struct {
-	config         *ServerConfig
-	user           *protocol.MemoryUser
-	policyManager  policy.Manager
+	config        *ServerConfig
+	user          *protocol.MemoryUser
+	policyManager policy.Manager
+
 	tag            string
 	pluginTag      string
 	plugin         SIP003Plugin
 	pluginOverride net.Destination
 	receiverPort   int
-	stream         StreamPlugin
-	protocol       ProtocolPlugin
+	streamPlugin   StreamPlugin
+	protocolPlugin ProtocolPlugin
 }
 
 func (s *Server) Initialize(self inbound.Handler) {
@@ -72,40 +73,33 @@ func NewServer(ctx context.Context, config *ServerConfig) (*Server, error) {
 
 	if config.Plugin != "" {
 		var plugin SIP003Plugin
-
-		pc := plugins[config.Plugin]
-		if pc != nil { // nolint: gocritic
+		if pc := Plugins[config.Plugin]; pc != nil {
 			plugin = pc()
-		} else if pluginLoader == nil {
+		} else if PluginLoader == nil {
 			return nil, newError("plugin loader not registered")
 		} else {
-			plugin = pluginLoader(config.Plugin)
+			plugin = PluginLoader(config.Plugin)
 		}
-
-		if sp, ok := plugin.(StreamPlugin); ok {
-			s.stream = sp
-
+		if streamPlugin, ok := plugin.(StreamPlugin); ok {
+			s.streamPlugin = streamPlugin
 			if err := plugin.Init("", "", "", "", config.PluginOpts, config.PluginArgs, mUser.Account.(*MemoryAccount)); err != nil {
 				return nil, newError("failed to start plugin").Base(err)
 			}
-			if pp, ok := plugin.(ProtocolPlugin); ok {
-				s.protocol = pp
+			if protocolPlugin, ok := plugin.(ProtocolPlugin); ok {
+				s.protocolPlugin = protocolPlugin
 			}
 		} else {
 			port, err := net.GetFreePort()
 			if err != nil {
 				return nil, newError("failed to get free port for shadowsocks plugin").Base(err)
 			}
-
 			s.receiverPort, err = net.GetFreePort()
 			if err != nil {
 				return nil, newError("failed to get free port for shadowsocks plugin receiver").Base(err)
 			}
-
 			u := uuid.New()
 			tag := "v2ray.system.shadowsocks-inbound-plugin-receiver." + u.String()
 			s.pluginTag = tag
-
 			handler, err := app_inbound.NewAlwaysOnInboundHandlerWithProxy(ctx, tag, &proxyman.ReceiverConfig{
 				Listen:    net.NewIPOrDomain(net.LocalHostIP),
 				PortRange: net.SinglePortRange(net.Port(s.receiverPort)),
@@ -113,22 +107,18 @@ func NewServer(ctx context.Context, config *ServerConfig) (*Server, error) {
 			if err != nil {
 				return nil, newError("failed to create shadowsocks plugin inbound").Base(err)
 			}
-
 			inboundManager := v.GetFeature(inbound.ManagerType()).(inbound.Manager)
 			if err := inboundManager.AddHandler(ctx, handler); err != nil {
 				return nil, newError("failed to add shadowsocks plugin inbound").Base(err)
 			}
-
 			s.pluginOverride = net.Destination{
 				Network: net.Network_TCP,
 				Address: net.LocalHostIP,
 				Port:    net.Port(port),
 			}
-
 			if err := plugin.Init(net.LocalHostIP.String(), strconv.Itoa(s.receiverPort), net.LocalHostIP.String(), strconv.Itoa(port), config.PluginOpts, config.PluginArgs, mUser.Account.(*MemoryAccount)); err != nil {
 				return nil, newError("failed to start plugin").Base(err)
 			}
-
 			s.plugin = plugin
 		}
 	}
@@ -186,7 +176,7 @@ func (s *Server) handlerUDPPayload(ctx context.Context, conn internet.Connection
 		}
 
 		payload := packet.Payload
-		data, err := EncodeUDPPacket(request, payload.Bytes(), s.protocol)
+		data, err := EncodeUDPPacket(request, payload.Bytes(), s.protocolPlugin)
 		payload.Release()
 
 		if err != nil {
@@ -217,7 +207,7 @@ func (s *Server) handlerUDPPayload(ctx context.Context, conn internet.Connection
 				data    *buf.Buffer
 			)
 			if err == nil {
-				request, data, err = DecodeUDPPacket(s.user, payload, s.protocol)
+				request, data, err = DecodeUDPPacket(s.user, payload, s.protocolPlugin)
 			}
 			if err != nil {
 				if inbound := session.InboundFromContext(ctx); inbound != nil && inbound.Source.IsValid() {
@@ -277,8 +267,8 @@ func (s *Server) handleConnection(ctx context.Context, conn internet.Connection,
 			return nil
 		}
 		inbound.Tag = s.tag
-	} else if s.stream != nil {
-		conn = s.stream.StreamConn(conn)
+	} else if s.streamPlugin != nil {
+		conn = s.streamPlugin.StreamConn(conn)
 	}
 
 	sessionPolicy := s.policyManager.ForLevel(s.user.Level)
@@ -295,9 +285,9 @@ func (s *Server) handleConnection(ctx context.Context, conn internet.Connection,
 		}
 	}
 
-	if s.protocol != nil {
+	if s.protocolPlugin != nil {
 		protocolConn = &ProtocolConn{}
-		s.protocol.ProtocolConn(protocolConn, iv)
+		s.protocolPlugin.ProtocolConn(protocolConn, iv)
 	}
 
 	bufferedReader := buf.BufferedReader{Reader: buf.NewReader(conn)}

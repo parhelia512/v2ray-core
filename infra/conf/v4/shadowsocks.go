@@ -57,6 +57,11 @@ func (v *ShadowsocksServerConfig) Build() (proto.Message, error) {
 						Email: user.Email,
 					})
 				}
+				config.Plugin = v.Plugin
+				config.PluginOpts = v.PluginOpts
+				if v.PluginArgs != nil && len(*v.PluginArgs) > 0 {
+					config.PluginArgs = *v.PluginArgs
+				}
 				return config, nil
 			} else {
 				config := new(shadowsocks_2022.RelayServerConfig)
@@ -72,6 +77,12 @@ func (v *ShadowsocksServerConfig) Build() (proto.Message, error) {
 						Port:    uint32(user.Port),
 					})
 				}
+				config.Plugin = v.Plugin
+				config.PluginOpts = v.PluginOpts
+				if v.PluginArgs != nil && len(*v.PluginArgs) > 0 {
+					config.PluginArgs = *v.PluginArgs
+				}
+				return config, nil
 			}
 		}
 		config := new(shadowsocks_2022.ServerConfig)
@@ -80,6 +91,11 @@ func (v *ShadowsocksServerConfig) Build() (proto.Message, error) {
 		config.Level = int32(v.Level)
 		config.Email = v.Email
 		config.Network = v.NetworkList.Build()
+		config.Plugin = v.Plugin
+		config.PluginOpts = v.PluginOpts
+		if v.PluginArgs != nil && len(*v.PluginArgs) > 0 {
+			config.PluginArgs = *v.PluginArgs
+		}
 		return config, nil
 	}
 
@@ -158,6 +174,11 @@ func (v *ShadowsocksClientConfig) Build() (proto.Message, error) {
 			config.Port = uint32(server.Port)
 			config.Method = strings.ToLower(server.Cipher)
 			config.Key = server.Password
+			config.Plugin = v.Plugin
+			config.PluginOpts = v.PluginOpts
+			if v.PluginArgs != nil && len(*v.PluginArgs) > 0 {
+				config.PluginArgs = *v.PluginArgs
+			}
 			return config, nil
 		}
 	}

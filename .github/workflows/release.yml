@@ -2,7 +2,9 @@ name: Release
 
 on:
   release:
-    types: [prereleased]
+    types:
+      - prereleased
+      - released
   push:
     branches:
       - master
@@ -167,4 +169,4 @@ jobs:
           file_glob: true
           file: ./v2ray-${{ steps.get_filename.outputs.ASSET_NAME }}.zip*
           tag: ${{ github.ref }}
-
+          overwrite: true

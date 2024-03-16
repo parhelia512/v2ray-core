@@ -22,6 +22,8 @@ type TLSConfig struct {
 	DisableSystemRoot                bool                  `json:"disableSystemRoot"`
 	PinnedPeerCertificateChainSha256 *[]string             `json:"pinnedPeerCertificateChainSha256"`
 	VerifyClientCertificate          bool                  `json:"verifyClientCertificate"`
+	MinVersion                       string                `json:"minVersion"`
+	MaxVersion                       string                `json:"maxVersion"`
 	Fingerprint                      string                `json:"fingerprint"`
 }
 
@@ -57,6 +59,28 @@ func (c *TLSConfig) Build() (proto.Message, error) {
 			}
 			config.PinnedPeerCertificateChainSha256 = append(config.PinnedPeerCertificateChainSha256, hashValue)
 		}
+	}
+
+	switch strings.ToLower(c.MinVersion) {
+	case "tls1_0", "tls1.0":
+		config.MinVersion = tls.Config_TLS1_0
+	case "tls1_1", "tls1.1":
+		config.MinVersion = tls.Config_TLS1_1
+	case "tls1_2", "tls1.2":
+		config.MinVersion = tls.Config_TLS1_2
+	case "tls1_3", "tls1.3":
+		config.MinVersion = tls.Config_TLS1_3
+	}
+
+	switch strings.ToLower(c.MaxVersion) {
+	case "tls1_0", "tls1.0":
+		config.MaxVersion = tls.Config_TLS1_0
+	case "tls1_1", "tls1.1":
+		config.MaxVersion = tls.Config_TLS1_1
+	case "tls1_2", "tls1.2":
+		config.MaxVersion = tls.Config_TLS1_2
+	case "tls1_3", "tls1.3":
+		config.MaxVersion = tls.Config_TLS1_3
 	}
 
 	return config, nil

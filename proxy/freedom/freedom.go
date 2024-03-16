@@ -10,6 +10,7 @@ import (
 	"github.com/v2fly/v2ray-core/v5/common"
 	"github.com/v2fly/v2ray-core/v5/common/buf"
 	"github.com/v2fly/v2ray-core/v5/common/net"
+	"github.com/v2fly/v2ray-core/v5/common/platform"
 	"github.com/v2fly/v2ray-core/v5/common/retry"
 	"github.com/v2fly/v2ray-core/v5/common/session"
 	"github.com/v2fly/v2ray-core/v5/common/signal"
@@ -38,7 +39,12 @@ func init() {
 		fullConfig := &Config{}
 		return common.CreateObject(ctx, fullConfig)
 	}))
+
+	defaultFlagValue := "false"
+	udpDisableDomainUnmapping = platform.NewEnvFlag("v2ray.freedom.disable.udp.domain.unmapping").GetValue(func() string { return defaultFlagValue }) != defaultFlagValue
 }
+
+var udpDisableDomainUnmapping bool
 
 // Handler handles Freedom connections.
 type Handler struct {
@@ -288,7 +294,7 @@ func (w *PacketWriter) WriteMultiBuffer(mb buf.MultiBuffer) error {
 				continue
 			}
 
-			if b.Endpoint.Address.Family().IsDomain() {
+			if !udpDisableDomainUnmapping && b.Endpoint.Address.Family().IsDomain() {
 				w.conn.IPEndpoint = destAddr
 				w.conn.DomainEndpoint = b.Endpoint
 			}

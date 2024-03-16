@@ -12,13 +12,6 @@ import (
 )
 
 const (
-	// TCP_FASTOPEN_SERVER is the value to enable TCP fast open on darwin for server connections.
-	TCP_FASTOPEN_SERVER = 0x01 // nolint: revive,stylecheck
-	// TCP_FASTOPEN_CLIENT is the value to enable TCP fast open on darwin for client connections.
-	TCP_FASTOPEN_CLIENT = 0x02 // nolint: revive,stylecheck
-)
-
-const (
 	PfOut       = 2
 	IOCOut      = 0x40000000
 	IOCIn       = 0x80000000
@@ -85,17 +78,6 @@ func OriginalDst(la, ra v2net.Addr) (v2net.IP, int, error) {
 
 func applyOutboundSocketOptions(network string, address string, fd uintptr, config *SocketConfig) error {
 	if isTCPSocket(network) {
-		switch config.Tfo {
-		case SocketConfig_Enable:
-			if err := unix.SetsockoptInt(int(fd), unix.IPPROTO_TCP, unix.TCP_FASTOPEN, TCP_FASTOPEN_CLIENT); err != nil {
-				return err
-			}
-		case SocketConfig_Disable:
-			if err := unix.SetsockoptInt(int(fd), unix.IPPROTO_TCP, unix.TCP_FASTOPEN, 0); err != nil {
-				return err
-			}
-		}
-
 		if config.TcpKeepAliveInterval > 0 {
 			if err := unix.SetsockoptInt(int(fd), unix.IPPROTO_TCP, unix.TCP_KEEPINTVL, int(config.TcpKeepAliveInterval)); err != nil {
 				return newError("failed to set TCP_KEEPINTVL").Base(err)
@@ -152,16 +134,6 @@ func applyOutboundSocketOptions(network string, address string, fd uintptr, conf
 
 func applyInboundSocketOptions(network string, address string, fd uintptr, config *SocketConfig) error {
 	if isTCPSocket(network) {
-		switch config.Tfo {
-		case SocketConfig_Enable:
-			if err := unix.SetsockoptInt(int(fd), unix.IPPROTO_TCP, unix.TCP_FASTOPEN, TCP_FASTOPEN_SERVER); err != nil {
-				return err
-			}
-		case SocketConfig_Disable:
-			if err := unix.SetsockoptInt(int(fd), unix.IPPROTO_TCP, unix.TCP_FASTOPEN, 0); err != nil {
-				return err
-			}
-		}
 		if config.TcpKeepAliveInterval > 0 {
 			if err := unix.SetsockoptInt(int(fd), unix.IPPROTO_TCP, unix.TCP_KEEPINTVL, int(config.TcpKeepAliveInterval)); err != nil {
 				return newError("failed to set TCP_KEEPINTVL").Base(err)
@@ -188,14 +160,15 @@ func applyInboundSocketOptions(network string, address string, fd uintptr, confi
 		if err != nil {
 			return err
 		}
-		switch v2net.ParseAddress(host).Family() {
-		case v2net.AddressFamilyIPv4:
-			if err := unix.SetsockoptInt(int(fd), unix.IPPROTO_IP, unix.IP_BOUND_IF, iface.Index); err != nil {
-				return newError("failed to set IP_BOUND_IF", err)
-			}
-		case v2net.AddressFamilyIPv6:
+		addr := v2net.ParseAddress(host)
+		switch {
+		case addr.Family().IsIP() && addr.IP().IsUnspecified(), addr.Family().IsIPv6():
 			if err := unix.SetsockoptInt(int(fd), unix.IPPROTO_IPV6, unix.IPV6_BOUND_IF, iface.Index); err != nil {
 				return newError("failed to set IPV6_BOUND_IF", err)
+			}
+		case addr.Family().IsIPv4():
+			if err := unix.SetsockoptInt(int(fd), unix.IPPROTO_IP, unix.IP_BOUND_IF, iface.Index); err != nil {
+				return newError("failed to set IP_BOUND_IF", err)
 			}
 		}
 	}

@@ -12,6 +12,7 @@ import (
 
 	"github.com/pires/go-proxyproto"
 
+	"github.com/v2fly/v2ray-core/v5/app/dispatcher"
 	"github.com/v2fly/v2ray-core/v5/common/buf"
 	"github.com/v2fly/v2ray-core/v5/common/errors"
 	"github.com/v2fly/v2ray-core/v5/common/net"
@@ -437,14 +438,18 @@ func CopyRawConnIfExist(ctx context.Context, readerConn net.Conn, writerConn net
 	if inbound := session.InboundFromContext(ctx); inbound != nil {
 		if tc, ok := writerConn.(*net.TCPConn); ok && readerConn != nil && writerConn != nil && (runtime.GOOS == "linux" || runtime.GOOS == "android") {
 			newError("CopyRawConn splice").WriteToLog(session.ExportIDToError(ctx))
+			statWriter, _ := writer.(*dispatcher.SizeStatWriter)
 			//runtime.Gosched() // necessary
 			time.Sleep(time.Millisecond) // without this, there will be a rare ssl error for freedom splice
 			w, err := tc.ReadFrom(readerConn)
 			if readCounter != nil {
-				readCounter.Add(w)
+				readCounter.Add(w) // outbound stats
 			}
 			if writeCounter != nil {
-				writeCounter.Add(w)
+				writeCounter.Add(w) // inbound stats
+			}
+			if statWriter != nil {
+				statWriter.Counter.Add(w) // user stats
 			}
 			if err != nil && errors.Cause(err) != io.EOF {
 				return err

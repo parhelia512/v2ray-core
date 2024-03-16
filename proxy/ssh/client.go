@@ -102,9 +102,7 @@ func (c *Client) Init(config *Config, policyManager policy.Manager) error {
 			}
 			key, _, _, _, err := ssh.ParseAuthorizedKey([]byte(str))
 			if err != nil {
-				if err != nil {
-					return newError(err, "parse public key").Base(err)
-				}
+				return newError(err, "parse public key").Base(err)
 			}
 			keys = append(keys, key)
 		}

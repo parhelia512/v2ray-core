@@ -7,20 +7,20 @@ import (
 )
 
 var (
-	pluginLoader func(plugin string) SIP003Plugin
-	plugins      map[string]func() SIP003Plugin
+	PluginLoader func(plugin string) SIP003Plugin
+	Plugins      map[string]func() SIP003Plugin
 )
 
 func init() {
-	plugins = make(map[string]func() SIP003Plugin)
+	Plugins = make(map[string]func() SIP003Plugin)
 }
 
 func SetPluginLoader(creator func(plugin string) SIP003Plugin) {
-	pluginLoader = creator
+	PluginLoader = creator
 }
 
 func RegisterPlugin(name string, creator func() SIP003Plugin) {
-	plugins[name] = creator
+	Plugins[name] = creator
 }
 
 type SIP003Plugin interface {
@@ -28,6 +28,7 @@ type SIP003Plugin interface {
 	common.Closable
 }
 
+// SagerNet private
 type StreamPlugin interface {
 	StreamConn(conn internet.Connection) internet.Connection
 }
@@ -39,6 +40,7 @@ type ProtocolConn struct {
 	ProtocolWriter buf.Writer
 }
 
+// SagerNet private
 type ProtocolPlugin interface {
 	ProtocolConn(conn *ProtocolConn, iv []byte)
 	EncodePacket(buffer *buf.Buffer, ivLen int32) (*buf.Buffer, error)

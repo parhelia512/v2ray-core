@@ -24,12 +24,13 @@ import (
 
 // Client is a inbound handler for Shadowsocks protocol
 type Client struct {
-	serverPicker   protocol.ServerPicker
-	policyManager  policy.Manager
+	serverPicker  protocol.ServerPicker
+	policyManager policy.Manager
+
 	plugin         SIP003Plugin
 	pluginOverride net.Destination
-	stream         StreamPlugin
-	protocol       ProtocolPlugin
+	streamPlugin   StreamPlugin
+	protocolPlugin ProtocolPlugin
 }
 
 func (c *Client) Close() error {
@@ -61,46 +62,39 @@ func NewClient(ctx context.Context, config *ClientConfig) (*Client, error) {
 
 	if config.Plugin != "" {
 		s := client.serverPicker.PickServer()
-
 		var plugin SIP003Plugin
-
-		pc := plugins[config.Plugin]
-		if pc != nil { // nolint: gocritic
+		if pc := Plugins[config.Plugin]; pc != nil {
 			plugin = pc()
-		} else if pluginLoader == nil {
+		} else if PluginLoader == nil {
 			return nil, newError("plugin loader not registered")
 		} else {
-			plugin = pluginLoader(config.Plugin)
+			plugin = PluginLoader(config.Plugin)
 		}
-		if sp, ok := plugin.(StreamPlugin); ok {
-			client.stream = sp
-
+		if streamPlugin, ok := plugin.(StreamPlugin); ok {
+			client.streamPlugin = streamPlugin
 			if err := plugin.Init("", "", s.Destination().Address.String(), s.Destination().Port.String(), config.PluginOpts, config.PluginArgs, s.PickUser().Account.(*MemoryAccount)); err != nil {
 				return nil, newError("failed to start plugin").Base(err)
 			}
-
-			if pp, ok := plugin.(ProtocolPlugin); ok {
-				client.protocol = pp
+			if protocolPlugin, ok := plugin.(ProtocolPlugin); ok {
+				client.protocolPlugin = protocolPlugin
 			}
 		} else {
 			port, err := net.GetFreePort()
 			if err != nil {
 				return nil, newError("failed to get free port for shadowsocks plugin").Base(err)
 			}
-
 			client.pluginOverride = net.Destination{
 				Network: net.Network_TCP,
 				Address: net.LocalHostIP,
 				Port:    net.Port(port),
 			}
-
 			if err := plugin.Init(net.LocalHostIP.String(), strconv.Itoa(port), s.Destination().Address.String(), s.Destination().Port.String(), config.PluginOpts, config.PluginArgs, s.PickUser().Account.(*MemoryAccount)); err != nil {
 				return nil, newError("failed to start plugin").Base(err)
 			}
-
 			client.plugin = plugin
 		}
 	}
+
 	return client, nil
 }
 
@@ -124,20 +118,22 @@ func (c *Client) Process(ctx context.Context, link *transport.Link, dialer inter
 		if !ok {
 			return newError("user account is not valid")
 		}
+
 		var dest net.Destination
 		if network == net.Network_TCP && c.plugin != nil {
 			dest = c.pluginOverride
 		} else {
-			server = c.serverPicker.PickServer()
 			dest = server.Destination()
 			dest.Network = network
 		}
+
 		rawConn, err := dialer.Dial(ctx, dest)
 		if err != nil {
 			return err
 		}
-		if network == net.Network_TCP && c.stream != nil {
-			conn = c.stream.StreamConn(rawConn)
+
+		if network == net.Network_TCP && c.streamPlugin != nil {
+			conn = c.streamPlugin.StreamConn(rawConn)
 		} else {
 			conn = rawConn
 		}
@@ -182,9 +178,9 @@ func (c *Client) Process(ctx context.Context, link *transport.Link, dialer inter
 		}
 	}
 
-	if c.protocol != nil {
+	if c.protocolPlugin != nil {
 		protocolConn = &ProtocolConn{}
-		c.protocol.ProtocolConn(protocolConn, iv)
+		c.protocolPlugin.ProtocolConn(protocolConn, iv)
 	}
 
 	if packetConn, err := packetaddr.ToPacketAddrConn(link, destination); err == nil {
@@ -192,7 +188,7 @@ func (c *Client) Process(ctx context.Context, link *transport.Link, dialer inter
 			protocolWriter := &UDPWriter{
 				Writer:  conn,
 				Request: request,
-				Plugin:  c.protocol,
+				Plugin:  c.protocolPlugin,
 			}
 			return udp.CopyPacketConn(protocolWriter, packetConn, udp.UpdateActivity(timer))
 		}
@@ -200,7 +196,7 @@ func (c *Client) Process(ctx context.Context, link *transport.Link, dialer inter
 			protocolReader := &UDPReader{
 				Reader: conn,
 				User:   user,
-				Plugin: c.protocol,
+				Plugin: c.protocolPlugin,
 			}
 			return udp.CopyPacketConn(packetConn, protocolReader, udp.UpdateActivity(timer))
 		}
@@ -254,7 +250,7 @@ func (c *Client) Process(ctx context.Context, link *transport.Link, dialer inter
 		writer := &UDPWriter{
 			Writer:  conn,
 			Request: request,
-			Plugin:  c.protocol,
+			Plugin:  c.protocolPlugin,
 		}
 
 		requestDone := func() error {
@@ -272,7 +268,7 @@ func (c *Client) Process(ctx context.Context, link *transport.Link, dialer inter
 			reader := &UDPReader{
 				Reader: conn,
 				User:   user,
-				Plugin: c.protocol,
+				Plugin: c.protocolPlugin,
 			}
 
 			if err := buf.Copy(reader, link.Writer, buf.UpdateActivity(timer)); err != nil {

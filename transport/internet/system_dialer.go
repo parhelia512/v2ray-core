@@ -5,6 +5,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/database64128/tfo-go/v2"
+
 	"github.com/v2fly/v2ray-core/v5/common/net"
 	"github.com/v2fly/v2ray-core/v5/common/session"
 )
@@ -108,6 +110,12 @@ func (d *DefaultSystemDialer) Dial(ctx context.Context, src net.Address, dest ne
 		}
 	}
 
+	if sockopt != nil && sockopt.Tfo == SocketConfig_Enable {
+		tfoDialer := &tfo.Dialer{
+			Dialer: *dialer,
+		}
+		return DialTFOContext(tfoDialer, ctx, dest.Network.SystemString(), dest.NetAddr())
+	}
 	return dialer.DialContext(ctx, dest.Network.SystemString(), dest.NetAddr())
 }
 
