@@ -467,7 +467,7 @@ func (w *UDPWriter) WriteTo(payload []byte, addr gonet.Addr) (n int, err error) 
 	return len(payload), err
 }
 
-func ClientHandshake(request *protocol.RequestHeader, reader io.Reader, writer io.Writer) (*protocol.RequestHeader, error) {
+func ClientHandshake(request *protocol.RequestHeader, reader io.Reader, writer io.Writer, delayAuthWrite bool) (*protocol.RequestHeader, error) {
 	authByte := byte(authNotRequired)
 	if request.User != nil {
 		authByte = byte(authPassword)
@@ -477,6 +477,7 @@ func ClientHandshake(request *protocol.RequestHeader, reader io.Reader, writer i
 	defer b.Release()
 
 	common.Must2(b.Write([]byte{socks5Version, 0x01, authByte}))
+
 	if err := buf.WriteAllBytes(writer, b.Bytes()); err != nil {
 		return nil, err
 	}
@@ -504,7 +505,6 @@ func ClientHandshake(request *protocol.RequestHeader, reader io.Reader, writer i
 		if err := buf.WriteAllBytes(writer, b.Bytes()); err != nil {
 			return nil, err
 		}
-
 		b.Clear()
 		if _, err := b.ReadFullFrom(reader, 2); err != nil {
 			return nil, err
@@ -521,9 +521,17 @@ func ClientHandshake(request *protocol.RequestHeader, reader io.Reader, writer i
 		command = byte(cmdUDPAssociate)
 	}
 	common.Must2(b.Write([]byte{socks5Version, command, 0x00 /* reserved */}))
-	if request.Command == protocol.RequestCommandUDP {
-		common.Must2(b.Write([]byte{1, 0, 0, 0, 0, 0, 0}))
-	} else if err := addrParser.WriteAddressPort(b, request.Address, request.Port); err != nil {
+
+	var err error
+	switch request.Command {
+	case protocol.RequestCommandUDP:
+		err = addrParser.WriteAddressPort(b, net.AnyIP, net.Port(0))
+	case protocol.RequestCommandTCP:
+		fallthrough
+	default:
+		err = addrParser.WriteAddressPort(b, request.Address, request.Port)
+	}
+	if err != nil {
 		return nil, err
 	}
 
