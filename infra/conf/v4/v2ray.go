@@ -39,6 +39,7 @@ var (
 		"shadowsocks-2022-multi": func() interface{} { return new(Shadowsocks2022MultiUserServerConfig) },
 		"shadowsocks-2022-relay": func() interface{} { return new(Shadowsocks2022RelayServerConfig) },
 		"mixed":                  func() interface{} { return new(MixedServerConfig) },
+		"hysteria2":              func() interface{} { return new(Hysteria2ServerConfig) },
 	}, "protocol", "settings")
 
 	outboundConfigLoader = loader.NewJSONConfigLoader(loader.ConfigCreatorCache{
@@ -56,6 +57,7 @@ var (
 		"vliteu":           func() interface{} { return new(VLiteUDPOutboundConfig) },
 		"shadowsocks2022":  func() interface{} { return new(Shadowsocks2022Config) },
 		"shadowsocks-2022": func() interface{} { return new(Shadowsocks2022ClientConfig) },
+		"hysteria2":        func() interface{} { return new(Hysteria2ClientConfig) },
 	}, "protocol", "settings")
 )
 
