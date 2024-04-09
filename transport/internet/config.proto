@@ -21,6 +21,7 @@ enum TransportProtocol {
   HTTPUpgrade = 9;
   DTLS = 10;
   Request = 11;
+  Hysteria2 = 12;
 }
 
 message TransportConfig {
