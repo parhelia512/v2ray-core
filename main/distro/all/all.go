@@ -56,6 +56,7 @@ import (
 	_ "github.com/v2fly/v2ray-core/v5/proxy/vlite/inbound"
 	_ "github.com/v2fly/v2ray-core/v5/proxy/vlite/outbound"
 
+	_ "github.com/v2fly/v2ray-core/v5/proxy/hysteria2"
 	_ "github.com/v2fly/v2ray-core/v5/proxy/shadowsocks2022"
 
 	// Transports
@@ -79,6 +80,7 @@ import (
 	_ "github.com/v2fly/v2ray-core/v5/transport/internet/request/stereotype/meek"
 
 	_ "github.com/v2fly/v2ray-core/v5/transport/internet/httpupgrade"
+	_ "github.com/v2fly/v2ray-core/v5/transport/internet/hysteria2"
 
 	// Transport headers
 	_ "github.com/v2fly/v2ray-core/v5/transport/internet/headers/http"
