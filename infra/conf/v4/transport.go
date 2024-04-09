@@ -19,6 +19,7 @@ type TransportConfig struct {
 	HTTPUpgradeConfig *HTTPUpgradeConfig  `json:"httpupgradeSettings"`
 	DTLSConfig        *DTLSConfig         `json:"dtlsSettings"`
 	RequestConfig     *RequestConfig      `json:"requestSettings"`
+	Hysteria2Config   *Hysteria2Config    `json:"hysteria2Settings"`
 }
 
 // Build implements Buildable.
@@ -146,6 +147,17 @@ func (c *TransportConfig) Build() (*global.Config, error) {
 		config.TransportSettings = append(config.TransportSettings, &internet.TransportConfig{
 			ProtocolName: "request",
 			Settings:     serial.ToTypedMessage(rs),
+		})
+	}
+
+	if c.Hysteria2Config != nil {
+		hs, err := c.Hysteria2Config.Build()
+		if err != nil {
+			return nil, newError("Failed to build Hysteria2 config.").Base(err)
+		}
+		config.TransportSettings = append(config.TransportSettings, &internet.TransportConfig{
+			ProtocolName: "hysteria2",
+			Settings:     serial.ToTypedMessage(hs),
 		})
 	}
 

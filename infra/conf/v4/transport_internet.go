@@ -18,6 +18,7 @@ import (
 	httpheader "github.com/v2fly/v2ray-core/v5/transport/internet/headers/http"
 	"github.com/v2fly/v2ray-core/v5/transport/internet/http"
 	"github.com/v2fly/v2ray-core/v5/transport/internet/httpupgrade"
+	"github.com/v2fly/v2ray-core/v5/transport/internet/hysteria2"
 	"github.com/v2fly/v2ray-core/v5/transport/internet/kcp"
 	"github.com/v2fly/v2ray-core/v5/transport/internet/quic"
 	"github.com/v2fly/v2ray-core/v5/transport/internet/request/stereotype/meek"
@@ -310,6 +311,41 @@ func (c *DTLSConfig) Build() (proto.Message, error) {
 	return config, nil
 }
 
+type Hysteria2ConfigCongestion struct {
+	UpMbps   uint64 `json:"upMbps"`
+	DownMbps uint64 `json:"downMbps"`
+}
+
+type Hyteria2ConfigOBFS struct {
+	Type     string `json:"type"`
+	Password string `json:"password"`
+}
+
+type Hysteria2Config struct {
+	Password              string                    `json:"password"`
+	Congestion            Hysteria2ConfigCongestion `json:"congestion"`
+	IgnoreClientBandwidth bool                      `json:"ignoreClientBandwidth"`
+	UseUDPExtension       bool                      `json:"useUDPExtension"`
+	OBFS                  Hyteria2ConfigOBFS        `json:"obfs"`
+}
+
+// Build implements Buildable.
+func (c *Hysteria2Config) Build() (proto.Message, error) {
+	return &hysteria2.Config{
+		Password: c.Password,
+		Congestion: &hysteria2.Congestion{
+			DownMbps: c.Congestion.DownMbps,
+			UpMbps:   c.Congestion.UpMbps,
+		},
+		IgnoreClientBandwidth: c.IgnoreClientBandwidth,
+		UseUdpExtension:       c.UseUDPExtension,
+		Obfs: &hysteria2.OBFS{
+			Type:     c.OBFS.Type,
+			Password: c.OBFS.Password,
+		},
+	}, nil
+}
+
 type TransportProtocol string
 
 // Build implements Buildable.
@@ -337,6 +373,8 @@ func (p TransportProtocol) Build() (string, error) {
 		return "dtls", nil
 	case "request":
 		return "request", nil
+	case "hy2", "hysteria2":
+		return "hysteria2", nil
 	default:
 		return "", newError("Config: unknown transport protocol: ", p)
 	}
@@ -359,6 +397,7 @@ type StreamConfig struct {
 	HTTPUpgradeSettings *HTTPUpgradeConfig      `json:"httpupgradeSettings"`
 	DTLSSettings        *DTLSConfig             `json:"dtlsSettings"`
 	RequestSettings     *RequestConfig          `json:"requestSettings"`
+	Hysteria2Settings   *Hysteria2Config        `json:"hysteria2Settings"`
 	SocketSettings      *socketcfg.SocketConfig `json:"sockopt"`
 }
 
@@ -538,6 +577,23 @@ func (c *StreamConfig) Build() (*internet.StreamConfig, error) {
 			ProtocolName: "request",
 			Settings:     serial.ToTypedMessage(rs),
 		})
+	}
+	if c.Hysteria2Settings != nil {
+		hs, err := c.Hysteria2Settings.Build()
+		if err != nil {
+			return nil, newError("Failed to build Hysteria2 config.").Base(err)
+		}
+		config.TransportSettings = append(config.TransportSettings, &internet.TransportConfig{
+			ProtocolName: "hysteria2",
+			Settings:     serial.ToTypedMessage(hs),
+		})
+	}
+	if c.SocketSettings != nil {
+		ss, err := c.SocketSettings.Build()
+		if err != nil {
+			return nil, newError("Failed to build sockopt.").Base(err)
+		}
+		config.SocketSettings = ss
 	}
 	return config, nil
 }

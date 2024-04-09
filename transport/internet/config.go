@@ -46,6 +46,8 @@ func transportProtocolToString(protocol TransportProtocol) string {
 		return "dtls"
 	case TransportProtocol_Request:
 		return "request"
+	case TransportProtocol_Hysteria2:
+		return "hysteria2"
 	default:
 		return unknownProtocol
 	}

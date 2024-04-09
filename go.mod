@@ -4,6 +4,8 @@ go 1.22.0
 
 require (
 	github.com/adrg/xdg v0.5.0
+	github.com/apernet/hysteria/core/v2 v2.5.1
+	github.com/apernet/quic-go v0.46.1-0.20240816230517-268ed2476167
 	github.com/go-chi/chi/v5 v5.1.0
 	github.com/go-chi/render v1.0.3
 	github.com/go-playground/validator/v10 v10.22.0
@@ -79,6 +81,7 @@ require (
 	github.com/quic-go/qpack v0.4.0 // indirect
 	github.com/riobard/go-bloom v0.0.0-20200614022211-cdc8013cb5b3 // indirect
 	github.com/secure-io/siv-go v0.0.0-20180922214919-5ff40651e2c4 // indirect
+	github.com/stretchr/objx v0.5.2 // indirect
 	github.com/xtaci/smux v1.5.15 // indirect
 	golang.org/x/exp v0.0.0-20240506185415-9bf2ced13842 // indirect
 	golang.org/x/mod v0.18.0 // indirect
@@ -89,3 +92,5 @@ require (
 )
 
 replace github.com/lunixbochs/struc v0.0.0-20200707160740-784aaebc1d40 => github.com/xiaokangwang/struc v0.0.0-20231031203518-0e381172f248
+
+replace github.com/apernet/hysteria/core/v2 v2.5.1 => github.com/JimmyHuang454/hysteria/core/v2 v2.0.0-20240724161647-b3347cf6334d
