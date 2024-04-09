@@ -19,6 +19,7 @@ enum TransportProtocol {
   Gun = 7;
   Meek = 8;
   HTTPUpgrade = 9;
+  Hysteria2 = 10;
 }
 
 message TransportConfig {
