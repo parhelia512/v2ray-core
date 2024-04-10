@@ -61,11 +61,24 @@ func NewHyClient(dest net.Destination, streamSettings *internet.MemoryStreamConf
 	}
 
 	config := streamSettings.ProtocolSettings.(*Config)
-	client, _, err := hy_client.NewClient(&hy_client.Config{
+	hyConfig := &hy_client.Config{
 		TLSConfig:  *tlsConfig,
 		Auth:       config.GetPassword(),
 		ServerAddr: serverAddr,
-	})
+	}
+	if config.Obfs != nil && config.Obfs.Type == "salamander" {
+		ob, err := NewSalamanderObfuscator([]byte(config.Obfs.Password))
+		if err != nil {
+			return nil, err
+		}
+		hyConfig.ConnFactory = &AdaptiveConnFactory{
+			NewFunc: func(addr net.Addr) (net.PacketConn, error) {
+				return net.ListenUDP("udp", nil)
+			},
+			Obfuscator: ob,
+		}
+	}
+	client, _, err := hy_client.NewClient(hyConfig)
 	if err != nil {
 		return nil, err
 	}
