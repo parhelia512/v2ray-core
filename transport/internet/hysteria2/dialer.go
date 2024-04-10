@@ -53,7 +53,8 @@ func initAddress(dest net.Destination) (net.Addr, error) {
 }
 
 type connFactory struct {
-	NewFunc func(addr net.Addr) (net.PacketConn, error)
+	NewFunc    func(addr net.Addr) (net.PacketConn, error)
+	Obfuscator Obfuscator
 }
 
 func (f *connFactory) New(addr net.Addr) (net.PacketConn, error) {
@@ -75,7 +76,7 @@ func NewHyClient(ctx context.Context, dest net.Destination, streamSettings *inte
 		ServerAddr: serverAddr,
 	}
 
-	hyConfig.ConnFactory = &connFactory{
+	connFactory := &connFactory{
 		NewFunc: func(addr net.Addr) (net.PacketConn, error) {
 			rawConn, err := internet.DialSystem(ctx, net.DestinationFromAddr(addr), streamSettings.SocketSettings)
 			if err != nil {
@@ -94,6 +95,14 @@ func NewHyClient(ctx context.Context, dest net.Destination, streamSettings *inte
 			return udpConn, nil
 		},
 	}
+	if config.Obfs != nil && config.Obfs.Type == "salamander" {
+		ob, err := NewSalamanderObfuscator([]byte(config.Obfs.Password))
+		if err != nil {
+			return nil, err
+		}
+		connFactory.Obfuscator = ob
+	}
+	hyConfig.ConnFactory = connFactory
 
 	client, _, err := hy_client.NewClient(hyConfig)
 	if err != nil {
