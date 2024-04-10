@@ -291,11 +291,17 @@ type Hy2ConfigCongestion struct {
 	DownMbps uint64 `json:"down_mbps"`
 }
 
+type Hy2ConfigOBFS struct {
+	Type     string `json:"type"`
+	Password string `json:"password"`
+}
+
 type Hy2Config struct {
 	Password              string              `json:"password"`
 	Congestion            Hy2ConfigCongestion `json:"congestion"`
 	IgnoreClientBandwidth bool                `json:"ignore_client_bandwidth"`
 	UseUDPExtension       bool                `json:"use_udp_extension"`
+	OBFS                  Hy2ConfigOBFS       `json:"obfs"`
 }
 
 // Build implements Buildable.
@@ -309,6 +315,10 @@ func (c *Hy2Config) Build() (proto.Message, error) {
 		},
 		IgnoreClientBandwidth: c.IgnoreClientBandwidth,
 		UseUdpExtension:       c.UseUDPExtension,
+		Obfs: &hysteria2.OBFS{
+			Type:     c.OBFS.Type,
+			Password: c.OBFS.Password,
+		},
 	}, nil
 }
 
