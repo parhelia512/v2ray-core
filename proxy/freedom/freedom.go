@@ -223,13 +223,17 @@ func (r *PacketReader) ReadMultiBuffer() (buf.MultiBuffer, error) {
 		return nil, err
 	}
 	b.Resize(0, int32(n))
-	if r.conn.IPEndpoint != nil && r.conn.DomainEndpoint != nil && d.String() == r.conn.IPEndpoint.String() {
-		b.Endpoint = r.conn.DomainEndpoint
-	} else {
-		b.Endpoint = &net.Destination{
-			Address: net.IPAddress(d.(*net.UDPAddr).IP),
-			Port:    net.Port(d.(*net.UDPAddr).Port),
-			Network: net.Network_UDP,
+	b.Endpoint = &net.Destination{
+		Address: net.IPAddress(d.(*net.UDPAddr).IP),
+		Port:    net.Port(d.(*net.UDPAddr).Port),
+		Network: net.Network_UDP,
+	}
+	if r.conn.Destination != nil && r.conn.OriginalDestination != nil {
+		if b.Endpoint.Address == r.conn.Destination.Address && b.Endpoint.Port == r.conn.Destination.Port {
+			b.Endpoint = r.conn.OriginalDestination
+		}
+		if r.conn.OriginalDestination.Port == r.conn.Destination.Port && b.Endpoint.Address == r.conn.Destination.Address {
+			b.Endpoint.Address = r.conn.OriginalDestination.Address
 		}
 	}
 	if r.counter != nil {
@@ -276,6 +280,7 @@ func (w *PacketWriter) WriteMultiBuffer(mb buf.MultiBuffer) error {
 		var n int
 		var err error
 		if b.Endpoint != nil {
+			originalDestination := b.Endpoint
 			if w.redirect.Address != nil {
 				b.Endpoint.Address = w.redirect.Address
 			}
@@ -293,10 +298,14 @@ func (w *PacketWriter) WriteMultiBuffer(mb buf.MultiBuffer) error {
 				b.Release()
 				continue
 			}
-
-			if !udpDisableDomainUnmapping && b.Endpoint.Address.Family().IsDomain() {
-				w.conn.IPEndpoint = destAddr
-				w.conn.DomainEndpoint = b.Endpoint
+			b.Endpoint = &net.Destination{
+				Address: net.IPAddress(destAddr.IP),
+				Port:    net.Port(destAddr.Port),
+				Network: net.Network_UDP,
+			}
+			if w.conn.OriginalDestination == nil && w.conn.Destination == nil && !udpDisableDomainUnmapping && b.Endpoint.Address != originalDestination.Address || b.Endpoint.Port != originalDestination.Port {
+				w.conn.OriginalDestination = originalDestination
+				w.conn.Destination = b.Endpoint
 			}
 			n, err = w.conn.WriteTo(b.Bytes(), destAddr)
 		} else {

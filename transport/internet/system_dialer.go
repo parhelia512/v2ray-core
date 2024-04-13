@@ -134,8 +134,8 @@ type PacketConnWrapper struct {
 	Conn net.PacketConn
 	Dest net.Addr
 
-	IPEndpoint     net.Addr
-	DomainEndpoint *net.Destination
+	Destination         *net.Destination
+	OriginalDestination *net.Destination
 }
 
 func (c *PacketConnWrapper) Close() error {
