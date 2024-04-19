@@ -228,6 +228,10 @@ func (s *QUICNameServer) sendQuery(ctx context.Context, domain string, clientIP 
 			dnsReqBuf.Write(b.Bytes())
 			b.Release()
 
+			if detour := session.GetForcedOutboundTagFromContext(ctx); detour != "" {
+				dnsCtx = session.SetForcedOutboundTagToContext(dnsCtx, detour)
+			}
+
 			conn, err := s.openStream(dnsCtx)
 			if err != nil {
 				newError("failed to open quic connection").Base(err).AtError().WriteToLog()
