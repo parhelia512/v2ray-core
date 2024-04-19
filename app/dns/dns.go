@@ -488,6 +488,7 @@ func init() {
 				FallbackStrategy: v.FallbackStrategy,
 				SkipFallback:     v.SkipFallback,
 				Geoip:            v.Geoip,
+				Detour:           v.Detour,
 			}
 			for _, prioritizedDomain := range v.PrioritizedDomain {
 				nameserver.PrioritizedDomain = append(nameserver.PrioritizedDomain, &NameServer_PriorityDomain{
