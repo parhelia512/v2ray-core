@@ -250,6 +250,11 @@ func (s *DoHNameServer) sendQuery(ctx context.Context, domain string, clientIP n
 				newError("failed to pack dns query").Base(err).AtError().WriteToLog()
 				return
 			}
+
+			if detour := session.GetForcedOutboundTagFromContext(ctx); detour != "" {
+				dnsCtx = session.SetForcedOutboundTagToContext(dnsCtx, detour)
+			}
+
 			resp, err := s.dohHTTPSContext(dnsCtx, b.Bytes())
 			if err != nil {
 				newError("failed to retrieve response").Base(err).AtError().WriteToLog()

@@ -232,6 +232,11 @@ func (s *ClassicNameServer) sendQuery(ctx context.Context, domain string, client
 			Protocol:       "v2ray.dns",
 			SkipDNSResolve: true,
 		})
+
+		if detour := session.GetForcedOutboundTagFromContext(ctx); detour != "" {
+			udpCtx = session.SetForcedOutboundTagToContext(udpCtx, detour)
+		}
+
 		s.udpServer.Dispatch(udpCtx, s.address, b)
 	}
 }
