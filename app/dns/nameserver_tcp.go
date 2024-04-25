@@ -219,6 +219,10 @@ func (s *TCPNameServer) sendQuery(ctx context.Context, domain string, clientIP n
 				return
 			}
 
+			if detour := session.GetForcedOutboundTagFromContext(ctx); detour != "" {
+				dnsCtx = session.SetForcedOutboundTagToContext(dnsCtx, detour)
+			}
+
 			conn, err := s.dial(dnsCtx)
 			if err != nil {
 				newError("failed to dial namesever").Base(err).AtError().WriteToLog()

@@ -112,7 +112,7 @@ func (c *Client) Process(ctx context.Context, link *transport.Link, dialer inter
 			err = buf.CopyOnceTimeout(link.Reader, bodyWriter, proxy.FirstPayloadTimeout)
 			switch err {
 			case buf.ErrNotTimeoutReader, buf.ErrReadTimeout:
-				if err := connWriter.WriteHeader(); err != nil {
+				if err := connWriter.WriteTCPHeader(); err != nil {
 					return newError("failed to write request header").Base(err).AtWarning()
 				}
 			case nil:

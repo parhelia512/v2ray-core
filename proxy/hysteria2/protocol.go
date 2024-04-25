@@ -23,7 +23,7 @@ type ConnWriter struct {
 // Write implements io.Writer
 func (c *ConnWriter) Write(p []byte) (n int, err error) {
 	if !c.TCPHeaderSent {
-		if err := c.writeHeader(); err != nil {
+		if err := c.writeTCPHeader(); err != nil {
 			return 0, newError("failed to write request header").Base(err)
 		}
 	}
@@ -46,9 +46,9 @@ func (c *ConnWriter) WriteMultiBuffer(mb buf.MultiBuffer) error {
 	return nil
 }
 
-func (c *ConnWriter) WriteHeader() error {
+func (c *ConnWriter) WriteTCPHeader() error {
 	if !c.TCPHeaderSent {
-		if err := c.writeHeader(); err != nil {
+		if err := c.writeTCPHeader(); err != nil {
 			return err
 		}
 	}
@@ -59,7 +59,7 @@ func QuicLen(s int) int {
 	return int(quicvarint.Len(uint64(s)))
 }
 
-func (c *ConnWriter) writeHeader() error {
+func (c *ConnWriter) writeTCPHeader() error {
 	padding := "Jimmy Was Here"
 	paddingLen := len(padding)
 	addressAndPort := c.Target.Address.String() + ":" + c.Target.Port.String()

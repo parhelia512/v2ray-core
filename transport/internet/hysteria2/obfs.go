@@ -19,23 +19,6 @@ const (
 
 const udpBufferSize = 2048 // QUIC packets are at most 1500 bytes long, so 2k should be more than enough
 
-type AdaptiveConnFactory struct {
-	NewFunc    func(addr net.Addr) (net.PacketConn, error)
-	Obfuscator Obfuscator // nil if no obfuscation
-}
-
-func (f *AdaptiveConnFactory) New(addr net.Addr) (net.PacketConn, error) {
-	if f.Obfuscator == nil {
-		return f.NewFunc(addr)
-	} else {
-		conn, err := f.NewFunc(addr)
-		if err != nil {
-			return nil, err
-		}
-		return WrapPacketConn(conn, f.Obfuscator), nil
-	}
-}
-
 var _ Obfuscator = (*SalamanderObfuscator)(nil)
 
 // Obfuscator is the interface that wraps the Obfuscate and Deobfuscate methods.

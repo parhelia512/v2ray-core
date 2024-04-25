@@ -52,7 +52,16 @@ func initAddress(dest net.Destination) (net.Addr, error) {
 	return destAddr, nil
 }
 
-func NewHyClient(dest net.Destination, streamSettings *internet.MemoryStreamConfig) (hy_client.Client, error) {
+type connFactory struct {
+	NewFunc    func(addr net.Addr) (net.PacketConn, error)
+	Obfuscator Obfuscator
+}
+
+func (f *connFactory) New(addr net.Addr) (net.PacketConn, error) {
+	return f.NewFunc(addr)
+}
+
+func NewHyClient(ctx context.Context, dest net.Destination, streamSettings *internet.MemoryStreamConfig) (hy_client.Client, error) {
 	tlsConfig := initTLSConfig(streamSettings)
 
 	serverAddr, err := initAddress(dest)
@@ -66,18 +75,35 @@ func NewHyClient(dest net.Destination, streamSettings *internet.MemoryStreamConf
 		Auth:       config.GetPassword(),
 		ServerAddr: serverAddr,
 	}
+
+	connFactory := &connFactory{
+		NewFunc: func(addr net.Addr) (net.PacketConn, error) {
+			rawConn, err := internet.DialSystem(ctx, net.DestinationFromAddr(addr), streamSettings.SocketSettings)
+			if err != nil {
+				return nil, newError("failed to dial to dest: ", err).AtWarning().Base(err)
+			}
+			var udpConn *net.UDPConn
+			switch conn := rawConn.(type) {
+			case *net.UDPConn:
+				udpConn = conn
+			case *internet.PacketConnWrapper:
+				udpConn = conn.Conn.(*net.UDPConn)
+			default:
+				rawConn.Close()
+				return nil, newError("QUIC with sockopt is unsupported").AtWarning()
+			}
+			return udpConn, nil
+		},
+	}
 	if config.Obfs != nil && config.Obfs.Type == "salamander" {
 		ob, err := NewSalamanderObfuscator([]byte(config.Obfs.Password))
 		if err != nil {
 			return nil, err
 		}
-		hyConfig.ConnFactory = &AdaptiveConnFactory{
-			NewFunc: func(addr net.Addr) (net.PacketConn, error) {
-				return net.ListenUDP("udp", nil)
-			},
-			Obfuscator: ob,
-		}
+		connFactory.Obfuscator = ob
 	}
+	hyConfig.ConnFactory = connFactory
+
 	client, _, err := hy_client.NewClient(hyConfig)
 	if err != nil {
 		return nil, err
@@ -104,7 +130,7 @@ func Dial(ctx context.Context, dest net.Destination, streamSettings *internet.Me
 	client, found := RunningClient[dest]
 	if !found {
 		// TODO: Clean idle connections
-		client, err = NewHyClient(dest, streamSettings)
+		client, err = NewHyClient(ctx, dest, streamSettings)
 		if err != nil {
 			return nil, err
 		}
