@@ -28,12 +28,12 @@ type ShadowsocksServerConfig struct {
 	Email          string                   `json:"email"`
 	NetworkList    *cfgcommon.NetworkList   `json:"network"`
 	IVCheck        bool                     `json:"ivCheck"`
-	PacketEncoding cfgcommon.PacketAddrType `json:"packetEncoding"`
-	Clients        []*ShadowsocksUserConfig `json:"clients"`
-	Users          []*ShadowsocksUserConfig `json:"users"`
 	Plugin         string                   `json:"plugin"`
 	PluginOpts     string                   `json:"pluginOpts"`
 	PluginArgs     *cfgcommon.StringList    `json:"pluginArgs"`
+	PacketEncoding cfgcommon.PacketAddrType `json:"packetEncoding"`
+	Clients        []*ShadowsocksUserConfig `json:"clients"`
+	Users          []*ShadowsocksUserConfig `json:"users"`
 }
 
 func (v *ShadowsocksServerConfig) Build() (proto.Message, error) {

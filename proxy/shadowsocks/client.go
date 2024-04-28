@@ -17,6 +17,8 @@ import (
 	"github.com/v2fly/v2ray-core/v5/common/task"
 	"github.com/v2fly/v2ray-core/v5/features/policy"
 	"github.com/v2fly/v2ray-core/v5/proxy"
+	ss_common "github.com/v2fly/v2ray-core/v5/proxy/shadowsocks/common"
+	"github.com/v2fly/v2ray-core/v5/proxy/sip003"
 	"github.com/v2fly/v2ray-core/v5/transport"
 	"github.com/v2fly/v2ray-core/v5/transport/internet"
 	"github.com/v2fly/v2ray-core/v5/transport/internet/udp"
@@ -27,10 +29,10 @@ type Client struct {
 	serverPicker  protocol.ServerPicker
 	policyManager policy.Manager
 
-	plugin         SIP003Plugin
+	plugin         sip003.Plugin
 	pluginOverride net.Destination
-	streamPlugin   StreamPlugin
-	protocolPlugin ProtocolPlugin
+	streamPlugin   sip003.StreamPlugin
+	protocolPlugin sip003.ProtocolPlugin
 }
 
 func (c *Client) Close() error {
@@ -62,33 +64,33 @@ func NewClient(ctx context.Context, config *ClientConfig) (*Client, error) {
 
 	if config.Plugin != "" {
 		s := client.serverPicker.PickServer()
-		var plugin SIP003Plugin
-		if pc := Plugins[config.Plugin]; pc != nil {
+		var plugin sip003.Plugin
+		if pc := sip003.Plugins[config.Plugin]; pc != nil {
 			plugin = pc()
-		} else if PluginLoader == nil {
+		} else if sip003.PluginLoader == nil {
 			return nil, newError("plugin loader not registered")
 		} else {
-			plugin = PluginLoader(config.Plugin)
+			plugin = sip003.PluginLoader(config.Plugin)
 		}
-		if streamPlugin, ok := plugin.(StreamPlugin); ok {
+		if streamPlugin, ok := plugin.(sip003.StreamPlugin); ok {
 			client.streamPlugin = streamPlugin
-			if err := plugin.Init("", "", s.Destination().Address.String(), s.Destination().Port.String(), config.PluginOpts, config.PluginArgs, s.PickUser().Account.(*MemoryAccount)); err != nil {
+			if err := plugin.Init("", "", s.Destination().Address.String(), s.Destination().Port.String(), config.PluginOpts, config.PluginArgs, s.PickUser().Account.(*ss_common.MemoryAccount)); err != nil {
 				return nil, newError("failed to start plugin").Base(err)
 			}
-			if protocolPlugin, ok := plugin.(ProtocolPlugin); ok {
+			if protocolPlugin, ok := plugin.(sip003.ProtocolPlugin); ok {
 				client.protocolPlugin = protocolPlugin
 			}
 		} else {
 			port, err := net.GetFreePort()
 			if err != nil {
-				return nil, newError("failed to get free port for shadowsocks plugin").Base(err)
+				return nil, newError("failed to get free port for sip003 plugin").Base(err)
 			}
 			client.pluginOverride = net.Destination{
 				Network: net.Network_TCP,
 				Address: net.LocalHostIP,
 				Port:    net.Port(port),
 			}
-			if err := plugin.Init(net.LocalHostIP.String(), strconv.Itoa(port), s.Destination().Address.String(), s.Destination().Port.String(), config.PluginOpts, config.PluginArgs, s.PickUser().Account.(*MemoryAccount)); err != nil {
+			if err := plugin.Init(net.LocalHostIP.String(), strconv.Itoa(port), s.Destination().Address.String(), s.Destination().Port.String(), config.PluginOpts, config.PluginArgs, s.PickUser().Account.(*ss_common.MemoryAccount)); err != nil {
 				return nil, newError("failed to start plugin").Base(err)
 			}
 			client.plugin = plugin
@@ -114,7 +116,7 @@ func (c *Client) Process(ctx context.Context, link *transport.Link, dialer inter
 	err := retry.ExponentialBackoff(5, 100).On(func() error {
 		server = c.serverPicker.PickServer()
 		user = server.PickUser()
-		_, ok := user.Account.(*MemoryAccount)
+		_, ok := user.Account.(*ss_common.MemoryAccount)
 		if !ok {
 			return newError("user account is not valid")
 		}
@@ -164,9 +166,9 @@ func (c *Client) Process(ctx context.Context, link *transport.Link, dialer inter
 	ctx, cancel := context.WithCancel(ctx)
 	timer := signal.CancelAfterInactivity(ctx, cancel, sessionPolicy.Timeouts.ConnectionIdle)
 
-	var protocolConn *ProtocolConn
+	var protocolConn *sip003.ProtocolConn
 	var iv []byte
-	account := user.Account.(*MemoryAccount)
+	account := user.Account.(*ss_common.MemoryAccount)
 	if account.Cipher.IVSize() > 0 {
 		iv = make([]byte, account.Cipher.IVSize())
 		common.Must2(rand.Read(iv))
@@ -179,7 +181,7 @@ func (c *Client) Process(ctx context.Context, link *transport.Link, dialer inter
 	}
 
 	if c.protocolPlugin != nil {
-		protocolConn = &ProtocolConn{}
+		protocolConn = &sip003.ProtocolConn{}
 		c.protocolPlugin.ProtocolConn(protocolConn, iv)
 	}
 

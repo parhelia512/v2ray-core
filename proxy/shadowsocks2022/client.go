@@ -17,7 +17,7 @@ import (
 	"github.com/v2fly/v2ray-core/v5/common/session"
 	"github.com/v2fly/v2ray-core/v5/common/signal"
 	"github.com/v2fly/v2ray-core/v5/common/task"
-	"github.com/v2fly/v2ray-core/v5/proxy/shadowsocks"
+	"github.com/v2fly/v2ray-core/v5/proxy/sip003"
 	"github.com/v2fly/v2ray-core/v5/transport"
 	"github.com/v2fly/v2ray-core/v5/transport/internet"
 	"github.com/v2fly/v2ray-core/v5/transport/internet/udp"
@@ -27,9 +27,9 @@ type Client struct {
 	config *ClientConfig
 	ctx    context.Context
 
-	plugin         shadowsocks.SIP003Plugin
+	plugin         sip003.Plugin
 	pluginOverride net.Destination
-	streamPlugin   shadowsocks.StreamPlugin
+	streamPlugin   sip003.StreamPlugin
 }
 
 func (c *Client) Close() error {
@@ -262,15 +262,15 @@ func NewClient(ctx context.Context, config *ClientConfig) (*Client, error) {
 	}
 
 	if config.Plugin != "" {
-		var plugin shadowsocks.SIP003Plugin
-		if pc := shadowsocks.Plugins[config.Plugin]; pc != nil {
+		var plugin sip003.Plugin
+		if pc := sip003.Plugins[config.Plugin]; pc != nil {
 			plugin = pc()
-		} else if shadowsocks.PluginLoader == nil {
+		} else if sip003.PluginLoader == nil {
 			return nil, newError("plugin loader not registered")
 		} else {
-			plugin = shadowsocks.PluginLoader(config.Plugin)
+			plugin = sip003.PluginLoader(config.Plugin)
 		}
-		if streamPlugin, ok := plugin.(shadowsocks.StreamPlugin); ok {
+		if streamPlugin, ok := plugin.(sip003.StreamPlugin); ok {
 			c.streamPlugin = streamPlugin
 			if err := plugin.Init("", "", "", "", config.PluginOpts, config.PluginArgs, nil); err != nil {
 				return nil, newError("failed to start plugin").Base(err)
@@ -278,7 +278,7 @@ func NewClient(ctx context.Context, config *ClientConfig) (*Client, error) {
 		} else {
 			port, err := net.GetFreePort()
 			if err != nil {
-				return nil, newError("failed to get free port for shadowsocks plugin").Base(err)
+				return nil, newError("failed to get free port for sip003 plugin").Base(err)
 			}
 			c.pluginOverride = net.Destination{
 				Network: net.Network_TCP,

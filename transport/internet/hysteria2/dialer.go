@@ -18,7 +18,12 @@ const (
 	FrameTypeTCPRequest = 0x401
 )
 
-var RunningClient map[net.Destination](hy_client.Client)
+type dialerConf struct {
+	net.Destination
+	*internet.MemoryStreamConfig
+}
+
+var RunningClient map[dialerConf](hy_client.Client)
 
 func initTLSConfig(streamSettings *internet.MemoryStreamConfig) *hy_client.TLSConfig {
 	tlsSetting := checkTLSConfig(streamSettings, true)
@@ -58,7 +63,14 @@ type connFactory struct {
 }
 
 func (f *connFactory) New(addr net.Addr) (net.PacketConn, error) {
-	return f.NewFunc(addr)
+	if f.Obfuscator == nil {
+		return f.NewFunc(addr)
+	}
+	conn, err := f.NewFunc(addr)
+	if err != nil {
+		return nil, err
+	}
+	return WrapPacketConn(conn, f.Obfuscator), nil
 }
 
 func NewHyClient(ctx context.Context, dest net.Destination, streamSettings *internet.MemoryStreamConfig) (hy_client.Client, error) {
@@ -109,14 +121,14 @@ func NewHyClient(ctx context.Context, dest net.Destination, streamSettings *inte
 		return nil, err
 	}
 
-	RunningClient[dest] = client
+	RunningClient[dialerConf{dest, streamSettings}] = client
 	return client, nil
 }
 
-func CloseHyClient(dest net.Destination) error {
-	client, found := RunningClient[dest]
+func CloseHyClient(dest net.Destination, streamSettings *internet.MemoryStreamConfig) error {
+	client, found := RunningClient[dialerConf{dest, streamSettings}]
 	if found {
-		delete(RunningClient, dest)
+		delete(RunningClient, dialerConf{dest, streamSettings})
 		return client.Close()
 	}
 	return nil
@@ -127,7 +139,7 @@ func Dial(ctx context.Context, dest net.Destination, streamSettings *internet.Me
 
 	var client hy_client.Client
 	var err error
-	client, found := RunningClient[dest]
+	client, found := RunningClient[dialerConf{dest, streamSettings}]
 	if !found {
 		// TODO: Clean idle connections
 		client, err = NewHyClient(ctx, dest, streamSettings)
@@ -154,7 +166,7 @@ func Dial(ctx context.Context, dest net.Destination, streamSettings *internet.Me
 		conn.IsServer = false
 		conn.ClientUDPSession, err = client.UDP()
 		if err != nil {
-			CloseHyClient(dest)
+			CloseHyClient(dest, streamSettings)
 			return nil, err
 		}
 		return conn, nil
@@ -162,7 +174,7 @@ func Dial(ctx context.Context, dest net.Destination, streamSettings *internet.Me
 
 	conn.stream, err = client.OpenStream()
 	if err != nil {
-		CloseHyClient(dest)
+		CloseHyClient(dest, streamSettings)
 		return nil, err
 	}
 
@@ -175,6 +187,6 @@ func Dial(ctx context.Context, dest net.Destination, streamSettings *internet.Me
 }
 
 func init() {
-	RunningClient = make(map[net.Destination]hy_client.Client)
+	RunningClient = make(map[dialerConf]hy_client.Client)
 	common.Must(internet.RegisterTransportDialer(protocolName, Dial))
 }

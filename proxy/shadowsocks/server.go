@@ -24,6 +24,8 @@ import (
 	"github.com/v2fly/v2ray-core/v5/features/inbound"
 	"github.com/v2fly/v2ray-core/v5/features/policy"
 	"github.com/v2fly/v2ray-core/v5/features/routing"
+	ss_common "github.com/v2fly/v2ray-core/v5/proxy/shadowsocks/common"
+	"github.com/v2fly/v2ray-core/v5/proxy/sip003"
 	"github.com/v2fly/v2ray-core/v5/transport/internet"
 	"github.com/v2fly/v2ray-core/v5/transport/internet/udp"
 )
@@ -35,11 +37,11 @@ type Server struct {
 
 	tag            string
 	pluginTag      string
-	plugin         SIP003Plugin
+	plugin         sip003.Plugin
 	pluginOverride net.Destination
 	receiverPort   int
-	streamPlugin   StreamPlugin
-	protocolPlugin ProtocolPlugin
+	streamPlugin   sip003.StreamPlugin
+	protocolPlugin sip003.ProtocolPlugin
 }
 
 func (s *Server) Initialize(self inbound.Handler) {
@@ -72,30 +74,30 @@ func NewServer(ctx context.Context, config *ServerConfig) (*Server, error) {
 	}
 
 	if config.Plugin != "" {
-		var plugin SIP003Plugin
-		if pc := Plugins[config.Plugin]; pc != nil {
+		var plugin sip003.Plugin
+		if pc := sip003.Plugins[config.Plugin]; pc != nil {
 			plugin = pc()
-		} else if PluginLoader == nil {
+		} else if sip003.PluginLoader == nil {
 			return nil, newError("plugin loader not registered")
 		} else {
-			plugin = PluginLoader(config.Plugin)
+			plugin = sip003.PluginLoader(config.Plugin)
 		}
-		if streamPlugin, ok := plugin.(StreamPlugin); ok {
+		if streamPlugin, ok := plugin.(sip003.StreamPlugin); ok {
 			s.streamPlugin = streamPlugin
-			if err := plugin.Init("", "", "", "", config.PluginOpts, config.PluginArgs, mUser.Account.(*MemoryAccount)); err != nil {
+			if err := plugin.Init("", "", "", "", config.PluginOpts, config.PluginArgs, mUser.Account.(*ss_common.MemoryAccount)); err != nil {
 				return nil, newError("failed to start plugin").Base(err)
 			}
-			if protocolPlugin, ok := plugin.(ProtocolPlugin); ok {
+			if protocolPlugin, ok := plugin.(sip003.ProtocolPlugin); ok {
 				s.protocolPlugin = protocolPlugin
 			}
 		} else {
 			port, err := net.GetFreePort()
 			if err != nil {
-				return nil, newError("failed to get free port for shadowsocks plugin").Base(err)
+				return nil, newError("failed to get free port for sip003 plugin").Base(err)
 			}
 			s.receiverPort, err = net.GetFreePort()
 			if err != nil {
-				return nil, newError("failed to get free port for shadowsocks plugin receiver").Base(err)
+				return nil, newError("failed to get free port for sip003 plugin receiver").Base(err)
 			}
 			u := uuid.New()
 			tag := "v2ray.system.shadowsocks-inbound-plugin-receiver." + u.String()
@@ -105,18 +107,18 @@ func NewServer(ctx context.Context, config *ServerConfig) (*Server, error) {
 				PortRange: net.SinglePortRange(net.Port(s.receiverPort)),
 			}, s, true)
 			if err != nil {
-				return nil, newError("failed to create shadowsocks plugin inbound").Base(err)
+				return nil, newError("failed to create sip003 plugin inbound").Base(err)
 			}
 			inboundManager := v.GetFeature(inbound.ManagerType()).(inbound.Manager)
 			if err := inboundManager.AddHandler(ctx, handler); err != nil {
-				return nil, newError("failed to add shadowsocks plugin inbound").Base(err)
+				return nil, newError("failed to add sip003 plugin inbound").Base(err)
 			}
 			s.pluginOverride = net.Destination{
 				Network: net.Network_TCP,
 				Address: net.LocalHostIP,
 				Port:    net.Port(port),
 			}
-			if err := plugin.Init(net.LocalHostIP.String(), strconv.Itoa(s.receiverPort), net.LocalHostIP.String(), strconv.Itoa(port), config.PluginOpts, config.PluginArgs, mUser.Account.(*MemoryAccount)); err != nil {
+			if err := plugin.Init(net.LocalHostIP.String(), strconv.Itoa(s.receiverPort), net.LocalHostIP.String(), strconv.Itoa(port), config.PluginOpts, config.PluginArgs, mUser.Account.(*ss_common.MemoryAccount)); err != nil {
 				return nil, newError("failed to start plugin").Base(err)
 			}
 			s.plugin = plugin
@@ -249,6 +251,7 @@ func (s *Server) handleConnection(ctx context.Context, conn internet.Connection,
 	if inbound == nil {
 		panic("no inbound metadata")
 	}
+
 	if s.plugin != nil {
 		if inbound.Tag != s.pluginTag {
 			dest, err := internet.Dial(ctx, s.pluginOverride, nil)
@@ -274,9 +277,9 @@ func (s *Server) handleConnection(ctx context.Context, conn internet.Connection,
 	sessionPolicy := s.policyManager.ForLevel(s.user.Level)
 	conn.SetReadDeadline(time.Now().Add(sessionPolicy.Timeouts.Handshake))
 
-	var protocolConn *ProtocolConn
+	var protocolConn *sip003.ProtocolConn
 	var iv []byte
-	account := s.user.Account.(*MemoryAccount)
+	account := s.user.Account.(*ss_common.MemoryAccount)
 	if account.Cipher.IVSize() > 0 {
 		iv = make([]byte, account.Cipher.IVSize())
 		common.Must2(rand.Read(iv))
@@ -286,7 +289,7 @@ func (s *Server) handleConnection(ctx context.Context, conn internet.Connection,
 	}
 
 	if s.protocolPlugin != nil {
-		protocolConn = &ProtocolConn{}
+		protocolConn = &sip003.ProtocolConn{}
 		s.protocolPlugin.ProtocolConn(protocolConn, iv)
 	}
 

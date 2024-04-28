@@ -21,7 +21,8 @@ import (
 	"github.com/v2fly/v2ray-core/v5/common/serial"
 	"github.com/v2fly/v2ray-core/v5/proxy/dokodemo"
 	"github.com/v2fly/v2ray-core/v5/proxy/freedom"
-	"github.com/v2fly/v2ray-core/v5/proxy/shadowsocks"
+	ss_common "github.com/v2fly/v2ray-core/v5/proxy/shadowsocks/common"
+	"github.com/v2fly/v2ray-core/v5/proxy/sip003"
 	"github.com/v2fly/v2ray-core/v5/transport/internet"
 	"github.com/v2fly/v2ray-core/v5/transport/internet/quic"
 	"github.com/v2fly/v2ray-core/v5/transport/internet/tls"
@@ -30,10 +31,10 @@ import (
 
 //go:generate go run github.com/v2fly/v2ray-core/v5/common/errors/errorgen
 
-var _ shadowsocks.SIP003Plugin = (*Plugin)(nil)
+var _ sip003.Plugin = (*Plugin)(nil)
 
 func init() {
-	shadowsocks.RegisterPlugin("v2ray-plugin", func() shadowsocks.SIP003Plugin {
+	sip003.RegisterPlugin("v2ray-plugin", func() sip003.Plugin {
 		return &Plugin{}
 	})
 }
@@ -42,7 +43,7 @@ type Plugin struct {
 	instance *core.Instance
 }
 
-func (v *Plugin) Init(localHost string, localPort string, remoteHost string, remotePort string, pluginOpts string, pluginArgs []string, _ *shadowsocks.MemoryAccount) error {
+func (v *Plugin) Init(localHost string, localPort string, remoteHost string, remotePort string, pluginOpts string, pluginArgs []string, _ *ss_common.MemoryAccount) error {
 	opts := make(Args)
 
 	opts.Add("localAddr", localHost)

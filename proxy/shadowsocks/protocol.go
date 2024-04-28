@@ -14,6 +14,8 @@ import (
 	"github.com/v2fly/v2ray-core/v5/common/drain"
 	"github.com/v2fly/v2ray-core/v5/common/net"
 	"github.com/v2fly/v2ray-core/v5/common/protocol"
+	ss_common "github.com/v2fly/v2ray-core/v5/proxy/shadowsocks/common"
+	"github.com/v2fly/v2ray-core/v5/proxy/sip003"
 )
 
 const (
@@ -30,8 +32,8 @@ var addrParser = protocol.NewAddressParser(
 )
 
 // ReadTCPSession reads a Shadowsocks TCP session from the given reader, returns its header and remaining parts.
-func ReadTCPSession(user *protocol.MemoryUser, reader io.Reader, conn *ProtocolConn) (*protocol.RequestHeader, buf.Reader, error) {
-	account := user.Account.(*MemoryAccount)
+func ReadTCPSession(user *protocol.MemoryUser, reader io.Reader, conn *sip003.ProtocolConn) (*protocol.RequestHeader, buf.Reader, error) {
+	account := user.Account.(*ss_common.MemoryAccount)
 
 	hashkdf := hmac.New(sha256.New, []byte("SSBSKDF"))
 	hashkdf.Write(account.Key)
@@ -102,9 +104,9 @@ func ReadTCPSession(user *protocol.MemoryUser, reader io.Reader, conn *ProtocolC
 }
 
 // WriteTCPRequest writes Shadowsocks request into the given writer, and returns a writer for body.
-func WriteTCPRequest(request *protocol.RequestHeader, writer io.Writer, iv []byte, conn *ProtocolConn) (buf.Writer, error) {
+func WriteTCPRequest(request *protocol.RequestHeader, writer io.Writer, iv []byte, conn *sip003.ProtocolConn) (buf.Writer, error) {
 	user := request.User
-	account := user.Account.(*MemoryAccount)
+	account := user.Account.(*ss_common.MemoryAccount)
 
 	if len(iv) > 0 {
 		if err := buf.WriteAllBytes(writer, iv); err != nil {
@@ -135,8 +137,8 @@ func WriteTCPRequest(request *protocol.RequestHeader, writer io.Writer, iv []byt
 	return w, nil
 }
 
-func ReadTCPResponse(user *protocol.MemoryUser, reader io.Reader, conn *ProtocolConn) (buf.Reader, error) {
-	account := user.Account.(*MemoryAccount)
+func ReadTCPResponse(user *protocol.MemoryUser, reader io.Reader, conn *sip003.ProtocolConn) (buf.Reader, error) {
+	account := user.Account.(*ss_common.MemoryAccount)
 
 	hashkdf := hmac.New(sha256.New, []byte("SSBSKDF"))
 	hashkdf.Write(account.Key)
@@ -172,9 +174,9 @@ func ReadTCPResponse(user *protocol.MemoryUser, reader io.Reader, conn *Protocol
 	return r, err
 }
 
-func WriteTCPResponse(request *protocol.RequestHeader, writer io.Writer, iv []byte, conn *ProtocolConn) (buf.Writer, error) {
+func WriteTCPResponse(request *protocol.RequestHeader, writer io.Writer, iv []byte, conn *sip003.ProtocolConn) (buf.Writer, error) {
 	user := request.User
-	account := user.Account.(*MemoryAccount)
+	account := user.Account.(*ss_common.MemoryAccount)
 
 	if len(iv) > 0 {
 		if err := buf.WriteAllBytes(writer, iv); err != nil {
@@ -192,9 +194,9 @@ func WriteTCPResponse(request *protocol.RequestHeader, writer io.Writer, iv []by
 	return w, err
 }
 
-func EncodeUDPPacket(request *protocol.RequestHeader, payload []byte, plugin ProtocolPlugin) (*buf.Buffer, error) {
+func EncodeUDPPacket(request *protocol.RequestHeader, payload []byte, plugin sip003.ProtocolPlugin) (*buf.Buffer, error) {
 	user := request.User
-	account := user.Account.(*MemoryAccount)
+	account := user.Account.(*ss_common.MemoryAccount)
 
 	buffer := buf.New()
 	ivLen := account.Cipher.IVSize()
@@ -225,8 +227,8 @@ func EncodeUDPPacket(request *protocol.RequestHeader, payload []byte, plugin Pro
 	return buffer, nil
 }
 
-func DecodeUDPPacket(user *protocol.MemoryUser, payload *buf.Buffer, plugin ProtocolPlugin) (*protocol.RequestHeader, *buf.Buffer, error) {
-	account := user.Account.(*MemoryAccount)
+func DecodeUDPPacket(user *protocol.MemoryUser, payload *buf.Buffer, plugin sip003.ProtocolPlugin) (*protocol.RequestHeader, *buf.Buffer, error) {
+	account := user.Account.(*ss_common.MemoryAccount)
 
 	var iv []byte
 	if !account.Cipher.IsAEAD() && account.Cipher.IVSize() > 0 {
@@ -269,7 +271,7 @@ func DecodeUDPPacket(user *protocol.MemoryUser, payload *buf.Buffer, plugin Prot
 type UDPReader struct {
 	Reader io.Reader
 	User   *protocol.MemoryUser
-	Plugin ProtocolPlugin
+	Plugin sip003.ProtocolPlugin
 }
 
 func (v *UDPReader) ReadMultiBuffer() (buf.MultiBuffer, error) {
@@ -309,7 +311,7 @@ func (v *UDPReader) ReadFrom(p []byte) (n int, addr gonet.Addr, err error) {
 type UDPWriter struct {
 	Writer  io.Writer
 	Request *protocol.RequestHeader
-	Plugin  ProtocolPlugin
+	Plugin  sip003.ProtocolPlugin
 }
 
 func (w *UDPWriter) WriteMultiBuffer(mb buf.MultiBuffer) error {

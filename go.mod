@@ -1,6 +1,6 @@
 module github.com/v2fly/v2ray-core/v5
 
-go 1.21.8
+go 1.22.0
 
 require (
 	github.com/adrg/xdg v0.4.0
@@ -14,7 +14,7 @@ require (
 	github.com/mustafaturan/bus v1.0.2
 	github.com/pion/transport/v3 v3.0.2
 	github.com/pires/go-proxyproto v0.7.0
-	github.com/quic-go/quic-go v0.42.0
+	github.com/quic-go/quic-go v0.43.0
 	github.com/refraction-networking/utls v1.6.4
 	github.com/sagernet/sing v0.3.8
 	github.com/sagernet/sing-shadowsocks v0.2.6

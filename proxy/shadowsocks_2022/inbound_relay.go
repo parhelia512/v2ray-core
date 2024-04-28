@@ -27,7 +27,7 @@ import (
 	"github.com/v2fly/v2ray-core/v5/common/uuid"
 	features_inbound "github.com/v2fly/v2ray-core/v5/features/inbound"
 	"github.com/v2fly/v2ray-core/v5/features/routing"
-	proxy_shadowsocks "github.com/v2fly/v2ray-core/v5/proxy/shadowsocks"
+	"github.com/v2fly/v2ray-core/v5/proxy/sip003"
 	"github.com/v2fly/v2ray-core/v5/transport/internet"
 )
 
@@ -44,10 +44,10 @@ type RelayInbound struct {
 
 	tag            string
 	pluginTag      string
-	plugin         proxy_shadowsocks.SIP003Plugin
+	plugin         sip003.Plugin
 	pluginOverride net.Destination
 	receiverPort   int
-	streamPlugin   proxy_shadowsocks.StreamPlugin
+	streamPlugin   sip003.StreamPlugin
 }
 
 func (i *RelayInbound) Initialize(self features_inbound.Handler) {
@@ -103,15 +103,15 @@ func NewRelayServer(ctx context.Context, config *RelayServerConfig) (*RelayInbou
 	inbound.service = service
 
 	if config.Plugin != "" {
-		var plugin proxy_shadowsocks.SIP003Plugin
-		if pc := proxy_shadowsocks.Plugins[config.Plugin]; pc != nil {
+		var plugin sip003.Plugin
+		if pc := sip003.Plugins[config.Plugin]; pc != nil {
 			plugin = pc()
-		} else if proxy_shadowsocks.PluginLoader == nil {
+		} else if sip003.PluginLoader == nil {
 			return nil, newError("plugin loader not registered")
 		} else {
-			plugin = proxy_shadowsocks.PluginLoader(config.Plugin)
+			plugin = sip003.PluginLoader(config.Plugin)
 		}
-		if streamPlugin, ok := plugin.(proxy_shadowsocks.StreamPlugin); ok {
+		if streamPlugin, ok := plugin.(sip003.StreamPlugin); ok {
 			inbound.streamPlugin = streamPlugin
 			if err := plugin.Init("", "", "", "", config.PluginOpts, config.PluginArgs, nil); err != nil {
 				return nil, newError("failed to start plugin").Base(err)
@@ -119,11 +119,11 @@ func NewRelayServer(ctx context.Context, config *RelayServerConfig) (*RelayInbou
 		} else {
 			port, err := net.GetFreePort()
 			if err != nil {
-				return nil, newError("failed to get free port for shadowsocks plugin").Base(err)
+				return nil, newError("failed to get free port for sip003 plugin").Base(err)
 			}
 			inbound.receiverPort, err = net.GetFreePort()
 			if err != nil {
-				return nil, newError("failed to get free port for shadowsocks plugin receiver").Base(err)
+				return nil, newError("failed to get free port for sip003 plugin receiver").Base(err)
 			}
 			u := uuid.New()
 			tag := "v2ray.system.shadowsocks-inbound-plugin-receiver." + u.String()
@@ -133,12 +133,12 @@ func NewRelayServer(ctx context.Context, config *RelayServerConfig) (*RelayInbou
 				PortRange: net.SinglePortRange(net.Port(inbound.receiverPort)),
 			}, inbound, true)
 			if err != nil {
-				return nil, newError("failed to create shadowsocks plugin inbound").Base(err)
+				return nil, newError("failed to create sip003 plugin inbound").Base(err)
 			}
 			v := core.MustFromContext(ctx)
 			inboundManager := v.GetFeature(features_inbound.ManagerType()).(features_inbound.Manager)
 			if err := inboundManager.AddHandler(ctx, handler); err != nil {
-				return nil, newError("failed to add shadowsocks plugin inbound").Base(err)
+				return nil, newError("failed to add sip003 plugin inbound").Base(err)
 			}
 			inbound.pluginOverride = net.Destination{
 				Network: net.Network_TCP,

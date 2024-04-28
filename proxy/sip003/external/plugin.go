@@ -10,15 +10,16 @@ import (
 	"github.com/v2fly/v2ray-core/v5/common/errors"
 	"github.com/v2fly/v2ray-core/v5/common/platform"
 	"github.com/v2fly/v2ray-core/v5/common/signal/done"
-	"github.com/v2fly/v2ray-core/v5/proxy/shadowsocks"
+	ss_common "github.com/v2fly/v2ray-core/v5/proxy/shadowsocks/common"
+	"github.com/v2fly/v2ray-core/v5/proxy/sip003"
 )
 
 //go:generate go run github.com/v2fly/v2ray-core/v5/common/errors/errorgen
 
-var _ shadowsocks.SIP003Plugin = (*Plugin)(nil)
+var _ sip003.Plugin = (*Plugin)(nil)
 
 func init() {
-	shadowsocks.SetPluginLoader(func(plugin string) shadowsocks.SIP003Plugin {
+	sip003.SetPluginLoader(func(plugin string) sip003.Plugin {
 		return &Plugin{Plugin: plugin}
 	})
 }
@@ -29,7 +30,7 @@ type Plugin struct {
 	done          *done.Instance
 }
 
-func (p *Plugin) Init(localHost string, localPort string, remoteHost string, remotePort string, pluginOpts string, pluginArgs []string, _ *shadowsocks.MemoryAccount) error {
+func (p *Plugin) Init(localHost string, localPort string, remoteHost string, remotePort string, pluginOpts string, pluginArgs []string, _ *ss_common.MemoryAccount) error {
 	p.done = done.New()
 	path, err := exec.LookPath(p.Plugin)
 	if err != nil {
@@ -81,14 +82,14 @@ func (p *Plugin) startPlugin(oldProc *exec.Cmd) *errors.Error {
 
 	err := proc.Start()
 	if err != nil {
-		return newError("failed to start shadowsocks plugin ", proc.Path).Base(err)
+		return newError("failed to start sip003 plugin ", proc.Path).Base(err)
 	}
 
 	go func() {
 		time.Sleep(time.Second)
 		err = platform.CheckChildProcess(proc.Process)
 		if err != nil {
-			newError("shadowsocks plugin ", proc.Path, " exits too fast").Base(err).WriteToLog()
+			newError("sip003 plugin ", proc.Path, " exits too fast").Base(err).WriteToLog()
 			return
 		}
 		go p.waitPlugin()
@@ -107,9 +108,9 @@ func (p *Plugin) waitPlugin() {
 	}
 
 	if err != nil {
-		newError("failed to get shadowsocks plugin status").Base(err).WriteToLog()
+		newError("failed to get sip003 plugin status").Base(err).WriteToLog()
 	} else {
-		newError("shadowsocks plugin exited with code %d, try restart", status.ExitCode()).WriteToLog()
+		newError("sip003 plugin exited with code %d, try restart", status.ExitCode()).WriteToLog()
 	}
 
 	time.Sleep(time.Second)

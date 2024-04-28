@@ -38,7 +38,7 @@ func NewH3NameServer(url *url.URL, dispatcher routing.Dispatcher) (*DoHNameServe
 				cnc.ConnectionOutputMultiUDP(link.Reader),
 			)
 			tr := quic.Transport{
-				Conn: &connWrapper{conn},
+				Conn: NewConnWrapper(conn),
 			}
 			return tr.DialEarly(ctx, conn.RemoteAddr(), tlsCfg, cfg)
 		},
@@ -66,7 +66,7 @@ func NewH3LocalNameServer(url *url.URL) *DoHNameServer {
 				return nil, err
 			}
 			tr := quic.Transport{
-				Conn: conn.(*internet.PacketConnWrapper).Conn.(*net.UDPConn),
+				Conn: NewConnWrapper(conn),
 			}
 			return tr.DialEarly(ctx, conn.RemoteAddr(), tlsCfg, cfg)
 		},
@@ -81,6 +81,7 @@ func NewH3LocalNameServer(url *url.URL) *DoHNameServer {
 
 type connWrapper struct {
 	net.Conn
+	localAddr net.Addr
 }
 
 func (c *connWrapper) ReadFrom(p []byte) (n int, addr net.Addr, err error) {
@@ -92,8 +93,16 @@ func (c *connWrapper) WriteTo(p []byte, _ net.Addr) (n int, err error) {
 	return c.Write(p)
 }
 
-func (c *connWrapper) LocalAddr() net.Addr {
-	// https://github.com/quic-go/quic-go/commit/8189e75be6121fdc31dc1d6085f17015e9154667#diff-4c6aaadced390f3ce9bec0a9c9bb5203d5fa85df79023e3e0eec423dc9baa946R48-R62
+func NewConnWrapper(conn net.Conn) net.PacketConn {
 	uuid := uuid.New()
-	return &net.UnixAddr{Name: uuid.String()}
+	return &connWrapper{
+		Conn:      conn,
+		localAddr: &net.UnixAddr{Name: uuid.String()},
+		// https://github.com/quic-go/quic-go/commit/8189e75be6121fdc31dc1d6085f17015e9154667#diff-4c6aaadced390f3ce9bec0a9c9bb5203d5fa85df79023e3e0eec423dc9baa946R48-R62
+		// local address of net.Conn created by NewConnection is always 0.0.0.0:0
+	}
+}
+
+func (c *connWrapper) LocalAddr() net.Addr {
+	return c.localAddr
 }
