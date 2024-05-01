@@ -32,7 +32,7 @@ require (
 	golang.org/x/sync v0.6.0
 	golang.org/x/sys v0.19.0
 	google.golang.org/grpc v1.63.2
-	google.golang.org/protobuf v1.33.1-0.20240408130810-98873a205002
+	google.golang.org/protobuf v1.34.0
 	gvisor.dev/gvisor v0.0.0-20231020174304-b8a429915ff1
 	h12.io/socks v1.0.3
 	lukechampine.com/blake3 v1.2.2
