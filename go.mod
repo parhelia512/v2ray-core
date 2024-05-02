@@ -15,7 +15,7 @@ require (
 	github.com/lunixbochs/struc v0.0.0-20200707160740-784aaebc1d40
 	github.com/miekg/dns v1.1.59
 	github.com/mustafaturan/bus v1.0.2
-	github.com/pion/transport/v2 v2.2.4
+	github.com/pion/transport/v2 v2.2.5
 	github.com/pires/go-proxyproto v0.7.0
 	github.com/quic-go/quic-go v0.43.0
 	github.com/refraction-networking/utls v1.6.5
