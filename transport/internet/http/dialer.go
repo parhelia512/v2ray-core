@@ -73,7 +73,7 @@ func getHTTPClient(ctx context.Context, dest net.Destination, securityEngine *se
 			}
 
 			if realitySettings := reality.ConfigFromStreamSettings(streamSettings); realitySettings != nil {
-				return reality.UClient(pconn, realitySettings, ctx, dest)
+				return reality.UClient(pconn, realitySettings, detachedContext, dest)
 			}
 
 			cn, err := (*securityEngine).Client(pconn,

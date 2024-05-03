@@ -285,27 +285,27 @@ func (c *MeekConfig) Build() (proto.Message, error) {
 	return &meek.Config{Url: c.URL}, nil
 }
 
-type Hy2ConfigCongestion struct {
+type Hysteria2ConfigCongestion struct {
 	Type     string `json:"type"`
-	UpMbps   uint64 `json:"up_mbps"`
-	DownMbps uint64 `json:"down_mbps"`
+	UpMbps   uint64 `json:"upMbps"`
+	DownMbps uint64 `json:"downMbps"`
 }
 
-type Hy2ConfigOBFS struct {
+type Hyteria2ConfigOBFS struct {
 	Type     string `json:"type"`
 	Password string `json:"password"`
 }
 
-type Hy2Config struct {
-	Password              string              `json:"password"`
-	Congestion            Hy2ConfigCongestion `json:"congestion"`
-	IgnoreClientBandwidth bool                `json:"ignore_client_bandwidth"`
-	UseUDPExtension       bool                `json:"use_udp_extension"`
-	OBFS                  Hy2ConfigOBFS       `json:"obfs"`
+type Hysteria2Config struct {
+	Password              string                    `json:"password"`
+	Congestion            Hysteria2ConfigCongestion `json:"congestion"`
+	IgnoreClientBandwidth bool                      `json:"ignoreClientBandwidth"`
+	UseUDPExtension       bool                      `json:"useUDPExtension"`
+	OBFS                  Hyteria2ConfigOBFS        `json:"obfs"`
 }
 
 // Build implements Buildable.
-func (c *Hy2Config) Build() (proto.Message, error) {
+func (c *Hysteria2Config) Build() (proto.Message, error) {
 	return &hysteria2.Config{
 		Password: c.Password,
 		Congestion: &hysteria2.Congestion{
@@ -367,8 +367,8 @@ type StreamConfig struct {
 	GunSettings         *GunConfig              `json:"gunSettings"`
 	GRPCSettings        *GunConfig              `json:"grpcSettings"`
 	MeekSettings        *MeekConfig             `json:"meekSettings"`
-	HTTPUpgradeSettings *HTTPUpgradeConfig      `json:"httpUpgradeSettings"`
-	Hy2Settings         *Hy2Config              `json:"hy2Settings"`
+	HTTPUpgradeSettings *HTTPUpgradeConfig      `json:"httpupgradeSettings"`
+	Hysteria2Settings   *Hysteria2Config        `json:"hysteria2Settings"`
 	SocketSettings      *socketcfg.SocketConfig `json:"sockopt"`
 }
 
@@ -530,21 +530,21 @@ func (c *StreamConfig) Build() (*internet.StreamConfig, error) {
 	if c.HTTPUpgradeSettings != nil {
 		hs, err := c.HTTPUpgradeSettings.Build()
 		if err != nil {
-			return nil, newError("Failed to build HTTP Upgrade config.").Base(err)
+			return nil, newError("Failed to build HTTPUpgrade config.").Base(err)
 		}
 		config.TransportSettings = append(config.TransportSettings, &internet.TransportConfig{
 			ProtocolName: "httpupgrade",
 			Settings:     serial.ToTypedMessage(hs),
 		})
 	}
-	if c.Hy2Settings != nil {
-		hy2, err := c.Hy2Settings.Build()
+	if c.Hysteria2Settings != nil {
+		hs, err := c.Hysteria2Settings.Build()
 		if err != nil {
-			return nil, newError("Failed to build hy2 config.").Base(err)
+			return nil, newError("Failed to build Hysteria2 config.").Base(err)
 		}
 		config.TransportSettings = append(config.TransportSettings, &internet.TransportConfig{
 			ProtocolName: "hysteria2",
-			Settings:     serial.ToTypedMessage(hy2),
+			Settings:     serial.ToTypedMessage(hs),
 		})
 	}
 	if c.SocketSettings != nil {

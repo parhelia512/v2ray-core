@@ -16,7 +16,8 @@ type TransportConfig struct {
 	GunConfig         *GunConfig          `json:"gunSettings"`
 	GRPCConfig        *GunConfig          `json:"grpcSettings"`
 	MeekConfig        *MeekConfig         `json:"meekSettings"`
-	HTTPUpgradeConfig *HTTPUpgradeConfig  `json:"httpUpgradeSettings"`
+	HTTPUpgradeConfig *HTTPUpgradeConfig  `json:"httpupgradeSettings"`
+	Hysteria2Config   *Hysteria2Config    `json:"hysteria2Settings"`
 }
 
 // Build implements Buildable.
@@ -117,10 +118,21 @@ func (c *TransportConfig) Build() (*global.Config, error) {
 	if c.HTTPUpgradeConfig != nil {
 		hs, err := c.HTTPUpgradeConfig.Build()
 		if err != nil {
-			return nil, newError("Failed to build HTTP Upgrade config.").Base(err)
+			return nil, newError("Failed to build HTTPUpgrade config.").Base(err)
 		}
 		config.TransportSettings = append(config.TransportSettings, &internet.TransportConfig{
 			ProtocolName: "httpupgrade",
+			Settings:     serial.ToTypedMessage(hs),
+		})
+	}
+
+	if c.Hysteria2Config != nil {
+		hs, err := c.Hysteria2Config.Build()
+		if err != nil {
+			return nil, newError("Failed to build Hysteria2 config.").Base(err)
+		}
+		config.TransportSettings = append(config.TransportSettings, &internet.TransportConfig{
+			ProtocolName: "hysteria2",
 			Settings:     serial.ToTypedMessage(hs),
 		})
 	}

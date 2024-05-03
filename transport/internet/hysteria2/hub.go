@@ -78,9 +78,21 @@ func Listen(ctx context.Context, address net.Address, port net.Port, streamSetti
 		addConn: handler,
 	}
 
+	tlsSettings := tls.ConfigFromStreamSettings(streamSettings)
+	if tlsSettings == nil {
+		tlsSettings = &tls.Config{
+			Certificate: []*tls.Certificate{tls.ParseCertificate(cert.MustGenerate(nil, cert.DNSNames(internalDomain), cert.CommonName(internalDomain)))},
+		}
+	}
+	tlsConfig := tlsSettings.GetTLSConfig()
+	hyTLSConfig := &hy_server.TLSConfig{
+		Certificates:   tlsConfig.Certificates,
+		GetCertificate: tlsConfig.GetCertificate,
+	}
+
 	hyConfig := &hy_server.Config{
 		Conn:                  rawConn,
-		TLSConfig:             *getTLSConfig(streamSettings),
+		TLSConfig:             *hyTLSConfig,
 		Authenticator:         &Authenticator{Password: config.GetPassword()},
 		IgnoreClientBandwidth: config.GetIgnoreClientBandwidth(),
 		DisableUDP:            !config.GetUseUdpExtension(),
@@ -102,31 +114,6 @@ func Listen(ctx context.Context, address net.Address, port net.Port, streamSetti
 	listener.hyServer = hyServer
 	go hyServer.Serve()
 	return listener, nil
-}
-
-func checkTLSConfig(streamSettings *internet.MemoryStreamConfig, isClient bool) *tls.Config {
-	if streamSettings == nil || streamSettings.SecuritySettings == nil {
-		return nil
-	}
-	tlsSetting := streamSettings.SecuritySettings.(*tls.Config)
-	if tlsSetting.ServerName == "" || (len(tlsSetting.Certificate) == 0 && !isClient) {
-		return nil
-	}
-	return tlsSetting
-}
-
-func getTLSConfig(streamSettings *internet.MemoryStreamConfig) *hy_server.TLSConfig {
-	tlsSetting := checkTLSConfig(streamSettings, false)
-	if tlsSetting == nil {
-		tlsSetting = &tls.Config{
-			Certificate: []*tls.Certificate{
-				tls.ParseCertificate(
-					cert.MustGenerate(nil, cert.DNSNames(internalDomain), cert.CommonName(internalDomain)),
-				),
-			},
-		}
-	}
-	return &hy_server.TLSConfig{Certificates: tlsSetting.GetTLSConfig().Certificates}
 }
 
 type Authenticator struct {

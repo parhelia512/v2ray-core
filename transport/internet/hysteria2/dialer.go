@@ -25,38 +25,6 @@ type dialerConf struct {
 
 var RunningClient map[dialerConf](hy_client.Client)
 
-func initTLSConfig(streamSettings *internet.MemoryStreamConfig) *hy_client.TLSConfig {
-	tlsSetting := checkTLSConfig(streamSettings, true)
-	if tlsSetting == nil {
-		tlsSetting = &tls.Config{
-			ServerName:    internalDomain,
-			AllowInsecure: true,
-		}
-	}
-	res := &hy_client.TLSConfig{
-		ServerName:         tlsSetting.ServerName,
-		InsecureSkipVerify: tlsSetting.AllowInsecure,
-	}
-	return res
-}
-
-func initAddress(dest net.Destination) (net.Addr, error) {
-	var destAddr *net.UDPAddr
-	if dest.Address.Family().IsIP() {
-		destAddr = &net.UDPAddr{
-			IP:   dest.Address.IP(),
-			Port: int(dest.Port),
-		}
-	} else {
-		addr, err := net.ResolveUDPAddr("udp", dest.NetAddr())
-		if err != nil {
-			return nil, err
-		}
-		destAddr = addr
-	}
-	return destAddr, nil
-}
-
 type connFactory struct {
 	NewFunc    func(addr net.Addr) (net.PacketConn, error)
 	Obfuscator Obfuscator
@@ -74,16 +42,38 @@ func (f *connFactory) New(addr net.Addr) (net.PacketConn, error) {
 }
 
 func NewHyClient(ctx context.Context, dest net.Destination, streamSettings *internet.MemoryStreamConfig) (hy_client.Client, error) {
-	tlsConfig := initTLSConfig(streamSettings)
+	tlsSettings := tls.ConfigFromStreamSettings(streamSettings)
+	if tlsSettings == nil {
+		tlsSettings = &tls.Config{
+			ServerName:    internalDomain,
+			AllowInsecure: true,
+		}
+	}
+	tlsConfig := tlsSettings.GetTLSConfig(tls.WithDestination(dest))
+	hyTLSConfig := &hy_client.TLSConfig{
+		ServerName:            tlsConfig.ServerName,
+		InsecureSkipVerify:    tlsConfig.InsecureSkipVerify,
+		VerifyPeerCertificate: tlsConfig.VerifyPeerCertificate,
+		RootCAs:               tlsConfig.RootCAs,
+	}
 
-	serverAddr, err := initAddress(dest)
-	if err != nil {
-		return nil, err
+	var serverAddr *net.UDPAddr
+	if dest.Address.Family().IsIP() {
+		serverAddr = &net.UDPAddr{
+			IP:   dest.Address.IP(),
+			Port: int(dest.Port),
+		}
+	} else {
+		addr, err := net.ResolveUDPAddr("udp", dest.NetAddr())
+		if err != nil {
+			return nil, err
+		}
+		serverAddr = addr
 	}
 
 	config := streamSettings.ProtocolSettings.(*Config)
 	hyConfig := &hy_client.Config{
-		TLSConfig:  *tlsConfig,
+		TLSConfig:  *hyTLSConfig,
 		Auth:       config.GetPassword(),
 		ServerAddr: serverAddr,
 	}

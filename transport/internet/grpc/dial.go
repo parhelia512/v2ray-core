@@ -133,7 +133,7 @@ func getGrpcClient(ctx context.Context, dest net.Destination, dialOption grpc.Di
 				return nil, err
 			}
 			if realityConfig := reality.ConfigFromStreamSettings(streamSettings); realityConfig != nil {
-				return reality.UClient(conn, realityConfig, ctx, dest)
+				return reality.UClient(conn, realityConfig, detachedContext, dest)
 			}
 			return conn, err
 		}),
