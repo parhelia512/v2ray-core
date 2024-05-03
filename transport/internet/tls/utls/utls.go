@@ -93,6 +93,10 @@ func (e Engine) Client(conn net.Conn, opts ...security.Option) (security.Conn, e
 	return UTLSClientConnection{utlsClientConn}, nil
 }
 
+func (e Engine) GetServerName() string {
+	return e.config.TlsConfig.ServerName
+}
+
 type UTLSClientConnection struct {
 	*utls.UConn
 }
@@ -106,13 +110,15 @@ func (u UTLSClientConnection) GetConnectionApplicationProtocol() (string, error)
 
 func uTLSConfigFromTLSConfig(config *systls.Config) (*utls.Config, error) { // nolint: unparam
 	uconfig := &utls.Config{
-		Rand:                  config.Rand,
-		Time:                  config.Time,
-		RootCAs:               config.RootCAs,
-		NextProtos:            config.NextProtos,
-		ServerName:            config.ServerName,
-		InsecureSkipVerify:    config.InsecureSkipVerify,
-		VerifyPeerCertificate: config.VerifyPeerCertificate,
+		Rand:                   config.Rand,
+		Time:                   config.Time,
+		RootCAs:                config.RootCAs,
+		NextProtos:             config.NextProtos,
+		ServerName:             config.ServerName,
+		SessionTicketsDisabled: config.SessionTicketsDisabled,
+		InsecureSkipVerify:     config.InsecureSkipVerify,
+		VerifyPeerCertificate:  config.VerifyPeerCertificate,
+		ClientCAs:              config.ClientCAs,
 	}
 	return uconfig, nil
 }
