@@ -60,19 +60,7 @@ func QuicLen(s int) int {
 }
 
 func (c *ConnWriter) writeTCPHeader() error {
-	padding := "Jimmy Was Here"
-	paddingLen := len(padding)
-	addressAndPort := c.Target.Address.String() + ":" + c.Target.Port.String()
-	addressLen := len(addressAndPort)
-	size := QuicLen(addressLen) + addressLen + QuicLen(paddingLen) + paddingLen
-
-	buf := make([]byte, size)
-	i := hyProtocol.VarintPut(buf, uint64(addressLen))
-	i += copy(buf[i:], addressAndPort)
-	i += hyProtocol.VarintPut(buf[i:], uint64(paddingLen))
-	copy(buf[i:], padding)
-
-	_, err := c.Writer.Write(buf)
+	err := hyProtocol.WriteTCPRequest(c.Writer, c.Target.Address.String()+":"+c.Target.Port.String())
 	if err == nil {
 		c.TCPHeaderSent = true
 	}

@@ -3,7 +3,7 @@ package hysteria2
 import (
 	"context"
 
-	hy_server "github.com/apernet/hysteria/core/server"
+	hyServer "github.com/apernet/hysteria/core/server"
 	"github.com/apernet/quic-go"
 	"github.com/apernet/quic-go/http3"
 
@@ -16,7 +16,7 @@ import (
 
 // Listener is an internet.Listener that listens for TCP connections.
 type Listener struct {
-	hyServer hy_server.Server
+	hyServer hyServer.Server
 	rawConn  net.PacketConn
 	addConn  internet.ConnHandler
 }
@@ -42,7 +42,7 @@ func (l *Listener) ProxyStreamHijacker(ft http3.FrameType, conn quic.Connection,
 	return true, nil
 }
 
-func (l *Listener) UDPHijacker(entry *hy_server.UdpSessionEntry, originalAddr string) {
+func (l *Listener) UDPHijacker(entry *hyServer.UdpSessionEntry, originalAddr string) {
 	addr, err := net.ResolveUDPAddr("udp", originalAddr)
 	if err != nil {
 		return
@@ -85,12 +85,12 @@ func Listen(ctx context.Context, address net.Address, port net.Port, streamSetti
 		}
 	}
 	tlsConfig := tlsSettings.GetTLSConfig()
-	hyTLSConfig := &hy_server.TLSConfig{
+	hyTLSConfig := &hyServer.TLSConfig{
 		Certificates:   tlsConfig.Certificates,
 		GetCertificate: tlsConfig.GetCertificate,
 	}
 
-	hyConfig := &hy_server.Config{
+	hyConfig := &hyServer.Config{
 		Conn:                  rawConn,
 		TLSConfig:             *hyTLSConfig,
 		Authenticator:         &Authenticator{Password: config.GetPassword()},
@@ -106,7 +106,7 @@ func Listen(ctx context.Context, address net.Address, port net.Port, streamSetti
 		}
 		hyConfig.Conn = WrapPacketConn(rawConn, ob)
 	}
-	hyServer, err := hy_server.NewServer(hyConfig)
+	hyServer, err := hyServer.NewServer(hyConfig)
 	if err != nil {
 		return nil, err
 	}

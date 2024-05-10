@@ -245,6 +245,9 @@ func SniffQUIC(b []byte) (*SniffHeader, error) {
 			if cryptoLen < uint(offset+length) {
 				cryptoLen = uint(offset + length)
 			}
+			if len(cryptoData) < int(offset+length) || len(cryptoData) < int(offset) {
+				return nil, io.ErrUnexpectedEOF
+			}
 			if _, err := buffer.Read(cryptoData[offset : offset+length]); err != nil { // Field: Crypto Data
 				return nil, io.ErrUnexpectedEOF
 			}

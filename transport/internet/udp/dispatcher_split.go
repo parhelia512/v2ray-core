@@ -43,7 +43,7 @@ func NewSplitDispatcher(dispatcher routing.Dispatcher, callback ResponseCallback
 	}
 }
 
-func (v *Dispatcher) getInboundRay(ctx context.Context, dest net.Destination) *connEntry {
+func (v *Dispatcher) getInboundRay(ctx context.Context, dest net.Destination) (*connEntry, error) {
 	v.Lock()
 	defer v.Unlock()
 
@@ -52,7 +52,7 @@ func (v *Dispatcher) getInboundRay(ctx context.Context, dest net.Destination) *c
 		case <-v.conn.ctx.Done():
 			v.conn = nil
 		default:
-			return v.conn
+			return v.conn, nil
 		}
 	}
 
@@ -60,7 +60,10 @@ func (v *Dispatcher) getInboundRay(ctx context.Context, dest net.Destination) *c
 
 	ctx, cancel := context.WithCancel(ctx)
 	timer := signal.CancelAfterInactivity(ctx, cancel, time.Second*300)
-	link, _ := v.dispatcher.Dispatch(ctx, dest)
+	link, err := v.dispatcher.Dispatch(ctx, dest)
+	if err != nil {
+		return nil, newError("failed to dispatch request to: ", dest).Base(err)
+	}
 	entry := &connEntry{
 		link:   link,
 		ctx:    ctx,
@@ -69,14 +72,17 @@ func (v *Dispatcher) getInboundRay(ctx context.Context, dest net.Destination) *c
 	}
 	v.conn = entry
 	go handleInput(ctx, entry, dest, v.callback)
-	return entry
+	return entry, nil
 }
 
 func (v *Dispatcher) Dispatch(ctx context.Context, destination net.Destination, payload *buf.Buffer) {
 	// TODO: Add user to destString
 	newError("dispatch request to: ", destination).AtDebug().WriteToLog(session.ExportIDToError(ctx))
 
-	conn := v.getInboundRay(ctx, destination)
+	conn, err := v.getInboundRay(ctx, destination)
+	if err != nil {
+		return
+	}
 	outputStream := conn.link.Writer
 	if outputStream != nil {
 		payload.Endpoint = &destination

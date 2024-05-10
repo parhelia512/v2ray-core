@@ -3,9 +3,7 @@ package hysteria2
 import (
 	"context"
 
-	hy_client "github.com/apernet/hysteria/core/client"
-	hyProtocol "github.com/apernet/hysteria/core/international/protocol"
-	"github.com/apernet/quic-go/quicvarint"
+	hyClient "github.com/apernet/hysteria/core/client"
 
 	"github.com/v2fly/v2ray-core/v5/common"
 	"github.com/v2fly/v2ray-core/v5/common/net"
@@ -14,16 +12,12 @@ import (
 	"github.com/v2fly/v2ray-core/v5/transport/internet/tls"
 )
 
-const (
-	FrameTypeTCPRequest = 0x401
-)
-
 type dialerConf struct {
 	net.Destination
 	*internet.MemoryStreamConfig
 }
 
-var RunningClient map[dialerConf](hy_client.Client)
+var RunningClient map[dialerConf](hyClient.Client)
 
 type connFactory struct {
 	NewFunc    func(addr net.Addr) (net.PacketConn, error)
@@ -41,7 +35,7 @@ func (f *connFactory) New(addr net.Addr) (net.PacketConn, error) {
 	return WrapPacketConn(conn, f.Obfuscator), nil
 }
 
-func NewHyClient(ctx context.Context, dest net.Destination, streamSettings *internet.MemoryStreamConfig) (hy_client.Client, error) {
+func NewHyClient(ctx context.Context, dest net.Destination, streamSettings *internet.MemoryStreamConfig) (hyClient.Client, error) {
 	tlsSettings := tls.ConfigFromStreamSettings(streamSettings)
 	if tlsSettings == nil {
 		tlsSettings = &tls.Config{
@@ -50,7 +44,7 @@ func NewHyClient(ctx context.Context, dest net.Destination, streamSettings *inte
 		}
 	}
 	tlsConfig := tlsSettings.GetTLSConfig(tls.WithDestination(dest))
-	hyTLSConfig := &hy_client.TLSConfig{
+	hyTLSConfig := &hyClient.TLSConfig{
 		ServerName:            tlsConfig.ServerName,
 		InsecureSkipVerify:    tlsConfig.InsecureSkipVerify,
 		VerifyPeerCertificate: tlsConfig.VerifyPeerCertificate,
@@ -72,7 +66,7 @@ func NewHyClient(ctx context.Context, dest net.Destination, streamSettings *inte
 	}
 
 	config := streamSettings.ProtocolSettings.(*Config)
-	hyConfig := &hy_client.Config{
+	hyConfig := &hyClient.Config{
 		TLSConfig:  *hyTLSConfig,
 		Auth:       config.GetPassword(),
 		ServerAddr: serverAddr,
@@ -106,7 +100,7 @@ func NewHyClient(ctx context.Context, dest net.Destination, streamSettings *inte
 	}
 	hyConfig.ConnFactory = connFactory
 
-	client, _, err := hy_client.NewClient(hyConfig)
+	client, _, err := hyClient.NewClient(hyConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -127,7 +121,7 @@ func CloseHyClient(dest net.Destination, streamSettings *internet.MemoryStreamCo
 func Dial(ctx context.Context, dest net.Destination, streamSettings *internet.MemoryStreamConfig) (internet.Connection, error) {
 	config := streamSettings.ProtocolSettings.(*Config)
 
-	var client hy_client.Client
+	var client hyClient.Client
 	var err error
 	client, found := RunningClient[dialerConf{dest, streamSettings}]
 	if !found {
@@ -168,15 +162,10 @@ func Dial(ctx context.Context, dest net.Destination, streamSettings *internet.Me
 		return nil, err
 	}
 
-	// write TCP frame type
-	frameSize := int(quicvarint.Len(FrameTypeTCPRequest))
-	buf := make([]byte, frameSize)
-	hyProtocol.VarintPut(buf, FrameTypeTCPRequest)
-	conn.stream.Write(buf)
 	return conn, nil
 }
 
 func init() {
-	RunningClient = make(map[dialerConf]hy_client.Client)
+	RunningClient = make(map[dialerConf]hyClient.Client)
 	common.Must(internet.RegisterTransportDialer(protocolName, Dial))
 }
