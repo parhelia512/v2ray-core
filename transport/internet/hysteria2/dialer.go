@@ -4,12 +4,18 @@ import (
 	"context"
 
 	hyClient "github.com/apernet/hysteria/core/client"
+	hyProtocol "github.com/apernet/hysteria/core/international/protocol"
+	"github.com/apernet/quic-go/quicvarint"
 
 	"github.com/v2fly/v2ray-core/v5/common"
 	"github.com/v2fly/v2ray-core/v5/common/net"
 	"github.com/v2fly/v2ray-core/v5/common/session"
 	"github.com/v2fly/v2ray-core/v5/transport/internet"
 	"github.com/v2fly/v2ray-core/v5/transport/internet/tls"
+)
+
+const (
+	FrameTypeTCPRequest = 0x401
 )
 
 type dialerConf struct {
@@ -162,6 +168,11 @@ func Dial(ctx context.Context, dest net.Destination, streamSettings *internet.Me
 		return nil, err
 	}
 
+	// write TCP frame type
+	frameSize := int(quicvarint.Len(FrameTypeTCPRequest))
+	buf := make([]byte, frameSize)
+	hyProtocol.VarintPut(buf, FrameTypeTCPRequest)
+	conn.stream.Write(buf)
 	return conn, nil
 }
 
