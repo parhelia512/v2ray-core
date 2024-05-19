@@ -195,6 +195,23 @@ func (a *Account) getCipher() (ss_common.Cipher, error) {
 				return rc4.NewCipher(h.Sum(nil))
 			},
 		}, nil
+	case CipherType_RC4_MD5_6:
+		return &StreamCipher{
+			KeyBytes: 16,
+			IVBytes:  6,
+			EncryptCreator: func(key []byte, iv []byte) (cipher.Stream, error) {
+				h := md5.New()
+				h.Write(key)
+				h.Write(iv)
+				return rc4.NewCipher(h.Sum(nil))
+			},
+			DecryptCreator: func(key []byte, iv []byte) (cipher.Stream, error) {
+				h := md5.New()
+				h.Write(key)
+				h.Write(iv)
+				return rc4.NewCipher(h.Sum(nil))
+			},
+		}, nil
 	case CipherType_BF_CFB:
 		return &StreamCipher{
 			KeyBytes:       16,
@@ -317,6 +334,19 @@ func (a *Account) getCipher() (ss_common.Cipher, error) {
 			},
 			DecryptCreator: func(key []byte, iv []byte) (cipher.Stream, error) {
 				return chacha20.NewUnauthenticatedCipher(key, iv)
+			},
+		}, nil
+	case CipherType_TABLE:
+		return &StreamCipher{
+			KeyBytes: 16,
+			IVBytes:  0,
+			EncryptCreator: func(key []byte, iv []byte) (cipher.Stream, error) {
+				enc, _ := crypto.NewTableCipher(key)
+				return enc, nil
+			},
+			DecryptCreator: func(key []byte, iv []byte) (cipher.Stream, error) {
+				_, dec := crypto.NewTableCipher(key)
+				return dec, nil
 			},
 		}, nil
 	default:
@@ -547,6 +577,8 @@ func CipherFromString(c string) CipherType {
 		return CipherType_RC4
 	case "rc4-md5":
 		return CipherType_RC4_MD5
+	case "rc4-md5-6":
+		return CipherType_RC4_MD5_6
 	case "bf-cfb":
 		return CipherType_BF_CFB
 	case "cast5-cfb":
@@ -577,35 +609,28 @@ func CipherFromString(c string) CipherType {
 		return CipherType_CHACHA20_IETF
 	case "xchacha20":
 		return CipherType_XCHACHA20
+	case "table":
+		return CipherType_TABLE
 	default:
 		return CipherType_UNKNOWN
 	}
 }
 
 func passwordToCipherKey(password []byte, keySize int32) []byte {
-	const md5Len = 16
+	key := make([]byte, 0, keySize)
 
-	cnt := (int(keySize)-1)/md5Len + 1
-	m := make([]byte, cnt*md5Len)
-	copy(m, md5sum(password))
+	md5Sum := md5.Sum(password)
+	key = append(key, md5Sum[:]...)
 
-	// Repeatedly call md5 until bytes generated is enough.
-	// Each call to md5 uses data: prev md5 sum + password.
-	d := make([]byte, md5Len+len(password))
-	start := 0
-	for i := 1; i < cnt; i++ {
-		start += md5Len
-		copy(d, m[start-md5Len:start])
-		copy(d[md5Len:], password)
-		copy(m[start:], md5sum(d))
+	for int32(len(key)) < keySize {
+		md5Hash := md5.New()
+		common.Must2(md5Hash.Write(md5Sum[:]))
+		common.Must2(md5Hash.Write(password))
+		md5Hash.Sum(md5Sum[:0])
+
+		key = append(key, md5Sum[:]...)
 	}
-	return m[:keySize]
-}
-
-func md5sum(d []byte) []byte {
-	h := md5.New()
-	h.Write(d)
-	return h.Sum(nil)
+	return key[:keySize]
 }
 
 func hkdfSHA1(secret, salt, outKey []byte) {

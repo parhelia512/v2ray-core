@@ -1,6 +1,3 @@
-//go:build !confonly
-// +build !confonly
-
 package dns
 
 import (
@@ -11,7 +8,6 @@ import (
 	"net/http"
 	"net/url"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"golang.org/x/net/dns/dnsmessage"
@@ -214,7 +210,7 @@ func (s *DoHNameServer) updateIP(req *dnsRequest, ipRec *IPRecord) {
 }
 
 func (s *DoHNameServer) newReqID() uint16 {
-	return uint16(atomic.AddUint32(&s.reqID, 1))
+	return 0
 }
 
 func (s *DoHNameServer) sendQuery(ctx context.Context, domain string, clientIP net.IP, option dns_feature.IPOption) {
@@ -249,11 +245,7 @@ func (s *DoHNameServer) sendQuery(ctx context.Context, domain string, clientIP n
 			dnsCtx, cancel = context.WithDeadline(dnsCtx, deadline)
 			defer cancel()
 
-			// https://datatracker.ietf.org/doc/html/rfc8484#section-4.1
-			// In order to maximize cache friendliness, SHOULD use a DNS ID of 0 in every DNS request.
-			newMsg := *r.msg
-			newMsg.Header.ID = 0
-			b, err := dns.PackMessage(&newMsg)
+			b, err := dns.PackMessage(r.msg)
 			if err != nil {
 				newError("failed to pack dns query").Base(err).AtError().WriteToLog()
 				return
@@ -273,8 +265,6 @@ func (s *DoHNameServer) sendQuery(ctx context.Context, domain string, clientIP n
 				newError("failed to handle DOH response").Base(err).AtError().WriteToLog()
 				return
 			}
-
-			rec.ReqID = r.msg.ID
 			s.updateIP(r, rec)
 		}(req)
 	}

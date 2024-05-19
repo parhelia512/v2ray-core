@@ -2,14 +2,18 @@ package hysteria2
 
 import (
 	"io"
-	gonet "net"
+	"math/rand"
 
 	hyProtocol "github.com/apernet/hysteria/core/international/protocol"
 	"github.com/apernet/quic-go/quicvarint"
 
 	"github.com/v2fly/v2ray-core/v5/common/buf"
 	"github.com/v2fly/v2ray-core/v5/common/net"
-	hy2_transport "github.com/v2fly/v2ray-core/v5/transport/internet/hysteria2"
+	hyTransport "github.com/v2fly/v2ray-core/v5/transport/internet/hysteria2"
+)
+
+const (
+	paddingChars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 )
 
 // ConnWriter is TCP Connection Writer Wrapper
@@ -55,18 +59,16 @@ func (c *ConnWriter) WriteTCPHeader() error {
 	return nil
 }
 
-func QuicLen(s int) int {
-	return int(quicvarint.Len(uint64(s)))
-}
-
 func (c *ConnWriter) writeTCPHeader() error {
-	padding := "Jimmy Was Here"
-	paddingLen := len(padding)
+	paddingLen := 64 + rand.Intn(512-64)
+	padding := make([]byte, paddingLen)
+	for i := range padding {
+		padding[i] = paddingChars[rand.Intn(len(paddingChars))]
+	}
 	addressAndPort := c.Target.Address.String() + ":" + c.Target.Port.String()
 	addressLen := len(addressAndPort)
-	size := QuicLen(addressLen) + addressLen + QuicLen(paddingLen) + paddingLen
 
-	buf := make([]byte, size)
+	buf := make([]byte, quicvarint.Len(uint64(addressLen))+addressLen+quicvarint.Len(uint64(paddingLen))+paddingLen)
 	i := hyProtocol.VarintPut(buf, uint64(addressLen))
 	i += copy(buf[i:], addressAndPort)
 	i += hyProtocol.VarintPut(buf[i:], uint64(paddingLen))
@@ -82,7 +84,7 @@ func (c *ConnWriter) writeTCPHeader() error {
 // PacketWriter UDP Connection Writer Wrapper
 type PacketWriter struct {
 	io.Writer
-	HyConn *hy2_transport.HyConn
+	HyConn *hyTransport.HyConn
 	Target net.Destination
 }
 
@@ -120,7 +122,7 @@ func (w *PacketWriter) WriteMultiBufferWithMetadata(mb buf.MultiBuffer, dest net
 	return nil
 }
 
-func (w *PacketWriter) WriteTo(payload []byte, addr gonet.Addr) (int, error) {
+func (w *PacketWriter) WriteTo(payload []byte, addr net.Addr) (int, error) {
 	dest := net.DestinationFromAddr(addr)
 
 	return w.writePacket(payload, dest)
@@ -157,7 +159,7 @@ type PacketPayload struct {
 // PacketReader is UDP Connection Reader Wrapper
 type PacketReader struct {
 	io.Reader
-	HyConn *hy2_transport.HyConn
+	HyConn *hyTransport.HyConn
 }
 
 // ReadMultiBuffer implements buf.Reader
@@ -185,7 +187,7 @@ type PacketConnectionReader struct {
 	payload *PacketPayload
 }
 
-func (r *PacketConnectionReader) ReadFrom(p []byte) (n int, addr gonet.Addr, err error) {
+func (r *PacketConnectionReader) ReadFrom(p []byte) (n int, addr net.Addr, err error) {
 	if r.payload == nil || r.payload.Buffer.IsEmpty() {
 		r.payload, err = r.reader.ReadMultiBufferWithMetadata()
 		if err != nil {
@@ -193,7 +195,7 @@ func (r *PacketConnectionReader) ReadFrom(p []byte) (n int, addr gonet.Addr, err
 		}
 	}
 
-	addr = &gonet.UDPAddr{
+	addr = &net.UDPAddr{
 		IP:   r.payload.Target.Address.IP(),
 		Port: int(r.payload.Target.Port),
 	}

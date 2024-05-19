@@ -8,7 +8,6 @@ import (
 	"math/big"
 	"runtime"
 	"strconv"
-	"time"
 
 	"github.com/pires/go-proxyproto"
 
@@ -435,28 +434,36 @@ func CopyRawConnIfExist(ctx context.Context, readerConn net.Conn, writerConn net
 	readerConn, readCounter, _ := UnwrapRawConn(readerConn)
 	writerConn, _, writeCounter := UnwrapRawConn(writerConn)
 	reader := buf.NewReader(readerConn)
-	if inbound := session.InboundFromContext(ctx); inbound != nil {
-		if tc, ok := writerConn.(*net.TCPConn); ok && readerConn != nil && writerConn != nil && (runtime.GOOS == "linux" || runtime.GOOS == "android") {
-			newError("CopyRawConn splice").WriteToLog(session.ExportIDToError(ctx))
-			statWriter, _ := writer.(*dispatcher.SizeStatWriter)
-			//runtime.Gosched() // necessary
-			time.Sleep(time.Millisecond) // without this, there will be a rare ssl error for freedom splice
-			w, err := tc.ReadFrom(readerConn)
-			if readCounter != nil {
-				readCounter.Add(w) // outbound stats
-			}
-			if writeCounter != nil {
-				writeCounter.Add(w) // inbound stats
-			}
-			if statWriter != nil {
-				statWriter.Counter.Add(w) // user stats
-			}
-			if err != nil && errors.Cause(err) != io.EOF {
-				return err
-			}
-			return nil
-		}
+	if runtime.GOOS != "linux" && runtime.GOOS != "android" {
+		return readV(ctx, reader, writer, timer, readCounter)
 	}
+	tc, ok := writerConn.(*net.TCPConn)
+	if !ok || readerConn == nil || writerConn == nil {
+		return readV(ctx, reader, writer, timer, readCounter)
+	}
+
+	for {
+		newError("CopyRawConn splice").WriteToLog(session.ExportIDToError(ctx))
+		statWriter, _ := writer.(*dispatcher.SizeStatWriter)
+		//runtime.Gosched() // necessary
+		w, err := tc.ReadFrom(readerConn)
+		if readCounter != nil {
+			readCounter.Add(w) // outbound stats
+		}
+		if writeCounter != nil {
+			writeCounter.Add(w) // inbound stats
+		}
+		if statWriter != nil {
+			statWriter.Counter.Add(w) // user stats
+		}
+		if err != nil && errors.Cause(err) != io.EOF {
+			return err
+		}
+		return nil
+	}
+}
+
+func readV(ctx context.Context, reader buf.Reader, writer buf.Writer, timer signal.ActivityUpdater, readCounter stats.Counter) error {
 	newError("CopyRawConn readv").WriteToLog(session.ExportIDToError(ctx))
 	if err := buf.Copy(reader, writer, buf.UpdateActivity(timer), buf.AddToStatCounter(readCounter)); err != nil {
 		return newError("failed to process response").Base(err)

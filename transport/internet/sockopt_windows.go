@@ -117,14 +117,14 @@ func applyInboundSocketOptions(network string, address string, fd uintptr, confi
 	return nil
 }
 
-func bindAddr(fd uintptr, ip []byte, port uint32) error {
+func bindAddr(_ uintptr, _ []byte, _ uint32) error {
 	return nil
 }
 
-func setReuseAddr(fd uintptr) error {
+func setReuseAddr(_ uintptr) error {
 	return nil
 }
 
-func setReusePort(fd uintptr) error {
+func setReusePort(_ uintptr) error {
 	return nil
 }

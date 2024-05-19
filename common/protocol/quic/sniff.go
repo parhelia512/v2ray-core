@@ -304,16 +304,16 @@ func readUvarint(r io.ByteReader) (uint64, error) {
 		return 0, err
 	}
 	// the first two bits of the first byte encode the length
-	len := 1 << ((firstByte & 0xc0) >> 6)
+	l := 1 << ((firstByte & 0xc0) >> 6)
 	b1 := firstByte & (0xff - 0xc0)
-	if len == 1 {
+	if l == 1 {
 		return uint64(b1), nil
 	}
 	b2, err := r.ReadByte()
 	if err != nil {
 		return 0, err
 	}
-	if len == 2 {
+	if l == 2 {
 		return uint64(b2) + uint64(b1)<<8, nil
 	}
 	b3, err := r.ReadByte()
@@ -324,7 +324,7 @@ func readUvarint(r io.ByteReader) (uint64, error) {
 	if err != nil {
 		return 0, err
 	}
-	if len == 4 {
+	if l == 4 {
 		return uint64(b4) + uint64(b3)<<8 + uint64(b2)<<16 + uint64(b1)<<24, nil
 	}
 	b5, err := r.ReadByte()

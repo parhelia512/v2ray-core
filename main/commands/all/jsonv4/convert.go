@@ -9,9 +9,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	core "github.com/v2fly/v2ray-core/v5"
-	"github.com/v2fly/v2ray-core/v5/infra/conf/jsonpb"
 	"github.com/v2fly/v2ray-core/v5/infra/conf/merge"
-	"github.com/v2fly/v2ray-core/v5/infra/conf/v2jsonpb"
 	"github.com/v2fly/v2ray-core/v5/main/commands/base"
 	"github.com/v2fly/v2ray-core/v5/main/commands/helpers"
 )
@@ -112,36 +110,6 @@ func executeConvert(cmd *base.Command, args []string) {
 		out, err = proto.Marshal(pbConfig)
 		if err != nil {
 			base.Fatalf("failed to convert to protobuf: %s", err)
-		}
-	case jsonpb.FormatProtobufJSONPB:
-		data, err := json.Marshal(m)
-		if err != nil {
-			base.Fatalf("failed to marshal json: %s", err)
-		}
-		r := bytes.NewReader(data)
-		pbConfig, err := core.LoadConfig(inputFormat, r)
-		if err != nil {
-			base.Fatalf(err.Error())
-		}
-		w := bytes.NewBuffer(nil)
-		err = jsonpb.DumpJSONPb(pbConfig, w)
-		if err != nil {
-			base.Fatalf(err.Error())
-		}
-		out = w.Bytes()
-	case v2jsonpb.FormatProtobufV2JSONPB:
-		data, err := json.Marshal(m)
-		if err != nil {
-			base.Fatalf("failed to marshal json: %s", err)
-		}
-		r := bytes.NewReader(data)
-		pbConfig, err := core.LoadConfig(inputFormat, r)
-		if err != nil {
-			base.Fatalf(err.Error())
-		}
-		out, err = v2jsonpb.DumpV2JsonPb(pbConfig)
-		if err != nil {
-			base.Fatalf(err.Error())
 		}
 	default:
 		base.Errorf("invalid output format: %s", outputFormat)

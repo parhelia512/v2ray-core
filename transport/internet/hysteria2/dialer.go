@@ -169,7 +169,7 @@ func Dial(ctx context.Context, dest net.Destination, streamSettings *internet.Me
 	}
 
 	// write TCP frame type
-	frameSize := int(quicvarint.Len(FrameTypeTCPRequest))
+	frameSize := quicvarint.Len(FrameTypeTCPRequest)
 	buf := make([]byte, frameSize)
 	hyProtocol.VarintPut(buf, FrameTypeTCPRequest)
 	conn.stream.Write(buf)

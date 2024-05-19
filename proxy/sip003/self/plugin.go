@@ -24,6 +24,7 @@ import (
 	ss_common "github.com/v2fly/v2ray-core/v5/proxy/shadowsocks/common"
 	"github.com/v2fly/v2ray-core/v5/proxy/sip003"
 	"github.com/v2fly/v2ray-core/v5/transport/internet"
+	"github.com/v2fly/v2ray-core/v5/transport/internet/grpc"
 	"github.com/v2fly/v2ray-core/v5/transport/internet/quic"
 	"github.com/v2fly/v2ray-core/v5/transport/internet/tls"
 	"github.com/v2fly/v2ray-core/v5/transport/internet/websocket"
@@ -84,22 +85,23 @@ func (v *Plugin) Init(localHost string, localPort string, remoteHost string, rem
 func (v *Plugin) init(opts Args, pluginArgs []string) (*core.Config, error) {
 	flag := flag.NewFlagSet("v2ray-plugin", flag.ContinueOnError)
 	var (
-		fastOpen   = flag.Bool("fast-open", false, "Enable TCP fast open.")
-		localAddr  = flag.String("localAddr", "127.0.0.1", "local address to listen on.")
-		localPort  = flag.String("localPort", "1984", "local port to listen on.")
-		remoteAddr = flag.String("remoteAddr", "127.0.0.1", "remote address to forward.")
-		remotePort = flag.String("remotePort", "1080", "remote port to forward.")
-		path       = flag.String("path", "/", "URL path for websocket.")
-		host       = flag.String("host", "cloudfront.com", "Hostname for server.")
-		tlsEnabled = flag.Bool("tls", false, "Enable TLS.")
-		cert       = flag.String("cert", "", "Path to TLS certificate file. Overrides certRaw. Default: ~/.acme.sh/{host}/fullchain.cer")
-		certRaw    = flag.String("certRaw", "", "Raw TLS certificate content. Intended only for Android.")
-		key        = flag.String("key", "", "(server) Path to TLS key file. Default: ~/.acme.sh/{host}/{host}.key")
-		mode       = flag.String("mode", "websocket", "Transport mode: websocket, quic (enforced tls).")
-		mux        = flag.Int("mux", 1, "Concurrent multiplexed connections (websocket client mode only).")
-		server     = flag.Bool("server", false, "Run in server mode")
-		logLevel   = flag.String("loglevel", "", "loglevel for self: debug, info, warning (default), error, none.")
-		fwmark     = flag.Int("fwmark", 0, "Set SO_MARK option for outbound sockets.")
+		fastOpen    = flag.Bool("fast-open", false, "Enable TCP fast open.")
+		localAddr   = flag.String("localAddr", "127.0.0.1", "local address to listen on.")
+		localPort   = flag.String("localPort", "1984", "local port to listen on.")
+		remoteAddr  = flag.String("remoteAddr", "127.0.0.1", "remote address to forward.")
+		remotePort  = flag.String("remotePort", "1080", "remote port to forward.")
+		path        = flag.String("path", "/", "URL path for websocket.")
+		serviceName = flag.String("serviceName", "GunService", "Service name for grpc.")
+		host        = flag.String("host", "cloudfront.com", "Hostname for server.")
+		tlsEnabled  = flag.Bool("tls", false, "Enable TLS.")
+		cert        = flag.String("cert", "", "Path to TLS certificate file. Overrides certRaw. Default: ~/.acme.sh/{host}/fullchain.cer")
+		certRaw     = flag.String("certRaw", "", "Raw TLS certificate content. Intended only for Android.")
+		key         = flag.String("key", "", "(server) Path to TLS key file. Default: ~/.acme.sh/{host}/{host}.key")
+		mode        = flag.String("mode", "websocket", "Transport mode: websocket, quic (enforced tls), grpc.")
+		mux         = flag.Int("mux", 1, "Concurrent multiplexed connections (websocket client mode only).")
+		server      = flag.Bool("server", false, "Run in server mode")
+		logLevel    = flag.String("loglevel", "", "loglevel for self: debug, info, warning (default), error, none.")
+		fwmark      = flag.Int("fwmark", 0, "Set SO_MARK option for outbound sockets.")
 	)
 
 	if err := flag.Parse(pluginArgs); err != nil {
@@ -216,6 +218,10 @@ func (v *Plugin) init(opts Args, pluginArgs []string) (*core.Config, error) {
 			Security: &protocol.SecurityConfig{Type: protocol.SecurityType_NONE},
 		}
 		*tlsEnabled = true
+	case "grpc":
+		transportSettings = &grpc.Config{
+			ServiceName: *serviceName,
+		}
 	default:
 		return nil, newError("unsupported mode:", *mode)
 	}

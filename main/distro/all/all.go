@@ -15,7 +15,6 @@ import (
 	_ "github.com/v2fly/v2ray-core/v5/app/stats/command"
 
 	// Developer preview services
-	_ "github.com/v2fly/v2ray-core/v5/app/instman/command"
 	_ "github.com/v2fly/v2ray-core/v5/app/observatory/command"
 
 	// Other optional features.
@@ -31,7 +30,6 @@ import (
 	_ "github.com/v2fly/v2ray-core/v5/transport/internet/tagged/taggedimpl"
 
 	// Developer preview features
-	_ "github.com/v2fly/v2ray-core/v5/app/instman"
 	_ "github.com/v2fly/v2ray-core/v5/app/observatory"
 
 	// Inbound and outbound proxies.
@@ -104,9 +102,6 @@ import (
 
 	// commands
 	_ "github.com/v2fly/v2ray-core/v5/main/commands/all"
-
-	// engineering commands
-	_ "github.com/v2fly/v2ray-core/v5/main/commands/all/engineering"
 
 	// Commands that rely on jsonv4 format This disable selective compile
 	_ "github.com/v2fly/v2ray-core/v5/main/commands/all/api/jsonv4"
