@@ -28,6 +28,7 @@ type MixedServerConfig struct {
 	UserLevel      uint32                   `json:"userLevel"`
 	Transparent    bool                     `json:"allowTransparent"`
 	PacketEncoding cfgcommon.PacketAddrType `json:"packetEncoding"`
+	RandomUDPPort  bool                     `json:"randomUDPPort"`
 }
 
 func (v *MixedServerConfig) Build() (proto.Message, error) {
@@ -56,5 +57,6 @@ func (v *MixedServerConfig) Build() (proto.Message, error) {
 	config.UserLevel = v.UserLevel
 	config.AllowTransparent = v.Transparent
 	config.PacketEncoding = v.PacketEncoding.Build()
+	config.RandomUdpPort = v.RandomUDPPort
 	return config, nil
 }
