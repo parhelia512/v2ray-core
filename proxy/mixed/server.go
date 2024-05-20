@@ -19,6 +19,7 @@ const (
 
 // Server is a Mixed proxy server
 type Server struct {
+	config            *ServerConfig
 	httpServer        http.Server
 	socksServer       socks.Server
 	socksOnlyNetworks []net.Network
@@ -51,6 +52,7 @@ func NewServer(ctx context.Context, config *ServerConfig) (*Server, error) {
 			Accounts:       config.Accounts,
 			Address:        config.Address,
 			UdpEnabled:     config.UdpEnabled,
+			RandomUdpPort:  config.RandomUdpPort,
 			Timeout:        config.Timeout,
 			UserLevel:      config.UserLevel,
 			PacketEncoding: config.PacketEncoding,
@@ -81,12 +83,16 @@ func NewServer(ctx context.Context, config *ServerConfig) (*Server, error) {
 	}
 
 	s := &Server{
+		config:            config,
 		httpServer:        *httpServer,
 		socksServer:       *socksServer,
 		socksOnlyNetworks: socksOnlyNetworks,
 		httpOnlyNetworks:  httpOnlyNetworks,
 		intersectNetworks: intersectNetworks,
 	}
+
+	s.socksServer.SetInbound(s)
+
 	return s, nil
 }
 
@@ -101,7 +107,7 @@ func (s *Server) Network() []net.Network {
 // Process implements proxy.Inbound.
 func (s *Server) Process(ctx context.Context, network net.Network, conn internet.Connection, dispatcher routing.Dispatcher) error {
 	// Socks only
-	if isInNetworkSlice(network, &s.socksOnlyNetworks) {
+	if isInNetworkSlice(network, &s.socksOnlyNetworks) || (network == net.Network_UDP && s.config.UdpEnabled && s.config.RandomUdpPort) {
 		newError("Connection is identified as Socks").AtDebug().WriteToLog(session.ExportIDToError(ctx))
 		return s.socksServer.Process(ctx, network, conn, dispatcher)
 	}
