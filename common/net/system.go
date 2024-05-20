@@ -16,6 +16,7 @@ var (
 	FileConn        = net.FileConn
 	InterfaceAddrs  = net.InterfaceAddrs
 	Listen          = net.Listen
+	ListenPacket    = net.ListenPacket
 	ListenTCP       = net.ListenTCP
 	ListenUDP       = net.ListenUDP
 	ListenUnix      = net.ListenUnix

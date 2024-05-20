@@ -37,6 +37,7 @@ type SocksServerConfig struct {
 	Timeout        uint32                   `json:"timeout"`
 	UserLevel      uint32                   `json:"userLevel"`
 	PacketEncoding cfgcommon.PacketAddrType `json:"packetEncoding"`
+	RandomUDPPort  bool                     `json:"randomUDPPort"`
 }
 
 func (v *SocksServerConfig) Build() (proto.Message, error) {
@@ -67,6 +68,8 @@ func (v *SocksServerConfig) Build() (proto.Message, error) {
 	config.UserLevel = v.UserLevel
 
 	config.PacketEncoding = v.PacketEncoding.Build()
+
+	config.RandomUdpPort = v.RandomUDPPort
 
 	return config, nil
 }
