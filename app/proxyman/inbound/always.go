@@ -43,10 +43,12 @@ func getStatCounter(v *core.Instance, tag string) (stats.Counter, stats.Counter)
 }
 
 type AlwaysOnInboundHandler struct {
-	proxy   proxy.Inbound
-	workers []worker
-	mux     *mux.Server
-	tag     string
+	ctx            context.Context
+	proxy          proxy.Inbound
+	workers        []worker
+	mux            *mux.Server
+	tag            string
+	receiverConfig *proxyman.ReceiverConfig
 }
 
 func NewAlwaysOnInboundHandler(ctx context.Context, tag string, receiverConfig *proxyman.ReceiverConfig, proxyConfig interface{}) (*AlwaysOnInboundHandler, error) {
@@ -63,9 +65,11 @@ func NewAlwaysOnInboundHandler(ctx context.Context, tag string, receiverConfig *
 
 func NewAlwaysOnInboundHandlerWithProxy(ctx context.Context, tag string, receiverConfig *proxyman.ReceiverConfig, p proxy.Inbound, inject bool) (*AlwaysOnInboundHandler, error) {
 	h := &AlwaysOnInboundHandler{
-		proxy: p,
-		mux:   mux.NewServer(ctx),
-		tag:   tag,
+		ctx:            ctx,
+		proxy:          p,
+		mux:            mux.NewServer(ctx),
+		tag:            tag,
+		receiverConfig: receiverConfig,
 	}
 
 	uplinkCounter, downlinkCounter := getStatCounter(core.MustFromContext(ctx), tag)
@@ -192,6 +196,49 @@ func (h *AlwaysOnInboundHandler) GetRandomInboundProxy() (interface{}, net.Port,
 	}
 	w := h.workers[dice.Roll(len(h.workers))]
 	return w.Proxy(), w.Port(), 9999
+}
+
+func (h *AlwaysOnInboundHandler) AddUDPWorker(port net.Port) error {
+	uplinkCounter, downlinkCounter := getStatCounter(core.MustFromContext(h.ctx), h.tag)
+	address := h.receiverConfig.Listen.AsAddress()
+	if address == nil {
+		address = net.AnyIP
+	}
+	listeningAddrs := make(map[net.Address]bool)
+	if address != net.AnyIP && address != net.AnyIPv6 {
+		listeningAddrs[address] = true
+	} else {
+		interfaceAddrs, err := net.InterfaceAddrs()
+		if err != nil {
+			listeningAddrs[address] = true
+		}
+		for _, addr := range interfaceAddrs {
+			listeningAddrs[net.IPAddress(addr.(*net.IPNet).IP)] = true
+		}
+	}
+	mss, err := internet.ToMemoryStreamConfig(h.receiverConfig.StreamSettings)
+	if err != nil {
+		return newError("failed to parse stream config").Base(err).AtWarning()
+	}
+	worker := &udpWorker{
+		ctx:             h.ctx,
+		tag:             h.tag,
+		proxy:           h.proxy,
+		address:         address,
+		port:            port,
+		dispatcher:      h.mux,
+		sniffingConfig:  h.receiverConfig.GetEffectiveSniffingSettings(),
+		uplinkCounter:   uplinkCounter,
+		downlinkCounter: downlinkCounter,
+		stream:          mss,
+		listeningAddrs:  listeningAddrs,
+	}
+	err = worker.Start()
+	if err != nil {
+		return newError("failed to parse stream config").Base(err).AtWarning()
+	}
+	h.workers = append(h.workers, worker)
+	return nil
 }
 
 func (h *AlwaysOnInboundHandler) Tag() string {

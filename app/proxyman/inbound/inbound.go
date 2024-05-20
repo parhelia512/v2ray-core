@@ -12,6 +12,7 @@ import (
 	"github.com/v2fly/v2ray-core/v5/common/serial"
 	"github.com/v2fly/v2ray-core/v5/common/session"
 	"github.com/v2fly/v2ray-core/v5/features/inbound"
+	"github.com/v2fly/v2ray-core/v5/proxy"
 )
 
 // Manager is to manage all inbound handlers.
@@ -66,6 +67,22 @@ func (m *Manager) GetHandler(ctx context.Context, tag string) (inbound.Handler, 
 		return nil, newError("handler not found: ", tag)
 	}
 	return handler, nil
+}
+
+func (m *Manager) GetHandlerByInbound(i proxy.Inbound) (inbound.Handler, error) {
+	m.access.RLock()
+	defer m.access.RUnlock()
+	for _, handler := range m.untaggedHandler {
+		if h, ok := handler.(proxy.GetInbound); ok && i == h.GetInbound() {
+			return handler, nil
+		}
+	}
+	for _, handler := range m.taggedHandlers {
+		if h, ok := handler.(proxy.GetInbound); ok && i == h.GetInbound() {
+			return handler, nil
+		}
+	}
+	return nil, newError("handler not found")
 }
 
 // RemoveHandler implements inbound.Manager.
