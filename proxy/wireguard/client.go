@@ -55,7 +55,7 @@ func New(ctx context.Context, conf *DeviceConfig) (*Handler, error) {
 	}, nil
 }
 
-func (h *Handler) processWireGuard(dialer internet.Dialer) (err error) {
+func (h *Handler) processWireGuard(ctx context.Context, dialer internet.Dialer) (err error) {
 	h.wgLock.Lock()
 	defer h.wgLock.Unlock()
 
@@ -87,6 +87,7 @@ func (h *Handler) processWireGuard(dialer internet.Dialer) (err error) {
 			},
 			workers: int(h.conf.NumWorkers),
 		},
+		ctx:      ctx,
 		dialer:   dialer,
 		reserved: h.conf.Reserved,
 	}
@@ -111,7 +112,7 @@ func (h *Handler) Process(ctx context.Context, link *transport.Link, dialer inte
 		return newError("target not specified")
 	}
 
-	if err := h.processWireGuard(dialer); err != nil {
+	if err := h.processWireGuard(ctx, dialer); err != nil {
 		return err
 	}
 

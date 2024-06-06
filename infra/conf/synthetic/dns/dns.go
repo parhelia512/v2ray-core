@@ -30,7 +30,6 @@ type NameServerConfig struct {
 	Domains          []string
 	ExpectIPs        cfgcommon.StringList
 	FakeDNS          FakeDNSConfigExtend
-	Detour           string
 
 	cfgctx context.Context
 }
@@ -54,7 +53,6 @@ func (c *NameServerConfig) UnmarshalJSON(data []byte) error {
 		Domains          []string             `json:"domains"`
 		ExpectIPs        cfgcommon.StringList `json:"expectIps"`
 		FakeDNS          FakeDNSConfigExtend  `json:"fakedns"`
-		Detour           string               `json:"detour"`
 	}
 	if err := json.Unmarshal(data, &advanced); err == nil {
 		c.Address = advanced.Address
@@ -68,7 +66,6 @@ func (c *NameServerConfig) UnmarshalJSON(data []byte) error {
 		c.Domains = advanced.Domains
 		c.ExpectIPs = advanced.ExpectIPs
 		c.FakeDNS = advanced.FakeDNS
-		c.Detour = advanced.Detour
 		return nil
 	}
 
@@ -195,7 +192,6 @@ func (c *NameServerConfig) Build() (*dns.NameServer, error) {
 		Geoip:             geoipList,
 		OriginalRules:     originalRules,
 		FakeDns:           fakeDNS,
-		Detour:            c.Detour,
 	}, nil
 }
 

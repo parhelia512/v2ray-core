@@ -46,10 +46,12 @@ var PresetFingerprints = map[string]*utls.ClientHelloID{
 	"firefox": &utls.HelloFirefox_Auto,
 	"safari":  &utls.HelloSafari_Auto,
 	"ios":     &utls.HelloIOS_Auto,
-	"edge":    &utls.HelloEdge_Auto,
-	"360":     &utls.Hello360_Auto,
-	"qq":      &utls.HelloQQ_Auto,
-	"random":  nil,
+	// "android":    &utls.HelloAndroid_11_OkHttp,
+	"edge":       &utls.HelloEdge_Auto,
+	"360":        &utls.Hello360_Auto,
+	"qq":         &utls.HelloQQ_Auto,
+	"random":     nil,
+	"randomized": nil,
 }
 
 var ModernFingerprints = map[string]*utls.ClientHelloID{

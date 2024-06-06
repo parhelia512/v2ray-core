@@ -45,7 +45,6 @@ type Client struct {
 	domains   []string
 	expectIPs []*router.GeoIPMatcher
 	fakeDNS   Server
-	detour    string
 }
 
 var errExpectedIPNonMatch = errors.New("expectIPs not match")
@@ -194,7 +193,6 @@ func NewClient(ctx context.Context, ns *NameServer, dns *Config) (*Client, error
 	client.queryStrategy = toIPOption(*ns.QueryStrategy)
 	client.cacheStrategy = *ns.CacheStrategy
 	client.fallbackStrategy = *ns.FallbackStrategy
-	client.detour = ns.Detour
 	return client, nil
 }
 
@@ -228,11 +226,6 @@ func (c *Client) QueryIPWithTTL(ctx context.Context, domain string, option dns.I
 	var ttl uint32 = 600
 	var expireAt time.Time
 	var err error
-
-	if c.detour != "" {
-		ctx = session.SetForcedOutboundTagToContext(ctx, c.detour)
-	}
-
 	if serverWithTTL, ok := server.(ServerWithTTL); ok {
 		ips, ttl, expireAt, err = serverWithTTL.QueryIPWithTTL(ctx, domain, c.clientIP, queryOption, disableCache)
 	} else {

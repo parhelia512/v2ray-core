@@ -454,6 +454,7 @@ func (h *Handler) Process(ctx context.Context, network net.Network, connection i
 	sessionPolicy = h.policyManager.ForLevel(request.User.Level)
 	ctx, cancel := context.WithCancel(ctx)
 	timer := signal.CancelAfterInactivity(ctx, cancel, sessionPolicy.Timeouts.ConnectionIdle)
+	inbound.Timer = timer
 	ctx = policy.ContextWithBufferPolicy(ctx, sessionPolicy.Buffer)
 
 	link, err := dispatcher.Dispatch(ctx, request.Destination())

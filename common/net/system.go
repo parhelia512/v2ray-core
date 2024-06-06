@@ -15,7 +15,6 @@ var (
 	DialUnix        = net.DialUnix
 	FileConn        = net.FileConn
 	InterfaceAddrs  = net.InterfaceAddrs
-	JoinHostPort    = net.JoinHostPort
 	Listen          = net.Listen
 	ListenTCP       = net.ListenTCP
 	ListenUDP       = net.ListenUDP

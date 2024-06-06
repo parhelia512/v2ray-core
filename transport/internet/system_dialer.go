@@ -2,6 +2,7 @@ package internet
 
 import (
 	"context"
+	"sync"
 	"syscall"
 	"time"
 
@@ -134,6 +135,7 @@ type PacketConnWrapper struct {
 	Conn net.PacketConn
 	Dest net.Addr
 
+	sync.RWMutex
 	Destination         *net.Destination
 	OriginalDestination *net.Destination
 }

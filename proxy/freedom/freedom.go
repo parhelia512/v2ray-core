@@ -304,8 +304,10 @@ func (w *PacketWriter) WriteMultiBuffer(mb buf.MultiBuffer) error {
 				Network: net.Network_UDP,
 			}
 			if w.conn.OriginalDestination == nil && w.conn.Destination == nil && !udpDisableDomainUnmapping && b.Endpoint.Address != originalDestination.Address || b.Endpoint.Port != originalDestination.Port {
+				w.conn.Lock()
 				w.conn.OriginalDestination = originalDestination
 				w.conn.Destination = b.Endpoint
+				w.conn.Unlock()
 			}
 			n, err = w.conn.WriteTo(b.Bytes(), destAddr)
 		} else {

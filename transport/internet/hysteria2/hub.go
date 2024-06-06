@@ -3,7 +3,7 @@ package hysteria2
 import (
 	"context"
 
-	hyServer "github.com/apernet/hysteria/core/server"
+	hyServer "github.com/apernet/hysteria/core/v2/server"
 	"github.com/apernet/quic-go"
 	"github.com/apernet/quic-go/http3"
 
@@ -31,7 +31,7 @@ func (l *Listener) Close() error {
 	return l.hyServer.Close()
 }
 
-func (l *Listener) ProxyStreamHijacker(ft http3.FrameType, conn quic.Connection, stream quic.Stream, err error) (bool, error) {
+func (l *Listener) StreamHijacker(ft http3.FrameType, conn quic.Connection, stream quic.Stream, err error) (bool, error) {
 	// err always == nil
 	tcpConn := &HyConn{
 		stream: stream,
@@ -96,8 +96,8 @@ func Listen(ctx context.Context, address net.Address, port net.Port, streamSetti
 		Authenticator:         &Authenticator{Password: config.GetPassword()},
 		IgnoreClientBandwidth: config.GetIgnoreClientBandwidth(),
 		DisableUDP:            !config.GetUseUdpExtension(),
-		StreamHijacker:        listener.ProxyStreamHijacker, // acceptStreams
-		UdpSessionHijacker:    listener.UDPHijacker,         // acceptUDPSession
+		StreamHijacker:        listener.StreamHijacker, // acceptStreams
+		UdpSessionHijacker:    listener.UDPHijacker,    // acceptUDPSession
 	}
 	if config.Obfs != nil && config.Obfs.Type == "salamander" {
 		ob, err := NewSalamanderObfuscator([]byte(config.Obfs.Password))

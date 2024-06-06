@@ -8,6 +8,7 @@ import (
 	"math/big"
 	"runtime"
 	"strconv"
+	"time"
 
 	"github.com/pires/go-proxyproto"
 
@@ -430,7 +431,7 @@ func UnwrapRawConn(conn net.Conn) (net.Conn, stats.Counter, stats.Counter) {
 // CopyRawConnIfExist use the most efficient copy method.
 // - If caller don't want to turn on splice, do not pass in both reader conn and writer conn
 // - writer are from *transport.Link
-func CopyRawConnIfExist(ctx context.Context, readerConn net.Conn, writerConn net.Conn, writer buf.Writer, timer signal.ActivityUpdater) error {
+func CopyRawConnIfExist(ctx context.Context, readerConn net.Conn, writerConn net.Conn, writer buf.Writer, timer *signal.ActivityTimer, inTimer *signal.ActivityTimer) error {
 	readerConn, readCounter, _ := UnwrapRawConn(readerConn)
 	writerConn, _, writeCounter := UnwrapRawConn(writerConn)
 	reader := buf.NewReader(readerConn)
@@ -446,6 +447,10 @@ func CopyRawConnIfExist(ctx context.Context, readerConn net.Conn, writerConn net
 		newError("CopyRawConn splice").WriteToLog(session.ExportIDToError(ctx))
 		statWriter, _ := writer.(*dispatcher.SizeStatWriter)
 		//runtime.Gosched() // necessary
+		timer.SetTimeout(8 * time.Hour) // prevent leak, just in case
+		if inTimer != nil {
+			inTimer.SetTimeout(8 * time.Hour)
+		}
 		w, err := tc.ReadFrom(readerConn)
 		if readCounter != nil {
 			readCounter.Add(w) // outbound stats
@@ -472,15 +477,17 @@ func readV(ctx context.Context, reader buf.Reader, writer buf.Writer, timer sign
 }
 
 // XtlsRead filter and read xtls protocol
-func XtlsRead(reader buf.Reader, writer buf.Writer, timer signal.ActivityUpdater, conn net.Conn, input *bytes.Reader, rawInput *bytes.Buffer, trafficState *TrafficState, ctx context.Context) error {
+func XtlsRead(reader buf.Reader, writer buf.Writer, timer *signal.ActivityTimer, conn net.Conn, input *bytes.Reader, rawInput *bytes.Buffer, trafficState *TrafficState, ctx context.Context) error {
 	err := func() error {
 		for {
 			if trafficState.ReaderSwitchToDirectCopy {
 				var writerConn net.Conn
+				var inTimer *signal.ActivityTimer
 				if inbound := session.InboundFromContext(ctx); inbound != nil && inbound.Conn != nil {
 					writerConn = inbound.Conn
+					inTimer = inbound.Timer
 				}
-				return CopyRawConnIfExist(ctx, conn, writerConn, writer, timer)
+				return CopyRawConnIfExist(ctx, conn, writerConn, writer, timer, inTimer)
 			}
 			buffer, err := reader.ReadMultiBuffer()
 			if !buffer.IsEmpty() {

@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/v2fly/v2ray-core/v5/common"
 	"github.com/v2fly/v2ray-core/v5/common/buf"
 	"github.com/v2fly/v2ray-core/v5/common/net"
 	"github.com/v2fly/v2ray-core/v5/common/protocol/udp"
@@ -50,6 +51,8 @@ func (v *Dispatcher) getInboundRay(ctx context.Context, dest net.Destination) (*
 	if v.conn != nil {
 		select {
 		case <-v.conn.ctx.Done():
+			common.Interrupt(v.conn.link.Reader)
+			common.Close(v.conn.link.Writer)
 			v.conn = nil
 		default:
 			return v.conn, nil

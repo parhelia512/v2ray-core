@@ -37,7 +37,6 @@ type QUICNameServer struct {
 	ips         map[string]record
 	pub         *pubsub.Service
 	cleanup     *task.Periodic
-	reqID       uint32
 	name        string
 	destination net.Destination
 	connection  quic.EarlyConnection
@@ -226,10 +225,6 @@ func (s *QUICNameServer) sendQuery(ctx context.Context, domain string, clientIP 
 			binary.Write(dnsReqBuf, binary.BigEndian, uint16(b.Len()))
 			dnsReqBuf.Write(b.Bytes())
 			b.Release()
-
-			if detour := session.GetForcedOutboundTagFromContext(ctx); detour != "" {
-				dnsCtx = session.SetForcedOutboundTagToContext(dnsCtx, detour)
-			}
 
 			conn, err := s.openStream(dnsCtx)
 			if err != nil {

@@ -32,17 +32,15 @@ type DoHNameServer struct {
 	ips        map[string]record
 	pub        *pubsub.Service
 	cleanup    *task.Periodic
-	reqID      uint32
 	httpClient *http.Client
 	dohURL     string
 	name       string
-	protocol   string
 }
 
 // NewDoHNameServer creates DOH server object for remote resolving.
 func NewDoHNameServer(url *url.URL, dispatcher routing.Dispatcher) (*DoHNameServer, error) {
 	newError("DNS: created Remote DOH client for ", url.String()).AtInfo().WriteToLog()
-	s := baseDOHNameServer(url, "DOH", "tls")
+	s := baseDOHNameServer(url, "DOH")
 
 	tr := &http.Transport{
 		MaxIdleConns:        30,
@@ -91,7 +89,7 @@ func NewDoHNameServer(url *url.URL, dispatcher routing.Dispatcher) (*DoHNameServ
 // NewDoHLocalNameServer creates DOH client object for local resolving
 func NewDoHLocalNameServer(url *url.URL) *DoHNameServer {
 	url.Scheme = "https"
-	s := baseDOHNameServer(url, "DOHL", "tls")
+	s := baseDOHNameServer(url, "DOHL")
 	tr := &http.Transport{
 		IdleConnTimeout:   90 * time.Second,
 		ForceAttemptHTTP2: true,
@@ -115,13 +113,12 @@ func NewDoHLocalNameServer(url *url.URL) *DoHNameServer {
 	return s
 }
 
-func baseDOHNameServer(url *url.URL, prefix string, protocol string) *DoHNameServer {
+func baseDOHNameServer(url *url.URL, prefix string) *DoHNameServer {
 	s := &DoHNameServer{
-		ips:      make(map[string]record),
-		pub:      pubsub.NewService(),
-		name:     prefix + "//" + url.Host,
-		dohURL:   url.String(),
-		protocol: protocol,
+		ips:    make(map[string]record),
+		pub:    pubsub.NewService(),
+		name:   prefix + "//" + url.Host,
+		dohURL: url.String(),
 	}
 	s.cleanup = &task.Periodic{
 		Interval: time.Minute,
@@ -237,7 +234,7 @@ func (s *DoHNameServer) sendQuery(ctx context.Context, domain string, clientIP n
 			}
 
 			dnsCtx = session.ContextWithContent(dnsCtx, &session.Content{
-				Protocol:       s.protocol,
+				Protocol:       "tls",
 				SkipDNSResolve: true,
 			})
 
@@ -250,11 +247,6 @@ func (s *DoHNameServer) sendQuery(ctx context.Context, domain string, clientIP n
 				newError("failed to pack dns query").Base(err).AtError().WriteToLog()
 				return
 			}
-
-			if detour := session.GetForcedOutboundTagFromContext(ctx); detour != "" {
-				dnsCtx = session.SetForcedOutboundTagToContext(dnsCtx, detour)
-			}
-
 			resp, err := s.dohHTTPSContext(dnsCtx, b.Bytes())
 			if err != nil {
 				newError("failed to retrieve response").Base(err).AtError().WriteToLog()
