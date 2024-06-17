@@ -20,6 +20,7 @@ enum TransportProtocol {
   Meek = 8;
   HTTPUpgrade = 9;
   Hysteria2 = 10;
+  SplitHTTP = 11;
 }
 
 message TransportConfig {
