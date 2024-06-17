@@ -22,6 +22,7 @@ enum TransportProtocol {
   DTLS = 10;
   Request = 11;
   Hysteria2 = 12;
+  SplitHTTP = 13;
 }
 
 message TransportConfig {

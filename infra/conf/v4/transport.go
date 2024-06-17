@@ -20,6 +20,7 @@ type TransportConfig struct {
 	DTLSConfig        *DTLSConfig         `json:"dtlsSettings"`
 	RequestConfig     *RequestConfig      `json:"requestSettings"`
 	Hysteria2Config   *Hysteria2Config    `json:"hysteria2Settings"`
+	SplitHTTPConfig   *SplitHTTPConfig    `json:"splithttpSettings"`
 }
 
 // Build implements Buildable.
@@ -157,6 +158,17 @@ func (c *TransportConfig) Build() (*global.Config, error) {
 		}
 		config.TransportSettings = append(config.TransportSettings, &internet.TransportConfig{
 			ProtocolName: "hysteria2",
+			Settings:     serial.ToTypedMessage(hs),
+		})
+	}
+
+	if c.SplitHTTPConfig != nil {
+		hs, err := c.SplitHTTPConfig.Build()
+		if err != nil {
+			return nil, newError("Failed to build SplitHTTP config.").Base(err)
+		}
+		config.TransportSettings = append(config.TransportSettings, &internet.TransportConfig{
+			ProtocolName: "splithttp",
 			Settings:     serial.ToTypedMessage(hs),
 		})
 	}
