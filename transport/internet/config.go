@@ -48,6 +48,8 @@ func transportProtocolToString(protocol TransportProtocol) string {
 		return "request"
 	case TransportProtocol_Hysteria2:
 		return "hysteria2"
+	case TransportProtocol_SplitHTTP:
+		return "splithttp"
 	default:
 		return unknownProtocol
 	}

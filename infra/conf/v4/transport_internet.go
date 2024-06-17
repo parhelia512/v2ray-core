@@ -22,6 +22,7 @@ import (
 	"github.com/v2fly/v2ray-core/v5/transport/internet/kcp"
 	"github.com/v2fly/v2ray-core/v5/transport/internet/quic"
 	"github.com/v2fly/v2ray-core/v5/transport/internet/request/stereotype/meek"
+	"github.com/v2fly/v2ray-core/v5/transport/internet/splithttp"
 	"github.com/v2fly/v2ray-core/v5/transport/internet/tcp"
 	"github.com/v2fly/v2ray-core/v5/transport/internet/websocket"
 )
@@ -346,6 +347,31 @@ func (c *Hysteria2Config) Build() (proto.Message, error) {
 	}, nil
 }
 
+type SplitHTTPConfig struct {
+	Host        string            `json:"host"`
+	Path        string            `json:"path"`
+	Headers     map[string]string `json:"headers"`
+	NoSSEHeader bool              `json:"noSSEHeader"`
+}
+
+// Build implements Buildable.
+func (c *SplitHTTPConfig) Build() (proto.Message, error) {
+	// If http host is not set in the Host field, but in headers field, we add it to Host Field here.
+	// If we don't do that, http host will be overwritten as address.
+	// Host priority: Host field > headers field > address.
+	if c.Host == "" && c.Headers["host"] != "" {
+		c.Host = c.Headers["host"]
+	} else if c.Host == "" && c.Headers["Host"] != "" {
+		c.Host = c.Headers["Host"]
+	}
+	return &splithttp.Config{
+		Path:        c.Path,
+		Host:        c.Host,
+		Header:      c.Headers,
+		NoSSEHeader: c.NoSSEHeader,
+	}, nil
+}
+
 type TransportProtocol string
 
 // Build implements Buildable.
@@ -375,6 +401,8 @@ func (p TransportProtocol) Build() (string, error) {
 		return "request", nil
 	case "hy2", "hysteria2":
 		return "hysteria2", nil
+	case "splithttp":
+		return "splithttp", nil
 	default:
 		return "", newError("Config: unknown transport protocol: ", p)
 	}
@@ -399,6 +427,7 @@ type StreamConfig struct {
 	DTLSSettings        *DTLSConfig             `json:"dtlsSettings"`
 	RequestSettings     *RequestConfig          `json:"requestSettings"`
 	Hysteria2Settings   *Hysteria2Config        `json:"hysteria2Settings"`
+	SplitHTTPSettings   *SplitHTTPConfig        `json:"splithttpSettings"`
 	SocketSettings      *socketcfg.SocketConfig `json:"sockopt"`
 }
 
@@ -601,6 +630,16 @@ func (c *StreamConfig) Build() (*internet.StreamConfig, error) {
 		}
 		config.TransportSettings = append(config.TransportSettings, &internet.TransportConfig{
 			ProtocolName: "hysteria2",
+			Settings:     serial.ToTypedMessage(hs),
+		})
+	}
+	if c.SplitHTTPSettings != nil {
+		hs, err := c.SplitHTTPSettings.Build()
+		if err != nil {
+			return nil, newError("Failed to build SplitHTTP config.").Base(err)
+		}
+		config.TransportSettings = append(config.TransportSettings, &internet.TransportConfig{
+			ProtocolName: "splithttp",
 			Settings:     serial.ToTypedMessage(hs),
 		})
 	}
