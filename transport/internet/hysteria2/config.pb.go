@@ -277,7 +277,7 @@ func file_transport_internet_hysteria2_config_proto_rawDescGZIP() []byte {
 }
 
 var file_transport_internet_hysteria2_config_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
-var file_transport_internet_hysteria2_config_proto_goTypes = []interface{}{
+var file_transport_internet_hysteria2_config_proto_goTypes = []any{
 	(*Congestion)(nil), // 0: v2ray.core.transport.internet.hysteria2.Congestion
 	(*OBFS)(nil),       // 1: v2ray.core.transport.internet.hysteria2.OBFS
 	(*Config)(nil),     // 2: v2ray.core.transport.internet.hysteria2.Config
@@ -298,7 +298,7 @@ func file_transport_internet_hysteria2_config_proto_init() {
 		return
 	}
 	if !protoimpl.UnsafeEnabled {
-		file_transport_internet_hysteria2_config_proto_msgTypes[0].Exporter = func(v interface{}, i int) interface{} {
+		file_transport_internet_hysteria2_config_proto_msgTypes[0].Exporter = func(v any, i int) any {
 			switch v := v.(*Congestion); i {
 			case 0:
 				return &v.state
@@ -310,7 +310,7 @@ func file_transport_internet_hysteria2_config_proto_init() {
 				return nil
 			}
 		}
-		file_transport_internet_hysteria2_config_proto_msgTypes[1].Exporter = func(v interface{}, i int) interface{} {
+		file_transport_internet_hysteria2_config_proto_msgTypes[1].Exporter = func(v any, i int) any {
 			switch v := v.(*OBFS); i {
 			case 0:
 				return &v.state
@@ -322,7 +322,7 @@ func file_transport_internet_hysteria2_config_proto_init() {
 				return nil
 			}
 		}
-		file_transport_internet_hysteria2_config_proto_msgTypes[2].Exporter = func(v interface{}, i int) interface{} {
+		file_transport_internet_hysteria2_config_proto_msgTypes[2].Exporter = func(v any, i int) any {
 			switch v := v.(*Config); i {
 			case 0:
 				return &v.state

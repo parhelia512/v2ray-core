@@ -9,8 +9,8 @@ import (
 
 // This is a compile-time assertion to ensure that this generated file
 // is compatible with the grpc package it is being compiled against.
-// Requires gRPC-Go v1.32.0 or later.
-const _ = grpc.SupportPackageIsVersion7
+// Requires gRPC-Go v1.62.0 or later.
+const _ = grpc.SupportPackageIsVersion8
 
 const (
 	StatsService_GetStats_FullMethodName    = "/v2ray.core.app.stats.command.StatsService/GetStats"
@@ -36,8 +36,9 @@ func NewStatsServiceClient(cc grpc.ClientConnInterface) StatsServiceClient {
 }
 
 func (c *statsServiceClient) GetStats(ctx context.Context, in *GetStatsRequest, opts ...grpc.CallOption) (*GetStatsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(GetStatsResponse)
-	err := c.cc.Invoke(ctx, StatsService_GetStats_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, StatsService_GetStats_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -45,8 +46,9 @@ func (c *statsServiceClient) GetStats(ctx context.Context, in *GetStatsRequest, 
 }
 
 func (c *statsServiceClient) QueryStats(ctx context.Context, in *QueryStatsRequest, opts ...grpc.CallOption) (*QueryStatsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(QueryStatsResponse)
-	err := c.cc.Invoke(ctx, StatsService_QueryStats_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, StatsService_QueryStats_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -54,8 +56,9 @@ func (c *statsServiceClient) QueryStats(ctx context.Context, in *QueryStatsReque
 }
 
 func (c *statsServiceClient) GetSysStats(ctx context.Context, in *SysStatsRequest, opts ...grpc.CallOption) (*SysStatsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(SysStatsResponse)
-	err := c.cc.Invoke(ctx, StatsService_GetSysStats_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, StatsService_GetSysStats_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}

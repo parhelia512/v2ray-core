@@ -9,8 +9,8 @@ import (
 
 // This is a compile-time assertion to ensure that this generated file
 // is compatible with the grpc package it is being compiled against.
-// Requires gRPC-Go v1.32.0 or later.
-const _ = grpc.SupportPackageIsVersion7
+// Requires gRPC-Go v1.62.0 or later.
+const _ = grpc.SupportPackageIsVersion8
 
 const (
 	RoutingService_SubscribeRoutingStats_FullMethodName  = "/v2ray.core.app.router.command.RoutingService/SubscribeRoutingStats"
@@ -38,11 +38,12 @@ func NewRoutingServiceClient(cc grpc.ClientConnInterface) RoutingServiceClient {
 }
 
 func (c *routingServiceClient) SubscribeRoutingStats(ctx context.Context, in *SubscribeRoutingStatsRequest, opts ...grpc.CallOption) (RoutingService_SubscribeRoutingStatsClient, error) {
-	stream, err := c.cc.NewStream(ctx, &RoutingService_ServiceDesc.Streams[0], RoutingService_SubscribeRoutingStats_FullMethodName, opts...)
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &RoutingService_ServiceDesc.Streams[0], RoutingService_SubscribeRoutingStats_FullMethodName, cOpts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &routingServiceSubscribeRoutingStatsClient{stream}
+	x := &routingServiceSubscribeRoutingStatsClient{ClientStream: stream}
 	if err := x.ClientStream.SendMsg(in); err != nil {
 		return nil, err
 	}
@@ -70,8 +71,9 @@ func (x *routingServiceSubscribeRoutingStatsClient) Recv() (*RoutingContext, err
 }
 
 func (c *routingServiceClient) TestRoute(ctx context.Context, in *TestRouteRequest, opts ...grpc.CallOption) (*RoutingContext, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(RoutingContext)
-	err := c.cc.Invoke(ctx, RoutingService_TestRoute_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, RoutingService_TestRoute_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -79,8 +81,9 @@ func (c *routingServiceClient) TestRoute(ctx context.Context, in *TestRouteReque
 }
 
 func (c *routingServiceClient) GetBalancerInfo(ctx context.Context, in *GetBalancerInfoRequest, opts ...grpc.CallOption) (*GetBalancerInfoResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(GetBalancerInfoResponse)
-	err := c.cc.Invoke(ctx, RoutingService_GetBalancerInfo_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, RoutingService_GetBalancerInfo_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -88,8 +91,9 @@ func (c *routingServiceClient) GetBalancerInfo(ctx context.Context, in *GetBalan
 }
 
 func (c *routingServiceClient) OverrideBalancerTarget(ctx context.Context, in *OverrideBalancerTargetRequest, opts ...grpc.CallOption) (*OverrideBalancerTargetResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(OverrideBalancerTargetResponse)
-	err := c.cc.Invoke(ctx, RoutingService_OverrideBalancerTarget_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, RoutingService_OverrideBalancerTarget_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -141,7 +145,7 @@ func _RoutingService_SubscribeRoutingStats_Handler(srv interface{}, stream grpc.
 	if err := stream.RecvMsg(m); err != nil {
 		return err
 	}
-	return srv.(RoutingServiceServer).SubscribeRoutingStats(m, &routingServiceSubscribeRoutingStatsServer{stream})
+	return srv.(RoutingServiceServer).SubscribeRoutingStats(m, &routingServiceSubscribeRoutingStatsServer{ServerStream: stream})
 }
 
 type RoutingService_SubscribeRoutingStatsServer interface {

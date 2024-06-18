@@ -184,13 +184,6 @@ func (b *Buffer) Cap() int32 {
 	return int32(len(b.v))
 }
 
-func (b *Buffer) Use() []byte {
-	end := int32(len(b.v))
-	ext := b.v[b.end:end]
-	b.end = end
-	return ext
-}
-
 // IsEmpty returns true if the buffer is empty.
 func (b *Buffer) IsEmpty() bool {
 	return b.Len() == 0
@@ -308,15 +301,4 @@ func (b *Buffer) ReadFullFrom(reader io.Reader, size int32) (int64, error) {
 // String returns the string form of this Buffer.
 func (b *Buffer) String() string {
 	return string(b.Bytes())
-}
-
-func (b *Buffer) ExtendCopy(data []byte) []byte {
-	end := b.end + int32(len(data))
-	if end > int32(len(b.v)) {
-		panic("extending out of bound")
-	}
-	ext := b.v[b.end:end]
-	b.end = end
-	copy(ext, data)
-	return ext
 }

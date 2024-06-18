@@ -197,7 +197,7 @@ func file_proxy_hysteria2_config_proto_rawDescGZIP() []byte {
 }
 
 var file_proxy_hysteria2_config_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
-var file_proxy_hysteria2_config_proto_goTypes = []interface{}{
+var file_proxy_hysteria2_config_proto_goTypes = []any{
 	(*Account)(nil),                 // 0: v2ray.core.proxy.hysteria2.Account
 	(*ClientConfig)(nil),            // 1: v2ray.core.proxy.hysteria2.ClientConfig
 	(*ServerConfig)(nil),            // 2: v2ray.core.proxy.hysteria2.ServerConfig
@@ -220,7 +220,7 @@ func file_proxy_hysteria2_config_proto_init() {
 		return
 	}
 	if !protoimpl.UnsafeEnabled {
-		file_proxy_hysteria2_config_proto_msgTypes[0].Exporter = func(v interface{}, i int) interface{} {
+		file_proxy_hysteria2_config_proto_msgTypes[0].Exporter = func(v any, i int) any {
 			switch v := v.(*Account); i {
 			case 0:
 				return &v.state
@@ -232,7 +232,7 @@ func file_proxy_hysteria2_config_proto_init() {
 				return nil
 			}
 		}
-		file_proxy_hysteria2_config_proto_msgTypes[1].Exporter = func(v interface{}, i int) interface{} {
+		file_proxy_hysteria2_config_proto_msgTypes[1].Exporter = func(v any, i int) any {
 			switch v := v.(*ClientConfig); i {
 			case 0:
 				return &v.state
@@ -244,7 +244,7 @@ func file_proxy_hysteria2_config_proto_init() {
 				return nil
 			}
 		}
-		file_proxy_hysteria2_config_proto_msgTypes[2].Exporter = func(v interface{}, i int) interface{} {
+		file_proxy_hysteria2_config_proto_msgTypes[2].Exporter = func(v any, i int) any {
 			switch v := v.(*ServerConfig); i {
 			case 0:
 				return &v.state

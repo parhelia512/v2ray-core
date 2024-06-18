@@ -3,6 +3,7 @@ package socks
 import (
 	"context"
 	"io"
+	// "sync"
 	"time"
 
 	core "github.com/v2fly/v2ray-core/v5"
@@ -17,26 +18,40 @@ import (
 	"github.com/v2fly/v2ray-core/v5/common/signal"
 	"github.com/v2fly/v2ray-core/v5/common/task"
 	"github.com/v2fly/v2ray-core/v5/features"
+	"github.com/v2fly/v2ray-core/v5/features/inbound"
 	"github.com/v2fly/v2ray-core/v5/features/policy"
 	"github.com/v2fly/v2ray-core/v5/features/routing"
+	"github.com/v2fly/v2ray-core/v5/proxy"
 	"github.com/v2fly/v2ray-core/v5/transport/internet"
 	"github.com/v2fly/v2ray-core/v5/transport/internet/udp"
 )
 
 // Server is a SOCKS 5 proxy server
 type Server struct {
-	config        *ServerConfig
-	policyManager policy.Manager
+	config         *ServerConfig
+	policyManager  policy.Manager
+	inboundManager inbound.Manager
+	inbound        proxy.Inbound
+	// ipAccess       *sync.Map
+	// addrAccess     *sync.Map
 }
 
 // NewServer creates a new Server object.
 func NewServer(ctx context.Context, config *ServerConfig) (*Server, error) {
 	v := core.MustFromContext(ctx)
 	s := &Server{
-		config:        config,
-		policyManager: v.GetFeature(policy.ManagerType()).(policy.Manager),
+		config:         config,
+		policyManager:  v.GetFeature(policy.ManagerType()).(policy.Manager),
+		inboundManager: v.GetFeature(inbound.ManagerType()).(inbound.Manager),
+		// ipAccess:       &sync.Map{},
+		// addrAccess:     &sync.Map{},
 	}
+	s.SetInbound(s)
 	return s, nil
+}
+
+func (s *Server) SetInbound(inbound proxy.Inbound) {
+	s.inbound = inbound
 }
 
 func (s *Server) policy() policy.Session {
@@ -54,7 +69,7 @@ func (s *Server) policy() policy.Session {
 // Network implements proxy.Inbound.
 func (s *Server) Network() []net.Network {
 	list := []net.Network{net.Network_TCP}
-	if s.config.UdpEnabled {
+	if s.config.UdpEnabled && !s.config.RandomUdpPort {
 		list = append(list, net.Network_UDP)
 	}
 	return list
@@ -90,10 +105,12 @@ func (s *Server) processTCP(ctx context.Context, conn internet.Connection, dispa
 	}
 
 	svrSession := &ServerSession{
-		config:        s.config,
-		address:       inbound.Gateway.Address,
-		port:          inbound.Gateway.Port,
-		clientAddress: inbound.Source.Address,
+		config:         s.config,
+		address:        inbound.Gateway.Address,
+		port:           inbound.Gateway.Port,
+		clientAddress:  inbound.Source.Address,
+		inboundManager: s.inboundManager,
+		inbound:        s.inbound,
 	}
 
 	reader := &buf.BufferedReader{Reader: buf.NewReader(conn)}
@@ -133,6 +150,9 @@ func (s *Server) processTCP(ctx context.Context, conn internet.Connection, dispa
 	}
 
 	if request.Command == protocol.RequestCommandUDP {
+		/*if ip, _, err := net.SplitHostPort(conn.RemoteAddr().String()); err == nil {
+			s.ipAccess.Store(ip, true)
+		}*/
 		return s.handleUDP(conn)
 	}
 
@@ -187,6 +207,25 @@ func (s *Server) transport(ctx context.Context, reader io.Reader, writer io.Writ
 }
 
 func (s *Server) handleUDPPayload(ctx context.Context, conn internet.Connection, dispatcher routing.Dispatcher) error {
+	/*if ip, _, err := net.SplitHostPort(conn.RemoteAddr().String()); err == nil {
+		if v, loaded := s.ipAccess.Load(ip); loaded {
+			if allow, ok := v.(bool); ok && !allow {
+				return newError("unauthorized UDP access from ", conn.RemoteAddr().String())
+			}
+		} else {
+			s.ipAccess.Store(ip, false)
+			return newError("unauthorized UDP access from ", conn.RemoteAddr().String())
+		}
+	}
+	if s.config.RandomUdpPort {
+		if v, loaded := s.addrAccess.Load(conn.LocalAddr().String()); loaded {
+			if remoteAddr, ok := v.(string); ok && remoteAddr != conn.RemoteAddr().String() {
+				return newError("unauthorized UDP access from ", conn.RemoteAddr().String())
+			}
+		} else {
+			s.addrAccess.Store(conn.LocalAddr().String(), conn.RemoteAddr().String())
+		}
+	}*/
 	udpDispatcherConstructor := udp.NewSplitDispatcher
 	switch s.config.PacketEncoding {
 	case packetaddr.PacketAddrType_None:

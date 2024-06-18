@@ -9,8 +9,8 @@ import (
 
 // This is a compile-time assertion to ensure that this generated file
 // is compatible with the grpc package it is being compiled against.
-// Requires gRPC-Go v1.32.0 or later.
-const _ = grpc.SupportPackageIsVersion7
+// Requires gRPC-Go v1.62.0 or later.
+const _ = grpc.SupportPackageIsVersion8
 
 const (
 	HandlerService_AddInbound_FullMethodName     = "/v2ray.core.app.proxyman.command.HandlerService/AddInbound"
@@ -42,8 +42,9 @@ func NewHandlerServiceClient(cc grpc.ClientConnInterface) HandlerServiceClient {
 }
 
 func (c *handlerServiceClient) AddInbound(ctx context.Context, in *AddInboundRequest, opts ...grpc.CallOption) (*AddInboundResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(AddInboundResponse)
-	err := c.cc.Invoke(ctx, HandlerService_AddInbound_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, HandlerService_AddInbound_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -51,8 +52,9 @@ func (c *handlerServiceClient) AddInbound(ctx context.Context, in *AddInboundReq
 }
 
 func (c *handlerServiceClient) RemoveInbound(ctx context.Context, in *RemoveInboundRequest, opts ...grpc.CallOption) (*RemoveInboundResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(RemoveInboundResponse)
-	err := c.cc.Invoke(ctx, HandlerService_RemoveInbound_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, HandlerService_RemoveInbound_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -60,8 +62,9 @@ func (c *handlerServiceClient) RemoveInbound(ctx context.Context, in *RemoveInbo
 }
 
 func (c *handlerServiceClient) AlterInbound(ctx context.Context, in *AlterInboundRequest, opts ...grpc.CallOption) (*AlterInboundResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(AlterInboundResponse)
-	err := c.cc.Invoke(ctx, HandlerService_AlterInbound_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, HandlerService_AlterInbound_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -69,8 +72,9 @@ func (c *handlerServiceClient) AlterInbound(ctx context.Context, in *AlterInboun
 }
 
 func (c *handlerServiceClient) AddOutbound(ctx context.Context, in *AddOutboundRequest, opts ...grpc.CallOption) (*AddOutboundResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(AddOutboundResponse)
-	err := c.cc.Invoke(ctx, HandlerService_AddOutbound_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, HandlerService_AddOutbound_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -78,8 +82,9 @@ func (c *handlerServiceClient) AddOutbound(ctx context.Context, in *AddOutboundR
 }
 
 func (c *handlerServiceClient) RemoveOutbound(ctx context.Context, in *RemoveOutboundRequest, opts ...grpc.CallOption) (*RemoveOutboundResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(RemoveOutboundResponse)
-	err := c.cc.Invoke(ctx, HandlerService_RemoveOutbound_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, HandlerService_RemoveOutbound_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -87,8 +92,9 @@ func (c *handlerServiceClient) RemoveOutbound(ctx context.Context, in *RemoveOut
 }
 
 func (c *handlerServiceClient) AlterOutbound(ctx context.Context, in *AlterOutboundRequest, opts ...grpc.CallOption) (*AlterOutboundResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(AlterOutboundResponse)
-	err := c.cc.Invoke(ctx, HandlerService_AlterOutbound_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, HandlerService_AlterOutbound_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}

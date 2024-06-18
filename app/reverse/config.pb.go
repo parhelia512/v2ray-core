@@ -339,7 +339,7 @@ func file_app_reverse_config_proto_rawDescGZIP() []byte {
 
 var file_app_reverse_config_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_app_reverse_config_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
-var file_app_reverse_config_proto_goTypes = []interface{}{
+var file_app_reverse_config_proto_goTypes = []any{
 	(Control_State)(0),   // 0: v2ray.core.app.reverse.Control.State
 	(*Control)(nil),      // 1: v2ray.core.app.reverse.Control
 	(*BridgeConfig)(nil), // 2: v2ray.core.app.reverse.BridgeConfig
@@ -363,7 +363,7 @@ func file_app_reverse_config_proto_init() {
 		return
 	}
 	if !protoimpl.UnsafeEnabled {
-		file_app_reverse_config_proto_msgTypes[0].Exporter = func(v interface{}, i int) interface{} {
+		file_app_reverse_config_proto_msgTypes[0].Exporter = func(v any, i int) any {
 			switch v := v.(*Control); i {
 			case 0:
 				return &v.state
@@ -375,7 +375,7 @@ func file_app_reverse_config_proto_init() {
 				return nil
 			}
 		}
-		file_app_reverse_config_proto_msgTypes[1].Exporter = func(v interface{}, i int) interface{} {
+		file_app_reverse_config_proto_msgTypes[1].Exporter = func(v any, i int) any {
 			switch v := v.(*BridgeConfig); i {
 			case 0:
 				return &v.state
@@ -387,7 +387,7 @@ func file_app_reverse_config_proto_init() {
 				return nil
 			}
 		}
-		file_app_reverse_config_proto_msgTypes[2].Exporter = func(v interface{}, i int) interface{} {
+		file_app_reverse_config_proto_msgTypes[2].Exporter = func(v any, i int) any {
 			switch v := v.(*PortalConfig); i {
 			case 0:
 				return &v.state
@@ -399,7 +399,7 @@ func file_app_reverse_config_proto_init() {
 				return nil
 			}
 		}
-		file_app_reverse_config_proto_msgTypes[3].Exporter = func(v interface{}, i int) interface{} {
+		file_app_reverse_config_proto_msgTypes[3].Exporter = func(v any, i int) any {
 			switch v := v.(*Config); i {
 			case 0:
 				return &v.state

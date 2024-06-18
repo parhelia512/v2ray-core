@@ -16,12 +16,14 @@ var (
 	FileConn        = net.FileConn
 	InterfaceAddrs  = net.InterfaceAddrs
 	Listen          = net.Listen
+	ListenPacket    = net.ListenPacket
 	ListenTCP       = net.ListenTCP
 	ListenUDP       = net.ListenUDP
 	ListenUnix      = net.ListenUnix
 	LookupIP        = net.LookupIP
 	ParseCIDR       = net.ParseCIDR
 	ParseIP         = net.ParseIP
+	ResolveTCPAddr  = net.ResolveTCPAddr
 	ResolveUDPAddr  = net.ResolveUDPAddr
 	ResolveUnixAddr = net.ResolveUnixAddr
 	SplitHostPort   = net.SplitHostPort

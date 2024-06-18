@@ -315,7 +315,7 @@ func file_proxy_wireguard_config_proto_rawDescGZIP() []byte {
 
 var file_proxy_wireguard_config_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_proxy_wireguard_config_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
-var file_proxy_wireguard_config_proto_goTypes = []interface{}{
+var file_proxy_wireguard_config_proto_goTypes = []any{
 	(DeviceConfig_DomainStrategy)(0), // 0: v2ray.core.proxy.wireguard.DeviceConfig.DomainStrategy
 	(*PeerConfig)(nil),               // 1: v2ray.core.proxy.wireguard.PeerConfig
 	(*DeviceConfig)(nil),             // 2: v2ray.core.proxy.wireguard.DeviceConfig
@@ -336,7 +336,7 @@ func file_proxy_wireguard_config_proto_init() {
 		return
 	}
 	if !protoimpl.UnsafeEnabled {
-		file_proxy_wireguard_config_proto_msgTypes[0].Exporter = func(v interface{}, i int) interface{} {
+		file_proxy_wireguard_config_proto_msgTypes[0].Exporter = func(v any, i int) any {
 			switch v := v.(*PeerConfig); i {
 			case 0:
 				return &v.state
@@ -348,7 +348,7 @@ func file_proxy_wireguard_config_proto_init() {
 				return nil
 			}
 		}
-		file_proxy_wireguard_config_proto_msgTypes[1].Exporter = func(v interface{}, i int) interface{} {
+		file_proxy_wireguard_config_proto_msgTypes[1].Exporter = func(v any, i int) any {
 			switch v := v.(*DeviceConfig); i {
 			case 0:
 				return &v.state

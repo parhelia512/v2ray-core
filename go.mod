@@ -8,15 +8,15 @@ require (
 	github.com/apernet/quic-go v0.44.1-0.20240520215222-bb2e53664023
 	github.com/database64128/tfo-go/v2 v2.2.0
 	github.com/google/go-cmp v0.6.0
-	github.com/gorilla/websocket v1.5.1
+	github.com/gorilla/websocket v1.5.3
 	github.com/lunixbochs/struc v0.0.0-20200707160740-784aaebc1d40
-	github.com/miekg/dns v1.1.59
+	github.com/miekg/dns v1.1.61
 	github.com/mustafaturan/bus v1.0.2
 	github.com/pion/transport/v3 v3.0.2
 	github.com/pires/go-proxyproto v0.7.0
-	github.com/quic-go/quic-go v0.44.0
+	github.com/quic-go/quic-go v0.45.0
 	github.com/refraction-networking/utls v1.6.6
-	github.com/sagernet/sing v0.4.0
+	github.com/sagernet/sing v0.4.1
 	github.com/sagernet/sing-shadowsocks v0.2.6
 	github.com/sagernet/sing-shadowsocks2 v0.2.0
 	github.com/seiflotfy/cuckoofilter v0.0.0-20220411075957-e3b120b3f5fb
@@ -33,7 +33,7 @@ require (
 	golang.org/x/sys v0.21.0
 	golang.zx2c4.com/wireguard v0.0.0-20231211153847-12269c276173
 	google.golang.org/grpc v1.64.0
-	google.golang.org/protobuf v1.34.1
+	google.golang.org/protobuf v1.34.2
 	h12.io/socks v1.0.3
 	lukechampine.com/blake3 v1.3.0
 )
@@ -67,10 +67,10 @@ require (
 	github.com/stretchr/objx v0.5.2 // indirect
 	github.com/xtaci/smux v1.5.15 // indirect
 	golang.org/x/exp v0.0.0-20240506185415-9bf2ced13842 // indirect
-	golang.org/x/mod v0.17.0 // indirect
+	golang.org/x/mod v0.18.0 // indirect
 	golang.org/x/text v0.16.0 // indirect
 	golang.org/x/time v0.5.0 // indirect
-	golang.org/x/tools v0.21.1-0.20240508182429-e35e4ccd0d2d // indirect
+	golang.org/x/tools v0.22.0 // indirect
 	golang.zx2c4.com/wintun v0.0.0-20230126152724-0fa3db229ce2 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240318140521-94a12d6c2237 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect

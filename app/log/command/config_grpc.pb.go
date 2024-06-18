@@ -9,8 +9,8 @@ import (
 
 // This is a compile-time assertion to ensure that this generated file
 // is compatible with the grpc package it is being compiled against.
-// Requires gRPC-Go v1.32.0 or later.
-const _ = grpc.SupportPackageIsVersion7
+// Requires gRPC-Go v1.62.0 or later.
+const _ = grpc.SupportPackageIsVersion8
 
 const (
 	LoggerService_RestartLogger_FullMethodName = "/v2ray.core.app.log.command.LoggerService/RestartLogger"
@@ -35,8 +35,9 @@ func NewLoggerServiceClient(cc grpc.ClientConnInterface) LoggerServiceClient {
 }
 
 func (c *loggerServiceClient) RestartLogger(ctx context.Context, in *RestartLoggerRequest, opts ...grpc.CallOption) (*RestartLoggerResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(RestartLoggerResponse)
-	err := c.cc.Invoke(ctx, LoggerService_RestartLogger_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, LoggerService_RestartLogger_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -44,11 +45,12 @@ func (c *loggerServiceClient) RestartLogger(ctx context.Context, in *RestartLogg
 }
 
 func (c *loggerServiceClient) FollowLog(ctx context.Context, in *FollowLogRequest, opts ...grpc.CallOption) (LoggerService_FollowLogClient, error) {
-	stream, err := c.cc.NewStream(ctx, &LoggerService_ServiceDesc.Streams[0], LoggerService_FollowLog_FullMethodName, opts...)
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &LoggerService_ServiceDesc.Streams[0], LoggerService_FollowLog_FullMethodName, cOpts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &loggerServiceFollowLogClient{stream}
+	x := &loggerServiceFollowLogClient{ClientStream: stream}
 	if err := x.ClientStream.SendMsg(in); err != nil {
 		return nil, err
 	}
@@ -131,7 +133,7 @@ func _LoggerService_FollowLog_Handler(srv interface{}, stream grpc.ServerStream)
 	if err := stream.RecvMsg(m); err != nil {
 		return err
 	}
-	return srv.(LoggerServiceServer).FollowLog(m, &loggerServiceFollowLogServer{stream})
+	return srv.(LoggerServiceServer).FollowLog(m, &loggerServiceFollowLogServer{ServerStream: stream})
 }
 
 type LoggerService_FollowLogServer interface {
