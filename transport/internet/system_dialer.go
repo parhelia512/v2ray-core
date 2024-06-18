@@ -9,6 +9,7 @@ import (
 
 	"github.com/v2fly/v2ray-core/v5/common/net"
 	"github.com/v2fly/v2ray-core/v5/common/session"
+	"github.com/v2fly/v2ray-core/v5/features/dns/localdns"
 )
 
 var (
@@ -58,6 +59,11 @@ func (d *DefaultSystemDialer) Dial(ctx context.Context, src net.Address, dest ne
 		packetConn, err := ListenSystemPacket(ctx, srcAddr, sockopt)
 		if err != nil {
 			return nil, err
+		}
+		if dest.Address.Family().IsDomain() {
+			if ips, err := localdns.New().LookupIP(dest.Address.Domain()); err == nil {
+				dest.Address = net.IPAddress(ips[0])
+			}
 		}
 		destAddr, err := net.ResolveUDPAddr("udp", dest.NetAddr())
 		if err != nil {
