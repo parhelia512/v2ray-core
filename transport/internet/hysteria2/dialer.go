@@ -10,6 +10,7 @@ import (
 	"github.com/v2fly/v2ray-core/v5/common"
 	"github.com/v2fly/v2ray-core/v5/common/net"
 	"github.com/v2fly/v2ray-core/v5/common/session"
+	"github.com/v2fly/v2ray-core/v5/features/dns/localdns"
 	"github.com/v2fly/v2ray-core/v5/transport/internet"
 	"github.com/v2fly/v2ray-core/v5/transport/internet/tls"
 )
@@ -64,6 +65,9 @@ func NewHyClient(ctx context.Context, dest net.Destination, streamSettings *inte
 			Port: int(dest.Port),
 		}
 	} else {
+		if ips, err := localdns.New().LookupIP(dest.Address.Domain()); err == nil {
+			dest.Address = net.IPAddress(ips[0])
+		}
 		addr, err := net.ResolveUDPAddr("udp", dest.NetAddr())
 		if err != nil {
 			return nil, err

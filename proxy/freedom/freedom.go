@@ -16,6 +16,7 @@ import (
 	"github.com/v2fly/v2ray-core/v5/common/signal"
 	"github.com/v2fly/v2ray-core/v5/common/task"
 	"github.com/v2fly/v2ray-core/v5/features/dns"
+	"github.com/v2fly/v2ray-core/v5/features/dns/localdns"
 	"github.com/v2fly/v2ray-core/v5/features/policy"
 	"github.com/v2fly/v2ray-core/v5/features/stats"
 	"github.com/v2fly/v2ray-core/v5/transport"
@@ -291,6 +292,11 @@ func (w *PacketWriter) WriteMultiBuffer(mb buf.MultiBuffer) error {
 				ip := w.handler.resolveIP(w.ctx, b.Endpoint.Address.Domain(), nil)
 				if ip != nil {
 					b.Endpoint.Address = ip
+				}
+			}
+			if b.Endpoint.Address.Family().IsDomain() {
+				if ips, err := localdns.New().LookupIP(b.Endpoint.Address.Domain()); err == nil {
+					b.Endpoint.Address = net.IPAddress(ips[0])
 				}
 			}
 			destAddr, _ := net.ResolveUDPAddr("udp", b.Endpoint.NetAddr())
