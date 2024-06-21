@@ -2,6 +2,7 @@ package hysteria2
 
 import (
 	"context"
+	"sync"
 
 	hyClient "github.com/apernet/hysteria/core/v2/client"
 	hyProtocol "github.com/apernet/hysteria/core/v2/international/protocol"
@@ -24,7 +25,10 @@ type dialerConf struct {
 	*internet.MemoryStreamConfig
 }
 
-var RunningClient map[dialerConf](hyClient.Client)
+var (
+	RunningClient      map[dialerConf](hyClient.Client)
+	globalDialerAccess sync.Mutex
+)
 
 type connFactory struct {
 	NewFunc    func(addr net.Addr) (net.PacketConn, error)
@@ -115,11 +119,15 @@ func NewHyClient(ctx context.Context, dest net.Destination, streamSettings *inte
 		return nil, err
 	}
 
+	globalDialerAccess.Lock()
 	RunningClient[dialerConf{dest, streamSettings}] = client
+	globalDialerAccess.Unlock()
 	return client, nil
 }
 
 func CloseHyClient(dest net.Destination, streamSettings *internet.MemoryStreamConfig) error {
+	globalDialerAccess.Lock()
+	defer globalDialerAccess.Unlock()
 	client, found := RunningClient[dialerConf{dest, streamSettings}]
 	if found {
 		delete(RunningClient, dialerConf{dest, streamSettings})
@@ -131,9 +139,10 @@ func CloseHyClient(dest net.Destination, streamSettings *internet.MemoryStreamCo
 func Dial(ctx context.Context, dest net.Destination, streamSettings *internet.MemoryStreamConfig) (internet.Connection, error) {
 	config := streamSettings.ProtocolSettings.(*Config)
 
-	var client hyClient.Client
 	var err error
+	globalDialerAccess.Lock()
 	client, found := RunningClient[dialerConf{dest, streamSettings}]
+	globalDialerAccess.Unlock()
 	if !found {
 		// TODO: Clean idle connections
 		client, err = NewHyClient(ctx, dest, streamSettings)

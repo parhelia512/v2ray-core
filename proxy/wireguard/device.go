@@ -85,6 +85,8 @@ type wgNet struct {
 }
 
 func (g *wgNet) Close() error {
+	g.tunnel.rw.Lock()
+	defer g.tunnel.rw.Unlock()
 	return g.tunnel.Close()
 }
 

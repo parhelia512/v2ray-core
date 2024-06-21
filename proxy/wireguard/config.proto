@@ -12,7 +12,7 @@ message PeerConfig {
   string public_key = 1;
   string pre_shared_key = 2;
   string endpoint = 3;
-  int32 keep_alive = 4;
+  uint32 keep_alive = 4;
   repeated string allowed_ips = 5;
 }
 

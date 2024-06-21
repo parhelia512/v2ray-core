@@ -132,8 +132,7 @@ func (h *Handler) Process(ctx context.Context, link *transport.Link, dialer inte
 		})
 		if err != nil {
 			return newError("failed to lookup DNS").Base(err)
-		}
-		if len(ips) == 0 {
+		} else if len(ips) == 0 {
 			return dns.ErrEmptyResponse
 		}
 		if h.conf.DomainStrategy == DeviceConfig_PREFER_IP4 || h.conf.DomainStrategy == DeviceConfig_PREFER_IP6 {
@@ -208,7 +207,7 @@ func (h *Handler) makeVirtualTun(bind *netBindClient) (Tunnel, error) {
 	bind.dnsOption.IPv4Enable = h.hasIPv4
 	bind.dnsOption.IPv6Enable = h.hasIPv6
 
-	if err = t.BuildDevice(h.createIPCRequest(bind, h.conf), bind); err != nil {
+	if err = t.BuildDevice(h.createIPCRequest(h.conf), bind); err != nil {
 		_ = t.Close()
 		return nil, err
 	}
@@ -228,6 +227,9 @@ func parseEndpoints(conf *DeviceConfig) ([]netip.Addr, bool, bool, error) {
 				return nil, false, false, err
 			}
 			addr = prefix.Addr()
+			if prefix.Bits() != addr.BitLen() {
+				return nil, false, false, newError("interface address subnet should be /32 for IPv4 and /128 for IPv6")
+			}
 		} else {
 			var err error
 			addr, err = netip.ParseAddr(str)
@@ -248,7 +250,7 @@ func parseEndpoints(conf *DeviceConfig) ([]netip.Addr, bool, bool, error) {
 }
 
 // serialize the config into an IPC request
-func (h *Handler) createIPCRequest(bind *netBindClient, conf *DeviceConfig) string {
+func (h *Handler) createIPCRequest(conf *DeviceConfig) string {
 	var request strings.Builder
 
 	request.WriteString(fmt.Sprintf("private_key=%s\n", conf.SecretKey))
@@ -262,8 +264,35 @@ func (h *Handler) createIPCRequest(bind *netBindClient, conf *DeviceConfig) stri
 			request.WriteString(fmt.Sprintf("preshared_key=%s\n", peer.PreSharedKey))
 		}
 
+		address, port, err := net.SplitHostPort(peer.Endpoint)
+		if err != nil {
+			newError("failed to split endpoint ", peer.Endpoint, " into address and port").AtError().WriteToLog()
+		}
+		addr := net.ParseAddress(address)
+		if addr.Family().IsDomain() {
+			ips, err := dns.LookupIPWithOption(h.dns, addr.Domain(), dns.IPOption{
+				IPv4Enable: h.hasIPv4 && h.conf.DomainStrategy != DeviceConfig_USE_IP6,
+				IPv6Enable: h.hasIPv6 && h.conf.DomainStrategy != DeviceConfig_USE_IP4,
+			})
+			if err != nil {
+				newError("failed to lookup DNS").Base(err)
+			} else if len(ips) == 0 {
+				newError(dns.ErrEmptyResponse)
+			} else {
+				if h.conf.DomainStrategy == DeviceConfig_PREFER_IP4 || h.conf.DomainStrategy == DeviceConfig_PREFER_IP6 {
+					for _, ip := range ips {
+						if ip.To4() != nil == (h.conf.DomainStrategy == DeviceConfig_PREFER_IP4) {
+							addr = net.IPAddress(ip)
+						}
+					}
+				} else {
+					addr = net.IPAddress(ips[0])
+				}
+			}
+		}
+
 		if peer.Endpoint != "" {
-			request.WriteString(fmt.Sprintf("endpoint=%s\n", peer.Endpoint))
+			request.WriteString(fmt.Sprintf("endpoint=%s:%s\n", addr, port))
 		}
 
 		for _, ip := range peer.AllowedIps {
