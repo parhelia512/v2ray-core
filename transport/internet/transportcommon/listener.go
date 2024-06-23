@@ -5,12 +5,14 @@ package transportcommon
 
 import (
 	"context"
+	"crypto/tls"
 
 	"github.com/v2fly/v2ray-core/v4/common/environment"
 	"github.com/v2fly/v2ray-core/v4/common/environment/envctx"
 	"github.com/v2fly/v2ray-core/v4/common/net"
 	"github.com/v2fly/v2ray-core/v4/common/session"
 	"github.com/v2fly/v2ray-core/v4/transport/internet"
+	v2tls "github.com/v2fly/v2ray-core/v4/transport/internet/tls"
 )
 
 func ListenWithSecuritySettings(ctx context.Context, address net.Address, port net.Port, streamSettings *internet.MemoryStreamConfig) (
@@ -45,6 +47,12 @@ func ListenWithSecuritySettings(ctx context.Context, address net.Address, port n
 
 	if streamSettings.SocketSettings != nil && streamSettings.SocketSettings.AcceptProxyProtocol {
 		newError("accepting PROXY protocol").AtWarning().WriteToLog(session.ExportIDToError(ctx))
+	}
+
+	if config := v2tls.ConfigFromStreamSettings(streamSettings); config != nil {
+		if tlsConfig := config.GetTLSConfig(); tlsConfig != nil {
+			l = tls.NewListener(l, tlsConfig)
+		}
 	}
 	return l, nil
 }
