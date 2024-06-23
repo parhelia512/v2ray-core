@@ -62,9 +62,15 @@ func dialWebsocket(ctx context.Context, dest net.Destination, streamSettings *in
 			if err != nil {
 				return nil, newError("dial TLS connection failed").Base(err)
 			}
+			alpn := []string{"http/1.1"}
+			if engineALPNGetter, ok := securityEngine.(security.EngineALPNGetter); ok {
+				if a := engineALPNGetter.GetALPN(); len(a) > 0 {
+					alpn = a
+				}
+			}
 			conn, err = securityEngine.Client(conn,
 				security.OptionWithDestination{Dest: dest},
-				security.OptionWithALPN{ALPNs: []string{"http/1.1"}})
+				security.OptionWithALPN{ALPNs: alpn})
 			if err != nil {
 				return nil, newError("unable to create security protocol client from security engine").Base(err)
 			}

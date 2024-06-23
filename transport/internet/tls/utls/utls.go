@@ -93,6 +93,10 @@ func (e Engine) Client(conn net.Conn, opts ...security.Option) (security.Conn, e
 	return UTLSClientConnection{utlsClientConn}, nil
 }
 
+func (e Engine) GetALPN() []string {
+	return e.config.TlsConfig.NextProtocol
+}
+
 func (e Engine) GetServerName() string {
 	return e.config.TlsConfig.ServerName
 }
