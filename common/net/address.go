@@ -6,7 +6,7 @@ import (
 	"net"
 	"strings"
 
-	"google.golang.org/protobuf/encoding/protojson"
+	"github.com/golang/protobuf/jsonpb"
 )
 
 var (
@@ -212,7 +212,7 @@ func NewIPOrDomain(addr Address) *IPOrDomain {
 	}
 }
 
-func (d *IPOrDomain) UnmarshalJSONPB(unmarshaler *protojson.UnmarshalOptions, bytes []byte) error {
+func (d *IPOrDomain) UnmarshalJSONPB(unmarshaler *jsonpb.Unmarshaler, bytes []byte) error {
 	var ipOrDomain string
 	if err := json.Unmarshal(bytes, &ipOrDomain); err != nil {
 		return err

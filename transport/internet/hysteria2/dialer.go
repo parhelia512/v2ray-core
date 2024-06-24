@@ -26,8 +26,8 @@ type dialerConf struct {
 }
 
 var (
-	RunningClient      map[dialerConf](hyClient.Client)
-	globalDialerAccess sync.Mutex
+	RunningClient map[dialerConf](hyClient.Client)
+	ClientMutex   sync.Mutex
 )
 
 type connFactory struct {
@@ -119,15 +119,13 @@ func NewHyClient(ctx context.Context, dest net.Destination, streamSettings *inte
 		return nil, err
 	}
 
-	globalDialerAccess.Lock()
-	RunningClient[dialerConf{dest, streamSettings}] = client
-	globalDialerAccess.Unlock()
 	return client, nil
 }
 
 func CloseHyClient(dest net.Destination, streamSettings *internet.MemoryStreamConfig) error {
-	globalDialerAccess.Lock()
-	defer globalDialerAccess.Unlock()
+	ClientMutex.Lock()
+	defer ClientMutex.Unlock()
+
 	client, found := RunningClient[dialerConf{dest, streamSettings}]
 	if found {
 		delete(RunningClient, dialerConf{dest, streamSettings})
@@ -136,19 +134,48 @@ func CloseHyClient(dest net.Destination, streamSettings *internet.MemoryStreamCo
 	return nil
 }
 
-func Dial(ctx context.Context, dest net.Destination, streamSettings *internet.MemoryStreamConfig) (internet.Connection, error) {
-	config := streamSettings.ProtocolSettings.(*Config)
-
-	var err error
-	globalDialerAccess.Lock()
+func GetHyClient(ctx context.Context, dest net.Destination, streamSettings *internet.MemoryStreamConfig) (hyClient.Client, error) {
+	ClientMutex.Lock()
 	client, found := RunningClient[dialerConf{dest, streamSettings}]
-	globalDialerAccess.Unlock()
-	if !found {
-		// TODO: Clean idle connections
+	ClientMutex.Unlock()
+	var err error
+	if !found || !CheckHyClientHealthy(client) {
+		if found {
+			// retry
+			CloseHyClient(dest, streamSettings)
+		}
 		client, err = NewHyClient(ctx, dest, streamSettings)
 		if err != nil {
 			return nil, err
 		}
+		ClientMutex.Lock()
+		RunningClient[dialerConf{dest, streamSettings}] = client
+		ClientMutex.Unlock()
+	}
+	return client, nil
+}
+
+func CheckHyClientHealthy(client hyClient.Client) bool {
+	// TODO: Clean idle connections
+	quicConn := client.GetQuicConn()
+	if quicConn == nil {
+		return false
+	}
+	select {
+	case <-quicConn.Context().Done():
+		return false
+	default:
+	}
+	return true
+}
+
+func Dial(ctx context.Context, dest net.Destination, streamSettings *internet.MemoryStreamConfig) (internet.Connection, error) {
+	config := streamSettings.ProtocolSettings.(*Config)
+
+	client, err := GetHyClient(ctx, dest, streamSettings)
+	if err != nil {
+		CloseHyClient(dest, streamSettings)
+		return nil, err
 	}
 
 	quicConn := client.GetQuicConn()

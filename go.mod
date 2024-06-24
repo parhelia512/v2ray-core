@@ -6,7 +6,8 @@ require (
 	github.com/adrg/xdg v0.4.0
 	github.com/apernet/hysteria/core/v2 v2.4.5
 	github.com/apernet/quic-go v0.44.1-0.20240520215222-bb2e53664023
-	github.com/database64128/tfo-go/v2 v2.2.0
+	github.com/database64128/tfo-go/v2 v2.2.1
+	github.com/golang/protobuf v1.5.4
 	github.com/google/go-cmp v0.6.0
 	github.com/gorilla/websocket v1.5.3
 	github.com/lunixbochs/struc v0.0.0-20200707160740-784aaebc1d40
@@ -14,7 +15,7 @@ require (
 	github.com/mustafaturan/bus v1.0.2
 	github.com/pion/transport/v3 v3.0.2
 	github.com/pires/go-proxyproto v0.7.0
-	github.com/quic-go/quic-go v0.45.0
+	github.com/quic-go/quic-go v0.45.1
 	github.com/refraction-networking/utls v1.6.6
 	github.com/sagernet/sing v0.4.1
 	github.com/sagernet/sing-shadowsocks v0.2.6
@@ -79,4 +80,4 @@ require (
 
 replace github.com/lunixbochs/struc v0.0.0-20200707160740-784aaebc1d40 => github.com/xiaokangwang/struc v0.0.0-20231031203518-0e381172f248
 
-replace github.com/apernet/hysteria/core/v2 v2.4.5 => github.com/JimmyHuang454/hysteria/core/v2 v2.0.0-20240605063419-3717f44ca98d
+replace github.com/apernet/hysteria/core/v2 v2.4.5 => github.com/JimmyHuang454/hysteria/core/v2 v2.0.0-20240621174944-4c4ba8b7f163

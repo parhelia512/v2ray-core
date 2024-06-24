@@ -3,7 +3,7 @@ package router
 import (
 	"context"
 
-	"google.golang.org/protobuf/reflect/protoreflect"
+	"google.golang.org/protobuf/runtime/protoiface"
 
 	core "github.com/v2fly/v2ray-core/v5"
 	"github.com/v2fly/v2ray-core/v5/app/observatory"
@@ -47,7 +47,7 @@ func (s *RandomStrategy) PickOutbound(candidates []string) string {
 			})
 		}
 		if s.observatory != nil {
-			var observeReport protoreflect.ProtoMessage
+			var observeReport protoiface.MessageV1
 			var err error
 			if s.settings.ObserverTag == "" {
 				observeReport, err = s.observatory.GetObservation(s.ctx)

@@ -31,3 +31,7 @@ type OptionWithDestination struct {
 
 func (a OptionWithDestination) isSecurityOption() {
 }
+
+type EngineALPNGetter interface {
+	GetALPN() []string
+}

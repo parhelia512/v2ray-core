@@ -1,7 +1,7 @@
 package v4
 
 import (
-	"google.golang.org/protobuf/proto"
+	"github.com/golang/protobuf/proto"
 
 	"github.com/v2fly/v2ray-core/v5/infra/conf/cfgcommon"
 	shadowsocks2022 "github.com/v2fly/v2ray-core/v5/proxy/shadowsocks2022"

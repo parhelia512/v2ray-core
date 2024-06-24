@@ -1,13 +1,15 @@
 package registry
 
 import (
+	"bytes"
 	"context"
 	"reflect"
 	"strings"
 	"sync"
 
-	"google.golang.org/protobuf/encoding/protojson"
-	"google.golang.org/protobuf/proto"
+	"github.com/golang/protobuf/jsonpb"
+	"github.com/golang/protobuf/proto"
+	protov2 "google.golang.org/protobuf/proto"
 
 	"github.com/v2fly/v2ray-core/v5/common/protoext"
 	"github.com/v2fly/v2ray-core/v5/common/protofilter"
@@ -63,22 +65,19 @@ func (i *implementationRegistry) LoadImplementationByAlias(ctx context.Context, 
 		return nil, newError("unable to create implementation config instance").Base(err)
 	}
 
-	implementationConfigInstancev2, ok := implementationConfigInstance.(proto.Message)
-	if !ok {
-		return nil, newError("unable to cast implementation config instance to proto.Message")
-	}
-
-	unmarshaler := protojson.UnmarshalOptions{DiscardUnknown: false}
-	err = unmarshaler.Unmarshal(data, implementationConfigInstancev2)
+	unmarshaler := jsonpb.Unmarshaler{AllowUnknownFields: false}
+	err = unmarshaler.Unmarshal(bytes.NewReader(data), implementationConfigInstance.(proto.Message))
 	if err != nil {
 		return nil, newError("unable to parse json content").Base(err)
 	}
+
+	implementationConfigInstancev2 := proto.MessageV2(implementationConfigInstance)
 
 	if err := protofilter.FilterProtoConfig(ctx, implementationConfigInstancev2); err != nil {
 		return nil, err
 	}
 
-	return implementationConfigInstancev2, nil
+	return implementationConfigInstance.(proto.Message), nil
 }
 
 func newImplementationRegistry() *implementationRegistry {
@@ -106,12 +105,9 @@ func RegisterImplementation(proto interface{}, loader CustomLoader) error {
 	return nil
 }
 
-func registerImplementation(protoMsg interface{}, loader CustomLoader) error {
-	protoReflect := reflect.New(reflect.TypeOf(protoMsg).Elem())
-	proto2, ok := protoReflect.Interface().(proto.Message)
-	if !ok {
-		return newError("unable to cast proto to proto.Message")
-	}
+func registerImplementation(proto interface{}, loader CustomLoader) error {
+	protoReflect := reflect.New(reflect.TypeOf(proto).Elem())
+	proto2 := protoReflect.Interface().(protov2.Message)
 	msgDesc := proto2.ProtoReflect().Descriptor()
 	fullName := string(msgDesc.FullName())
 	msgOpts, err := protoext.GetMessageOptions(msgDesc)

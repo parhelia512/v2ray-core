@@ -1,31 +1,21 @@
 package serial
 
 import (
-	"google.golang.org/protobuf/reflect/protoreflect"
-	"google.golang.org/protobuf/reflect/protoregistry"
+	"github.com/golang/protobuf/proto"
 )
 
 type AnyResolver interface {
-	protoregistry.MessageTypeResolver
-	protoregistry.ExtensionTypeResolver
+	Resolve(typeURL string) (proto.Message, error)
 }
 
 type serialResolver struct{}
 
-func (s serialResolver) FindMessageByName(messageName protoreflect.FullName) (protoreflect.MessageType, error) {
-	return protoregistry.GlobalTypes.FindMessageByName(messageName)
-}
-
-func (s serialResolver) FindMessageByURL(url string) (protoreflect.MessageType, error) {
-	return protoregistry.GlobalTypes.FindMessageByURL(url)
-}
-
-func (s serialResolver) FindExtensionByName(field protoreflect.FullName) (protoreflect.ExtensionType, error) {
-	return protoregistry.GlobalTypes.FindExtensionByName(field)
-}
-
-func (s serialResolver) FindExtensionByNumber(message protoreflect.FullName, field protoreflect.FieldNumber) (protoreflect.ExtensionType, error) {
-	return protoregistry.GlobalTypes.FindExtensionByNumber(message, field)
+func (s serialResolver) Resolve(typeURL string) (proto.Message, error) {
+	instance, err := GetInstance(typeURL)
+	if err != nil {
+		return nil, err
+	}
+	return instance.(proto.Message), nil
 }
 
 func GetResolver() AnyResolver {

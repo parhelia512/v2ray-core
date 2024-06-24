@@ -13,6 +13,7 @@ import (
 
 	"golang.org/x/net/http2"
 
+	core "github.com/v2fly/v2ray-core/v5"
 	"github.com/v2fly/v2ray-core/v5/common"
 	"github.com/v2fly/v2ray-core/v5/common/buf"
 	"github.com/v2fly/v2ray-core/v5/common/net"
@@ -22,7 +23,6 @@ import (
 	"github.com/v2fly/v2ray-core/v5/common/uuid"
 	"github.com/v2fly/v2ray-core/v5/transport/internet"
 	"github.com/v2fly/v2ray-core/v5/transport/internet/security"
-	"github.com/v2fly/v2ray-core/v5/transport/internet/tls"
 	"github.com/v2fly/v2ray-core/v5/transport/internet/transportcommon"
 	"github.com/v2fly/v2ray-core/v5/transport/pipe"
 )
@@ -42,31 +42,46 @@ type reusedClient struct {
 }
 
 var (
-	globalDialerMap    map[dialerConf]reusedClient
+	globalDialerMap    map[dialerConf]*reusedClient
 	globalDialerAccess sync.Mutex
 )
 
-func getHTTPClient(ctx context.Context, dest net.Destination, streamSettings *internet.MemoryStreamConfig) reusedClient {
+func getHTTPClient(ctx context.Context, dest net.Destination, streamSettings *internet.MemoryStreamConfig) (*reusedClient, error) {
 	globalDialerAccess.Lock()
 	defer globalDialerAccess.Unlock()
 
 	if globalDialerMap == nil {
-		globalDialerMap = make(map[dialerConf]reusedClient)
+		globalDialerMap = make(map[dialerConf]*reusedClient)
 	}
 
 	if client, found := globalDialerMap[dialerConf{dest, streamSettings}]; found {
-		return client
+		return client, nil
 	}
 
+	detachedContext := core.ToBackgroundDetachedContext(ctx)
+	conn, err := transportcommon.DialWithSecuritySettings(detachedContext, dest, streamSettings)
+	if err != nil {
+		return nil, err
+	}
+	alpn := ""
+	if connAPLNGetter, ok := conn.(security.ConnectionApplicationProtocol); ok {
+		if connectionALPN, err := connAPLNGetter.GetConnectionApplicationProtocol(); err == nil {
+			alpn = connectionALPN
+		}
+	}
+	isFirstDial := true
 	dialContext := func(_ context.Context) (net.Conn, error) {
-		return transportcommon.DialWithSecuritySettings(ctx, dest, streamSettings)
+		if isFirstDial {
+			isFirstDial = false
+			return conn, nil
+		}
+		return transportcommon.DialWithSecuritySettings(detachedContext, dest, streamSettings)
 	}
 
 	var uploadTransport http.RoundTripper
 	var downloadTransport http.RoundTripper
 
-	securityEngine, _ := security.CreateSecurityEngineFromSettings(ctx, streamSettings)
-	if securityEngine != nil {
+	if alpn == http2.NextProtoTLS {
 		downloadTransport = &http2.Transport{
 			DialTLSContext: func(ctxInner context.Context, network string, addr string, cfg *gotls.Config) (net.Conn, error) {
 				return dialContext(ctxInner)
@@ -92,20 +107,20 @@ func getHTTPClient(ctx context.Context, dest net.Destination, streamSettings *in
 		uploadTransport = nil
 	}
 
-	client := reusedClient{
+	client := &reusedClient{
 		download: &http.Client{
 			Transport: downloadTransport,
 		},
 		upload: &http.Client{
 			Transport: uploadTransport,
 		},
-		isH2:           securityEngine != nil,
+		isH2:           alpn == http2.NextProtoTLS,
 		uploadRawPool:  &sync.Pool{},
 		dialUploadConn: dialContext,
 	}
 
 	globalDialerMap[dialerConf{dest, streamSettings}] = client
-	return client
+	return client, nil
 }
 
 func init() {
@@ -118,12 +133,12 @@ func Dial(ctx context.Context, dest net.Destination, streamSettings *internet.Me
 	var requestURL url.URL
 
 	transportConfiguration := streamSettings.ProtocolSettings.(*Config)
-	tlsConfig := tls.ConfigFromStreamSettings(streamSettings)
 
 	maxConcurrentUploads := transportConfiguration.GetNormalizedMaxConcurrentUploads()
 	maxUploadSize := transportConfiguration.GetNormalizedMaxUploadSize()
 
-	if tlsConfig != nil {
+	securityEngine, _ := security.CreateSecurityEngineFromSettings(ctx, streamSettings)
+	if securityEngine != nil {
 		requestURL.Scheme = "https"
 	} else {
 		requestURL.Scheme = "http"
@@ -134,7 +149,10 @@ func Dial(ctx context.Context, dest net.Destination, streamSettings *internet.Me
 	}
 	requestURL.Path = transportConfiguration.GetNormalizedPath()
 
-	httpClient := getHTTPClient(ctx, dest, streamSettings)
+	httpClient, err := getHTTPClient(ctx, dest, streamSettings)
+	if err != nil {
+		return nil, err
+	}
 
 	var remoteAddr net.Addr
 	var localAddr net.Addr
