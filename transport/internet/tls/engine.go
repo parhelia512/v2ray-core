@@ -25,10 +25,6 @@ func (e *Engine) Client(conn net.Conn, opts ...security.Option) (security.Conn, 
 	return tlsConn, nil
 }
 
-func (e *Engine) GetALPN() []string {
-	return e.config.NextProtocol
-}
-
 func NewTLSSecurityEngineFromConfig(config *Config) (security.Engine, error) {
 	return &Engine{config: config}, nil
 }

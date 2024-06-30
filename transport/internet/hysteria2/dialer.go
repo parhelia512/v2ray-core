@@ -11,6 +11,8 @@ import (
 	"github.com/v2fly/v2ray-core/v5/common"
 	"github.com/v2fly/v2ray-core/v5/common/net"
 	"github.com/v2fly/v2ray-core/v5/common/session"
+	"github.com/v2fly/v2ray-core/v5/common/uuid"
+	"github.com/v2fly/v2ray-core/v5/features/dns"
 	"github.com/v2fly/v2ray-core/v5/features/dns/localdns"
 	"github.com/v2fly/v2ray-core/v5/transport/internet"
 	"github.com/v2fly/v2ray-core/v5/transport/internet/tls"
@@ -46,6 +48,33 @@ func (f *connFactory) New(addr net.Addr) (net.PacketConn, error) {
 	return WrapPacketConn(conn, f.Obfuscator), nil
 }
 
+type connWrapper struct {
+	net.Conn
+	localAddr net.Addr
+}
+
+func (c *connWrapper) ReadFrom(p []byte) (n int, addr net.Addr, err error) {
+	n, err = c.Read(p)
+	return n, c.RemoteAddr(), err
+}
+
+func (c *connWrapper) WriteTo(p []byte, _ net.Addr) (n int, err error) {
+	return c.Write(p)
+}
+
+func (c *connWrapper) LocalAddr() net.Addr {
+	return c.localAddr
+}
+
+func NewConnWrapper(conn net.Conn) net.PacketConn {
+	// https://github.com/quic-go/quic-go/commit/8189e75be6121fdc31dc1d6085f17015e9154667#diff-4c6aaadced390f3ce9bec0a9c9bb5203d5fa85df79023e3e0eec423dc9baa946R48-R62
+	uuid := uuid.New()
+	return &connWrapper{
+		Conn:      conn,
+		localAddr: &net.UnixAddr{Name: uuid.String()},
+	}
+}
+
 func NewHyClient(ctx context.Context, dest net.Destination, streamSettings *internet.MemoryStreamConfig) (hyClient.Client, error) {
 	tlsSettings := tls.ConfigFromStreamSettings(streamSettings)
 	if tlsSettings == nil {
@@ -69,9 +98,14 @@ func NewHyClient(ctx context.Context, dest net.Destination, streamSettings *inte
 			Port: int(dest.Port),
 		}
 	} else {
-		if ips, err := localdns.New().LookupIP(dest.Address.Domain()); err == nil {
-			dest.Address = net.IPAddress(ips[0])
+		ips, err := localdns.New().LookupIP(dest.Address.Domain())
+		if err != nil {
+			return nil, err
 		}
+		if len(ips) == 0 {
+			return nil, dns.ErrEmptyResponse
+		}
+		dest.Address = net.IPAddress(ips[0])
 		addr, err := net.ResolveUDPAddr("udp", dest.NetAddr())
 		if err != nil {
 			return nil, err
@@ -92,15 +126,14 @@ func NewHyClient(ctx context.Context, dest net.Destination, streamSettings *inte
 			if err != nil {
 				return nil, newError("failed to dial to dest: ", err).AtWarning().Base(err)
 			}
-			var udpConn *net.UDPConn
+			var udpConn net.PacketConn
 			switch conn := rawConn.(type) {
 			case *net.UDPConn:
 				udpConn = conn
 			case *internet.PacketConnWrapper:
 				udpConn = conn.Conn.(*net.UDPConn)
 			default:
-				rawConn.Close()
-				return nil, newError("QUIC with sockopt is unsupported").AtWarning()
+				udpConn = NewConnWrapper(conn)
 			}
 			return udpConn, nil
 		},

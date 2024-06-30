@@ -295,9 +295,14 @@ func (w *PacketWriter) WriteMultiBuffer(mb buf.MultiBuffer) error {
 				}
 			}
 			if b.Endpoint.Address.Family().IsDomain() {
-				if ips, err := localdns.New().LookupIP(b.Endpoint.Address.Domain()); err == nil {
-					b.Endpoint.Address = net.IPAddress(ips[0])
+				ips, err := localdns.New().LookupIP(b.Endpoint.Address.Domain())
+				if err != nil {
+					return err
 				}
+				if len(ips) == 0 {
+					return dns.ErrEmptyResponse
+				}
+				b.Endpoint.Address = net.IPAddress(ips[0])
 			}
 			destAddr, _ := net.ResolveUDPAddr("udp", b.Endpoint.NetAddr())
 			if destAddr == nil {

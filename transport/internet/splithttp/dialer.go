@@ -64,9 +64,9 @@ func getHTTPClient(ctx context.Context, dest net.Destination, streamSettings *in
 		return nil, err
 	}
 	alpn := ""
-	if connAPLNGetter, ok := conn.(security.ConnectionApplicationProtocol); ok {
-		if connectionALPN, err := connAPLNGetter.GetConnectionApplicationProtocol(); err == nil {
-			alpn = connectionALPN
+	if connALPNGetter, ok := conn.(security.ConnectionApplicationProtocol); ok {
+		if a, err := connALPNGetter.GetConnectionApplicationProtocol(); err == nil {
+			alpn = a
 		}
 	}
 	isFirstDial := true
@@ -208,14 +208,19 @@ func Dial(ctx context.Context, dest net.Destination, streamSettings *internet.Me
 			return
 		}
 
-		// skip "ok" response
-		trashHeader := []byte{0, 0}
-		_, err = io.ReadFull(response.Body, trashHeader)
-		if err != nil {
-			response.Body.Close()
-			newError("failed to read initial response").Base(err).WriteToLog()
-			gotDownResponse.Close()
-			return
+		// skip "ooooooooook" response
+		trashHeader := []byte{0}
+		for {
+			_, err = io.ReadFull(response.Body, trashHeader)
+			if err != nil {
+				response.Body.Close()
+				newError("failed to read initial response").Base(err).WriteToLog()
+				gotDownResponse.Close()
+				return
+			}
+			if trashHeader[0] == 'k' {
+				break
+			}
 		}
 
 		downResponse = response.Body

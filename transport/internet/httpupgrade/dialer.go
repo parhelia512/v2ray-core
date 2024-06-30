@@ -17,18 +17,9 @@ import (
 func dialhttpUpgrade(ctx context.Context, dest net.Destination, streamSettings *internet.MemoryStreamConfig) (net.Conn, error) {
 	transportConfiguration := streamSettings.ProtocolSettings.(*Config)
 
-	alpn := []string{"http/1.1"}
-	if securityEngine, _ := security.CreateSecurityEngineFromSettings(ctx, streamSettings); securityEngine != nil {
-		if engineALPNGetter, ok := securityEngine.(security.EngineALPNGetter); ok {
-			if a := engineALPNGetter.GetALPN(); len(a) > 0 {
-				alpn = a
-			}
-		}
-	}
-
 	conn, err := transportcommon.DialWithSecuritySettings(ctx, dest, streamSettings,
 		security.OptionWithDestination{Dest: dest},
-		security.OptionWithALPN{ALPNs: alpn},
+		security.OptionWithALPN{ALPNs: []string{"http/1.1"}},
 	)
 	if err != nil {
 		return nil, newError("failed to dial request to ", dest).Base(err)
