@@ -1,6 +1,7 @@
 package splithttp
 
 import (
+	"bytes"
 	"context"
 	gotls "crypto/tls"
 	"io"
@@ -258,6 +259,7 @@ func Dial(ctx context.Context, dest net.Destination, streamSettings *internet.Me
 					return
 				}
 
+				req.ContentLength = int64(chunk.Len())
 				req.Header = transportConfiguration.GetRequestHeader()
 
 				if httpClient.isH2 {
@@ -275,11 +277,19 @@ func Dial(ctx context.Context, dest net.Destination, streamSettings *internet.Me
 						return
 					}
 				} else {
-					var err error
 					var uploadConn any
-					for i := 0; i < 5; i++ {
+
+					// stringify the entire HTTP/1.1 request so it can be
+					// safely retried. if instead req.Write is called multiple
+					// times, the body is already drained after the first
+					// request
+					requestBytes := new(bytes.Buffer)
+					common.Must(req.Write(requestBytes))
+
+					for {
 						uploadConn = httpClient.uploadRawPool.Get()
-						if uploadConn == nil {
+						newConnection := uploadConn == nil
+						if newConnection {
 							uploadConn, err = httpClient.dialUploadConn(context.WithoutCancel(ctx))
 							if err != nil {
 								newError("failed to connect upload").Base(err).WriteToLog()
@@ -288,16 +298,19 @@ func Dial(ctx context.Context, dest net.Destination, streamSettings *internet.Me
 							}
 						}
 
-						err = req.Write(uploadConn.(net.Conn))
+						_, err = uploadConn.(net.Conn).Write(requestBytes.Bytes())
+
+						// if the write failed, we try another connection from
+						// the pool, until the write on a new connection fails.
+						// failed writes to a pooled connection are normal when
+						// the connection has been closed in the meantime.
 						if err == nil {
 							break
+						} else if newConnection {
+							newError("failed to send upload").Base(err).WriteToLog()
+							uploadPipeReader.Interrupt()
+							return
 						}
-					}
-
-					if err != nil {
-						newError("failed to send upload").Base(err).WriteToLog()
-						uploadPipeReader.Interrupt()
-						return
 					}
 
 					httpClient.uploadRawPool.Put(uploadConn)

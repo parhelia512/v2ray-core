@@ -23,6 +23,7 @@ var (
 	lookupFunc = defaultLookupFunc
 )
 
+// SagerNet private
 func SetLookupFunc(fn func(network, host string) ([]net.IP, error)) {
 	if fn == nil {
 		lookupFunc = defaultLookupFunc

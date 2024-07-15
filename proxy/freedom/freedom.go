@@ -10,7 +10,6 @@ import (
 	"github.com/v2fly/v2ray-core/v5/common"
 	"github.com/v2fly/v2ray-core/v5/common/buf"
 	"github.com/v2fly/v2ray-core/v5/common/net"
-	"github.com/v2fly/v2ray-core/v5/common/platform"
 	"github.com/v2fly/v2ray-core/v5/common/retry"
 	"github.com/v2fly/v2ray-core/v5/common/session"
 	"github.com/v2fly/v2ray-core/v5/common/signal"
@@ -40,12 +39,7 @@ func init() {
 		fullConfig := &Config{}
 		return common.CreateObject(ctx, fullConfig)
 	}))
-
-	defaultFlagValue := "false"
-	udpDisableDomainUnmapping = platform.NewEnvFlag("v2ray.freedom.disable.udp.domain.unmapping").GetValue(func() string { return defaultFlagValue }) != defaultFlagValue
 }
-
-var udpDisableDomainUnmapping bool
 
 // Handler handles Freedom connections.
 type Handler struct {
@@ -175,7 +169,7 @@ func (h *Handler) Process(ctx context.Context, link *transport.Link, dialer inte
 		if destination.Network == net.Network_TCP {
 			reader = buf.NewReader(conn)
 		} else {
-			reader = NewPacketReader(conn, redirect)
+			reader = NewPacketReader(conn, destination, redirect)
 		}
 		if err := buf.Copy(reader, output, buf.UpdateActivity(timer)); err != nil {
 			return newError("failed to process response").Base(err)
@@ -191,7 +185,7 @@ func (h *Handler) Process(ctx context.Context, link *transport.Link, dialer inte
 	return nil
 }
 
-func NewPacketReader(conn net.Conn, redirect net.Destination) buf.Reader {
+func NewPacketReader(conn net.Conn, dest net.Destination, redirect net.Destination) buf.Reader {
 	iConn := conn
 	statConn, ok := iConn.(*internet.StatCouterConnection)
 	if ok {
@@ -204,6 +198,7 @@ func NewPacketReader(conn net.Conn, redirect net.Destination) buf.Reader {
 	if c, ok := iConn.(*internet.PacketConnWrapper); ok && redirect.Address == nil && redirect.Port == 0 {
 		return &PacketReader{
 			conn:    c,
+			dest:    dest,
 			counter: counter,
 		}
 	}
@@ -212,6 +207,7 @@ func NewPacketReader(conn net.Conn, redirect net.Destination) buf.Reader {
 
 type PacketReader struct {
 	conn    *internet.PacketConnWrapper
+	dest    net.Destination
 	counter stats.Counter
 }
 
@@ -229,13 +225,8 @@ func (r *PacketReader) ReadMultiBuffer() (buf.MultiBuffer, error) {
 		Port:    net.Port(d.(*net.UDPAddr).Port),
 		Network: net.Network_UDP,
 	}
-	if r.conn.Destination != nil && r.conn.OriginalDestination != nil {
-		if b.Endpoint.Address == r.conn.Destination.Address && b.Endpoint.Port == r.conn.Destination.Port {
-			b.Endpoint = r.conn.OriginalDestination
-		}
-		if r.conn.OriginalDestination.Port == r.conn.Destination.Port && b.Endpoint.Address == r.conn.Destination.Address {
-			b.Endpoint.Address = r.conn.OriginalDestination.Address
-		}
+	if d.String() == r.conn.Dest.String() && r.dest.Address.Family().IsDomain() {
+		b.Endpoint = &r.dest
 	}
 	if r.counter != nil {
 		r.counter.Add(int64(n))
@@ -281,7 +272,6 @@ func (w *PacketWriter) WriteMultiBuffer(mb buf.MultiBuffer) error {
 		var n int
 		var err error
 		if b.Endpoint != nil {
-			originalDestination := *b.Endpoint
 			if w.redirect.Address != nil {
 				b.Endpoint.Address = w.redirect.Address
 			}
@@ -295,6 +285,7 @@ func (w *PacketWriter) WriteMultiBuffer(mb buf.MultiBuffer) error {
 				}
 			}
 			if b.Endpoint.Address.Family().IsDomain() {
+				// SagerNet private
 				ips, err := localdns.New().LookupIP(b.Endpoint.Address.Domain())
 				if err != nil {
 					return err
@@ -308,15 +299,6 @@ func (w *PacketWriter) WriteMultiBuffer(mb buf.MultiBuffer) error {
 			if destAddr == nil {
 				b.Release()
 				continue
-			}
-			b.Endpoint = &net.Destination{
-				Address: net.IPAddress(destAddr.IP),
-				Port:    net.Port(destAddr.Port),
-				Network: net.Network_UDP,
-			}
-			if w.conn.OriginalDestination == nil && w.conn.Destination == nil && !udpDisableDomainUnmapping && b.Endpoint.Address != originalDestination.Address || b.Endpoint.Port != originalDestination.Port {
-				w.conn.OriginalDestination = &originalDestination
-				w.conn.Destination = b.Endpoint
 			}
 			n, err = w.conn.WriteTo(b.Bytes(), destAddr)
 		} else {

@@ -1,5 +1,6 @@
 package observatory
 
+// SagerNet private
 func (o *Observer) UpdateStatus(result *OutboundStatus) {
 	o.statusLock.Lock()
 	defer o.statusLock.Unlock()

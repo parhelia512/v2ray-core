@@ -62,6 +62,7 @@ func (d *DefaultSystemDialer) Dial(ctx context.Context, src net.Address, dest ne
 			return nil, err
 		}
 		if dest.Address.Family().IsDomain() {
+			// SagerNet private
 			ips, err := localdns.New().LookupIP(dest.Address.Domain())
 			if err != nil {
 				return nil, err
@@ -131,6 +132,7 @@ func (d *DefaultSystemDialer) Dial(ctx context.Context, src net.Address, dest ne
 	return dialer.DialContext(ctx, dest.Network.SystemString(), dest.NetAddr())
 }
 
+// SagerNet private
 func ApplySockopt(sockopt *SocketConfig, dest net.Destination, fd uintptr, ctx context.Context) {
 	if err := applyOutboundSocketOptions(dest.Network.String(), dest.Address.String(), fd, sockopt); err != nil {
 		newError("failed to apply socket options").Base(err).WriteToLog(session.ExportIDToError(ctx))
@@ -145,9 +147,6 @@ func ApplySockopt(sockopt *SocketConfig, dest net.Destination, fd uintptr, ctx c
 type PacketConnWrapper struct {
 	Conn net.PacketConn
 	Dest net.Addr
-
-	Destination         *net.Destination
-	OriginalDestination *net.Destination
 }
 
 func (c *PacketConnWrapper) Close() error {

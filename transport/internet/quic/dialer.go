@@ -223,6 +223,7 @@ func Dial(ctx context.Context, dest net.Destination, streamSettings *internet.Me
 			Port: int(dest.Port),
 		}
 	} else {
+		// SagerNet private
 		ips, err := localdns.New().LookupIP(dest.Address.Domain())
 		if err != nil {
 			return nil, err

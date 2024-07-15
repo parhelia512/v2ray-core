@@ -98,6 +98,7 @@ func NewHyClient(ctx context.Context, dest net.Destination, streamSettings *inte
 			Port: int(dest.Port),
 		}
 	} else {
+		// SagerNet private
 		ips, err := localdns.New().LookupIP(dest.Address.Domain())
 		if err != nil {
 			return nil, err
