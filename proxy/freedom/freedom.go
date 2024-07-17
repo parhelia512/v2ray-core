@@ -4,6 +4,7 @@ package freedom
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	core "github.com/v2fly/v2ray-core/v5"
@@ -149,10 +150,13 @@ func (h *Handler) Process(ctx context.Context, link *transport.Link, dialer inte
 		defer timer.SetTimeout(plcy.Timeouts.DownlinkOnly)
 
 		var writer buf.Writer
-		if destination.Network == net.Network_TCP {
+		switch {
+		case destination.Network == net.Network_TCP:
 			writer = buf.NewWriter(conn)
-		} else {
-			writer = NewPacketWriter(ctx, h, conn, redirect)
+		case redirect.Address != nil || redirect.Port != 0:
+			writer = &buf.SequentialWriter{Writer: conn}
+		default:
+			writer = NewPacketWriter(ctx, h, conn, destination)
 		}
 
 		if err := buf.Copy(input, writer, buf.UpdateActivity(timer)); err != nil {
@@ -166,10 +170,13 @@ func (h *Handler) Process(ctx context.Context, link *transport.Link, dialer inte
 		defer timer.SetTimeout(plcy.Timeouts.UplinkOnly)
 
 		var reader buf.Reader
-		if destination.Network == net.Network_TCP {
+		switch {
+		case destination.Network == net.Network_TCP:
 			reader = buf.NewReader(conn)
-		} else {
-			reader = NewPacketReader(conn, destination, redirect)
+		case redirect.Address != nil || redirect.Port != 0:
+			reader = &buf.PacketReader{Reader: conn}
+		default:
+			reader = NewPacketReader(conn, destination)
 		}
 		if err := buf.Copy(reader, output, buf.UpdateActivity(timer)); err != nil {
 			return newError("failed to process response").Base(err)
@@ -185,7 +192,7 @@ func (h *Handler) Process(ctx context.Context, link *transport.Link, dialer inte
 	return nil
 }
 
-func NewPacketReader(conn net.Conn, dest net.Destination, redirect net.Destination) buf.Reader {
+func NewPacketReader(conn net.Conn, dest net.Destination) buf.Reader {
 	iConn := conn
 	statConn, ok := iConn.(*internet.StatCouterConnection)
 	if ok {
@@ -195,7 +202,7 @@ func NewPacketReader(conn net.Conn, dest net.Destination, redirect net.Destinati
 	if statConn != nil {
 		counter = statConn.ReadCounter
 	}
-	if c, ok := iConn.(*internet.PacketConnWrapper); ok && redirect.Address == nil && redirect.Port == 0 {
+	if c, ok := iConn.(*internet.PacketConnWrapper); ok {
 		return &PacketReader{
 			conn:    c,
 			dest:    dest,
@@ -234,7 +241,7 @@ func (r *PacketReader) ReadMultiBuffer() (buf.MultiBuffer, error) {
 	return buf.MultiBuffer{b}, nil
 }
 
-func NewPacketWriter(ctx context.Context, h *Handler, conn net.Conn, redirect net.Destination) buf.Writer {
+func NewPacketWriter(ctx context.Context, h *Handler, conn net.Conn, dest net.Destination) buf.Writer {
 	iConn := conn
 	statConn, ok := iConn.(*internet.StatCouterConnection)
 	if ok {
@@ -246,22 +253,23 @@ func NewPacketWriter(ctx context.Context, h *Handler, conn net.Conn, redirect ne
 	}
 	if c, ok := iConn.(*internet.PacketConnWrapper); ok {
 		return &PacketWriter{
-			ctx:      ctx,
-			handler:  h,
-			conn:     c,
-			counter:  counter,
-			redirect: redirect,
+			ctx:     ctx,
+			handler: h,
+			conn:    c,
+			dest:    dest,
+			counter: counter,
 		}
 	}
 	return &buf.SequentialWriter{Writer: conn}
 }
 
 type PacketWriter struct {
-	ctx      context.Context
-	handler  *Handler
-	conn     *internet.PacketConnWrapper
-	counter  stats.Counter
-	redirect net.Destination
+	ctx     context.Context
+	handler *Handler
+	conn    *internet.PacketConnWrapper
+	once    sync.Once
+	dest    net.Destination
+	counter stats.Counter
 }
 
 func (w *PacketWriter) WriteMultiBuffer(mb buf.MultiBuffer) error {
@@ -272,12 +280,7 @@ func (w *PacketWriter) WriteMultiBuffer(mb buf.MultiBuffer) error {
 		var n int
 		var err error
 		if b.Endpoint != nil {
-			if w.redirect.Address != nil {
-				b.Endpoint.Address = w.redirect.Address
-			}
-			if w.redirect.Port != 0 {
-				b.Endpoint.Port = w.redirect.Port
-			}
+			endpoint := *b.Endpoint
 			if w.handler.config.useIP() && b.Endpoint.Address.Family().IsDomain() {
 				ip := w.handler.resolveIP(w.ctx, b.Endpoint.Address.Domain(), nil)
 				if ip != nil {
@@ -299,6 +302,11 @@ func (w *PacketWriter) WriteMultiBuffer(mb buf.MultiBuffer) error {
 			if destAddr == nil {
 				b.Release()
 				continue
+			}
+			if endpoint == w.dest {
+				w.once.Do(func() {
+					w.conn.Dest = destAddr
+				})
 			}
 			n, err = w.conn.WriteTo(b.Bytes(), destAddr)
 		} else {

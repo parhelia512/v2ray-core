@@ -3,7 +3,7 @@ module github.com/v2fly/v2ray-core/v5
 go 1.22.0
 
 require (
-	github.com/adrg/xdg v0.4.0
+	github.com/adrg/xdg v0.5.0
 	github.com/apernet/hysteria/core/v2 v2.5.0
 	github.com/apernet/quic-go v0.45.2-0.20240702221538-ed74cfbe8b6e
 	github.com/database64128/tfo-go/v2 v2.2.1
@@ -25,7 +25,7 @@ require (
 	github.com/v2fly/BrowserBridge v0.0.0-20210430233438-0570fc1d7d08
 	github.com/v2fly/ss-bloomring v0.0.0-20210312155135-28617310f63e
 	github.com/xiaokangwang/VLite v0.0.0-20231225174116-75fa4b06e9f2
-	github.com/xtls/reality v0.0.0-20240429224917-ecc4401070cc
+	github.com/xtls/reality v0.0.0-20240712055506-48f0b2d5ed6d
 	go.uber.org/mock v0.4.0
 	go4.org/netipx v0.0.0-20231129151722-fdeea329fbba
 	golang.org/x/crypto v0.25.0
