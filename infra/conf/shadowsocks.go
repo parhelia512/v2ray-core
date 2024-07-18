@@ -5,6 +5,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 
+	"github.com/v2fly/v2ray-core/v4/common/net/packetaddr"
 	"github.com/v2fly/v2ray-core/v4/common/protocol"
 	"github.com/v2fly/v2ray-core/v4/common/serial"
 	"github.com/v2fly/v2ray-core/v4/infra/conf/cfgcommon"
@@ -27,13 +28,14 @@ func cipherFromString(c string) shadowsocks.CipherType {
 }
 
 type ShadowsocksServerConfig struct {
-	Cipher      string                 `json:"method"`
-	Password    string                 `json:"password"`
-	UDP         bool                   `json:"udp"`
-	Level       byte                   `json:"level"`
-	Email       string                 `json:"email"`
-	NetworkList *cfgcommon.NetworkList `json:"network"`
-	IVCheck     bool                   `json:"ivCheck"`
+	Cipher         string                 `json:"method"`
+	Password       string                 `json:"password"`
+	UDP            bool                   `json:"udp"`
+	Level          byte                   `json:"level"`
+	Email          string                 `json:"email"`
+	NetworkList    *cfgcommon.NetworkList `json:"network"`
+	IVCheck        bool                   `json:"ivCheck"`
+	PacketEncoding string                 `json:"packetEncoding"`
 }
 
 func (v *ShadowsocksServerConfig) Build() (proto.Message, error) {
@@ -57,6 +59,13 @@ func (v *ShadowsocksServerConfig) Build() (proto.Message, error) {
 		Email:   v.Email,
 		Level:   uint32(v.Level),
 		Account: serial.ToTypedMessage(account),
+	}
+
+	switch v.PacketEncoding {
+	case "Packet":
+		config.PacketEncoding = packetaddr.PacketAddrType_Packet
+	case "", "None":
+		config.PacketEncoding = packetaddr.PacketAddrType_None
 	}
 
 	return config, nil

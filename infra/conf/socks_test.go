@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/v2fly/v2ray-core/v4/common/net"
+	"github.com/v2fly/v2ray-core/v4/common/net/packetaddr"
 	"github.com/v2fly/v2ray-core/v4/common/protocol"
 	"github.com/v2fly/v2ray-core/v4/common/serial"
 	. "github.com/v2fly/v2ray-core/v4/infra/conf"
@@ -28,7 +29,8 @@ func TestSocksInboundConfig(t *testing.T) {
 				"udp": false,
 				"ip": "127.0.0.1",
 				"timeout": 5,
-				"userLevel": 1
+				"userLevel": 1,
+				"packetEncoding": "Packet"
 			}`,
 			Parser: loadJSON(creator),
 			Output: &socks.ServerConfig{
@@ -42,8 +44,9 @@ func TestSocksInboundConfig(t *testing.T) {
 						Ip: []byte{127, 0, 0, 1},
 					},
 				},
-				Timeout:   5,
-				UserLevel: 1,
+				Timeout:        5,
+				UserLevel:      1,
+				PacketEncoding: packetaddr.PacketAddrType_Packet,
 			},
 		},
 	})
