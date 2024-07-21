@@ -12,6 +12,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/quic-go/quic-go"
+	"github.com/quic-go/quic-go/http3"
 	"golang.org/x/net/http2"
 
 	core "github.com/v2fly/v2ray-core/v5"
@@ -24,6 +26,8 @@ import (
 	"github.com/v2fly/v2ray-core/v5/common/uuid"
 	"github.com/v2fly/v2ray-core/v5/transport/internet"
 	"github.com/v2fly/v2ray-core/v5/transport/internet/security"
+	"github.com/v2fly/v2ray-core/v5/transport/internet/tls"
+	"github.com/v2fly/v2ray-core/v5/transport/internet/tls/utls"
 	"github.com/v2fly/v2ray-core/v5/transport/internet/transportcommon"
 	"github.com/v2fly/v2ray-core/v5/transport/pipe"
 )
@@ -37,6 +41,7 @@ type reusedClient struct {
 	download *http.Client
 	upload   *http.Client
 	isH2     bool
+	isH3     bool
 	// pool of net.Conn, created using dialUploadConn
 	uploadRawPool  *sync.Pool
 	dialUploadConn func(ctxInner context.Context) (net.Conn, error)
@@ -59,30 +64,56 @@ func getHTTPClient(ctx context.Context, dest net.Destination, streamSettings *in
 		return client, nil
 	}
 
-	detachedContext := core.ToBackgroundDetachedContext(ctx)
-	conn, err := transportcommon.DialWithSecuritySettings(detachedContext, dest, streamSettings)
-	if err != nil {
-		return nil, err
+	var tlsConfig *tls.Config
+	switch cfg := streamSettings.SecuritySettings.(type) {
+	case *tls.Config:
+		tlsConfig = cfg
+	case *utls.Config:
+		tlsConfig = cfg.GetTlsConfig()
 	}
-	alpn := ""
-	if connALPNGetter, ok := conn.(security.ConnectionApplicationProtocol); ok {
-		if a, err := connALPNGetter.GetConnectionApplicationProtocol(); err == nil {
-			alpn = a
-		}
-	}
-	isFirstDial := true
+
+	isH2 := tlsConfig != nil && !(len(tlsConfig.NextProtocol) == 1 && tlsConfig.NextProtocol[0] == "http/1.1")
+	isH3 := tlsConfig != nil && len(tlsConfig.NextProtocol) == 1 && tlsConfig.NextProtocol[0] == "h3"
 	dialContext := func(_ context.Context) (net.Conn, error) {
-		if isFirstDial {
-			isFirstDial = false
-			return conn, nil
-		}
-		return transportcommon.DialWithSecuritySettings(detachedContext, dest, streamSettings)
+		return transportcommon.DialWithSecuritySettings(core.ToBackgroundDetachedContext(ctx), dest, streamSettings)
 	}
 
 	var uploadTransport http.RoundTripper
 	var downloadTransport http.RoundTripper
 
-	if alpn == http2.NextProtoTLS {
+	if isH3 {
+		dest.Network = net.Network_UDP
+		roundTripper := &http3.RoundTripper{
+			TLSClientConfig: tlsConfig.GetTLSConfig(tls.WithDestination(dest)),
+			QUICConfig: &quic.Config{
+				HandshakeIdleTimeout: 10 * time.Second,
+				MaxIdleTimeout:       90 * time.Second,
+				KeepAlivePeriod:      3 * time.Second,
+				Allow0RTT:            true,
+			},
+			Dial: func(_ context.Context, addr string, tlsCfg *gotls.Config, cfg *quic.Config) (quic.EarlyConnection, error) {
+				conn, err := internet.DialSystem(ctx, dest, streamSettings.SocketSettings)
+				if err != nil {
+					return nil, err
+				}
+				var udpConn net.PacketConn
+				switch c := conn.(type) {
+				case *net.UDPConn:
+					udpConn = c
+				case *internet.PacketConnWrapper:
+					udpConn = c.Conn.(*net.UDPConn)
+				default:
+					udpConn = NewConnWrapper(conn)
+				}
+				tr := quic.Transport{
+					Conn: udpConn,
+				}
+				return tr.DialEarly(ctx, conn.RemoteAddr(), tlsCfg, cfg)
+			},
+		}
+		downloadTransport = roundTripper
+		uploadTransport = roundTripper
+	} else if isH2 {
 		downloadTransport = &http2.Transport{
 			DialTLSContext: func(ctxInner context.Context, network string, addr string, cfg *gotls.Config) (net.Conn, error) {
 				return dialContext(ctxInner)
@@ -115,13 +146,41 @@ func getHTTPClient(ctx context.Context, dest net.Destination, streamSettings *in
 		upload: &http.Client{
 			Transport: uploadTransport,
 		},
-		isH2:           alpn == http2.NextProtoTLS,
+		isH2:           isH2,
+		isH3:           isH3,
 		uploadRawPool:  &sync.Pool{},
 		dialUploadConn: dialContext,
 	}
 
 	globalDialerMap[dialerConf{dest, streamSettings}] = client
 	return client, nil
+}
+
+type connWrapper struct {
+	net.Conn
+	localAddr net.Addr
+}
+
+func (c *connWrapper) ReadFrom(p []byte) (n int, addr net.Addr, err error) {
+	n, err = c.Read(p)
+	return n, c.RemoteAddr(), err
+}
+
+func (c *connWrapper) WriteTo(p []byte, _ net.Addr) (n int, err error) {
+	return c.Write(p)
+}
+
+func (c *connWrapper) LocalAddr() net.Addr {
+	return c.localAddr
+}
+
+func NewConnWrapper(conn net.Conn) net.PacketConn {
+	// https://github.com/quic-go/quic-go/commit/8189e75be6121fdc31dc1d6085f17015e9154667#diff-4c6aaadced390f3ce9bec0a9c9bb5203d5fa85df79023e3e0eec423dc9baa946R48-R62
+	uuid := uuid.New()
+	return &connWrapper{
+		Conn:      conn,
+		localAddr: &net.UnixAddr{Name: uuid.String()},
+	}
 }
 
 func init() {
@@ -138,8 +197,7 @@ func Dial(ctx context.Context, dest net.Destination, streamSettings *internet.Me
 	maxConcurrentUploads := transportConfiguration.GetNormalizedMaxConcurrentUploads()
 	maxUploadSize := transportConfiguration.GetNormalizedMaxUploadSize()
 
-	securityEngine, _ := security.CreateSecurityEngineFromSettings(ctx, streamSettings)
-	if securityEngine != nil {
+	if securityEngine, _ := security.CreateSecurityEngineFromSettings(ctx, streamSettings); securityEngine != nil {
 		requestURL.Scheme = "https"
 	} else {
 		requestURL.Scheme = "http"
@@ -262,7 +320,7 @@ func Dial(ctx context.Context, dest net.Destination, streamSettings *internet.Me
 				req.ContentLength = int64(chunk.Len())
 				req.Header = transportConfiguration.GetRequestHeader()
 
-				if httpClient.isH2 {
+				if httpClient.isH2 || httpClient.isH3 {
 					resp, err := httpClient.upload.Do(req)
 					if err != nil {
 						newError("failed to send upload").Base(err).WriteToLog()

@@ -10,6 +10,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/quic-go/quic-go"
+	"github.com/quic-go/quic-go/http3"
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
 
@@ -26,8 +28,8 @@ type requestHandler struct {
 	host      string
 	path      string
 	ln        *Listener
+	sessionMu *sync.Mutex
 	sessions  sync.Map
-	localAddr net.TCPAddr
 }
 
 type httpSession struct {
@@ -55,7 +57,17 @@ func (h *requestHandler) maybeReapSession(isFullyConnected *done.Instance, sessi
 }
 
 func (h *requestHandler) upsertSession(sessionId string) *httpSession {
+	// fast path
 	currentSessionAny, ok := h.sessions.Load(sessionId)
+	if ok {
+		return currentSessionAny.(*httpSession)
+	}
+
+	// slow path
+	h.sessionMu.Lock()
+	defer h.sessionMu.Unlock()
+
+	currentSessionAny, ok = h.sessions.Load(sessionId)
 	if ok {
 		return currentSessionAny.(*httpSession)
 	}
@@ -221,10 +233,13 @@ func (c *httpResponseBodyWriter) Close() error {
 
 type Listener struct {
 	sync.Mutex
-	server   http.Server
-	listener net.Listener
-	config   *Config
-	addConn  internet.ConnHandler
+	server     http.Server
+	h3server   *http3.Server
+	listener   net.Listener
+	h3listener *quic.EarlyListener
+	config     *Config
+	addConn    internet.ConnHandler
+	isH3       bool
 }
 
 func ListenSH(ctx context.Context, address net.Address, port net.Port, streamSettings *internet.MemoryStreamConfig, addConn internet.ConnHandler) (internet.Listener, error) {
@@ -240,7 +255,16 @@ func ListenSH(ctx context.Context, address net.Address, port net.Port, streamSet
 	}
 	var listener net.Listener
 	var err error
-	var localAddr = net.TCPAddr{}
+	handler := &requestHandler{
+		host:      shSettings.Host,
+		path:      shSettings.GetNormalizedPath(),
+		ln:        l,
+		sessionMu: &sync.Mutex{},
+		sessions:  sync.Map{},
+	}
+
+	tlsConfig := tls.ConfigFromStreamSettings(streamSettings)
+	l.isH3 = tlsConfig != nil && len(tlsConfig.NextProtocol) == 1 && tlsConfig.NextProtocol[0] == "h3"
 
 	if port == net.Port(0) { // unix
 		listener, err = internet.ListenSystem(ctx, &net.UnixAddr{
@@ -248,36 +272,44 @@ func ListenSH(ctx context.Context, address net.Address, port net.Port, streamSet
 			Net:  "unix",
 		}, streamSettings.SocketSettings)
 		if err != nil {
-			return nil, newError("failed to listen unix domain socket(for SH) on ", address).Base(err)
+			return nil, newError("failed to listen unix domain socket (for SH) on ", address).Base(err)
 		}
-		newError("listening unix domain socket(for SH) on ", address).WriteToLog(session.ExportIDToError(ctx))
-	} else { // tcp
-		localAddr = net.TCPAddr{
+		newError("listening unix domain socket (for SH) on ", address).WriteToLog(session.ExportIDToError(ctx))
+	} else if l.isH3 { // quic
+		conn, err := internet.ListenSystemPacket(context.Background(), &net.UDPAddr{
 			IP:   address.IP(),
 			Port: int(port),
+		}, streamSettings.SocketSettings)
+		if err != nil {
+			return nil, newError("failed to listen UDP (for SH3) on ", address).Base(err)
 		}
+		l.h3listener, err = quic.ListenEarly(conn, tlsConfig.GetTLSConfig(), nil)
+		if err != nil {
+			return nil, newError("failed to listen QUIC (for SH3) on ", address, ":", port).Base(err)
+		}
+		l.h3server = &http3.Server{
+			Handler: handler,
+		}
+		go func() {
+			if err := l.h3server.ServeListener(l.h3listener); err != nil {
+				newError("failed to serve http3 for splithttp").Base(err).AtWarning().WriteToLog(session.ExportIDToError(ctx))
+			}
+		}()
+		newError("listening QUIC (for SH3) on ", address, ":", port).WriteToLog(session.ExportIDToError(ctx))
+		return l, err
+	} else { // tcp
 		listener, err = internet.ListenSystem(ctx, &net.TCPAddr{
 			IP:   address.IP(),
 			Port: int(port),
 		}, streamSettings.SocketSettings)
 		if err != nil {
-			return nil, newError("failed to listen TCP(for SH) on ", address, ":", port).Base(err)
+			return nil, newError("failed to listen TCP (for SH) on ", address, ":", port).Base(err)
 		}
-		newError("listening TCP(for SH) on ", address, ":", port).WriteToLog(session.ExportIDToError(ctx))
+		newError("listening TCP (for SH) on ", address, ":", port).WriteToLog(session.ExportIDToError(ctx))
 	}
 
-	if config := tls.ConfigFromStreamSettings(streamSettings); config != nil {
-		if tlsConfig := config.GetTLSConfig(); tlsConfig != nil {
-			listener = gotls.NewListener(listener, tlsConfig)
-		}
-	}
-
-	handler := &requestHandler{
-		host:      shSettings.Host,
-		path:      shSettings.GetNormalizedPath(),
-		ln:        l,
-		sessions:  sync.Map{},
-		localAddr: localAddr,
+	if tlsConfig != nil {
+		listener = gotls.NewListener(listener, tlsConfig.GetTLSConfig())
 	}
 
 	// h2cHandler can handle both plaintext HTTP/1.1 and h2c
@@ -307,6 +339,9 @@ func (ln *Listener) Addr() net.Addr {
 
 // Close implements net.Listener.Close().
 func (ln *Listener) Close() error {
+	if ln.h3server != nil {
+		return ln.h3server.Close()
+	}
 	return ln.listener.Close()
 }
 

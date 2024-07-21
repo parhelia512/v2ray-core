@@ -413,7 +413,7 @@ func UnwrapRawConn(conn net.Conn) (net.Conn, stats.Counter, stats.Counter) {
 		}
 		if tlsConn, ok := conn.(*tls.Conn); ok {
 			conn = tlsConn.NetConn()
-		} else if utlsConn, ok := conn.(*utls.UTLSClientConnection); ok {
+		} else if utlsConn, ok := conn.(utls.UTLSClientConnection); ok {
 			conn = utlsConn.NetConn()
 		} else if realityConn, ok := conn.(*reality.Conn); ok {
 			conn = realityConn.NetConn()
