@@ -119,6 +119,10 @@ func NewHyClient(ctx context.Context, dest net.Destination, streamSettings *inte
 		TLSConfig:  *hyTLSConfig,
 		Auth:       config.GetPassword(),
 		ServerAddr: serverAddr,
+		BandwidthConfig: hyClient.BandwidthConfig{
+			MaxTx: config.Congestion.UpMbps * 1000 * 1000 / 8,
+			MaxRx: config.Congestion.DownMbps * 1000 * 1000 / 8,
+		},
 	}
 
 	connFactory := &connFactory{

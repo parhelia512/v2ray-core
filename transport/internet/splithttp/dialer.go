@@ -53,17 +53,6 @@ var (
 )
 
 func getHTTPClient(ctx context.Context, dest net.Destination, streamSettings *internet.MemoryStreamConfig) (*reusedClient, error) {
-	globalDialerAccess.Lock()
-	defer globalDialerAccess.Unlock()
-
-	if globalDialerMap == nil {
-		globalDialerMap = make(map[dialerConf]*reusedClient)
-	}
-
-	if client, found := globalDialerMap[dialerConf{dest, streamSettings}]; found {
-		return client, nil
-	}
-
 	var tlsConfig *tls.Config
 	switch cfg := streamSettings.SecuritySettings.(type) {
 	case *tls.Config:
@@ -74,6 +63,21 @@ func getHTTPClient(ctx context.Context, dest net.Destination, streamSettings *in
 
 	isH2 := tlsConfig != nil && !(len(tlsConfig.NextProtocol) == 1 && tlsConfig.NextProtocol[0] == "http/1.1")
 	isH3 := tlsConfig != nil && len(tlsConfig.NextProtocol) == 1 && tlsConfig.NextProtocol[0] == "h3"
+
+	globalDialerAccess.Lock()
+	defer globalDialerAccess.Unlock()
+
+	if globalDialerMap == nil {
+		globalDialerMap = make(map[dialerConf]*reusedClient)
+	}
+
+	if isH3 {
+		dest.Network = net.Network_UDP
+	}
+	if client, found := globalDialerMap[dialerConf{dest, streamSettings}]; found {
+		return client, nil
+	}
+
 	dialContext := func(_ context.Context) (net.Conn, error) {
 		return transportcommon.DialWithSecuritySettings(core.ToBackgroundDetachedContext(ctx), dest, streamSettings)
 	}
@@ -82,15 +86,8 @@ func getHTTPClient(ctx context.Context, dest net.Destination, streamSettings *in
 	var downloadTransport http.RoundTripper
 
 	if isH3 {
-		dest.Network = net.Network_UDP
 		roundTripper := &http3.RoundTripper{
 			TLSClientConfig: tlsConfig.GetTLSConfig(tls.WithDestination(dest)),
-			QUICConfig: &quic.Config{
-				HandshakeIdleTimeout: 10 * time.Second,
-				MaxIdleTimeout:       90 * time.Second,
-				KeepAlivePeriod:      3 * time.Second,
-				Allow0RTT:            true,
-			},
 			Dial: func(_ context.Context, addr string, tlsCfg *gotls.Config, cfg *quic.Config) (quic.EarlyConnection, error) {
 				conn, err := internet.DialSystem(ctx, dest, streamSettings.SocketSettings)
 				if err != nil {
@@ -152,7 +149,11 @@ func getHTTPClient(ctx context.Context, dest net.Destination, streamSettings *in
 		dialUploadConn: dialContext,
 	}
 
-	globalDialerMap[dialerConf{dest, streamSettings}] = client
+	if !isH3 {
+		// h3 dialer reuse does not work at the moment
+		globalDialerMap[dialerConf{dest, streamSettings}] = client
+	}
+
 	return client, nil
 }
 
@@ -377,6 +378,10 @@ func Dial(ctx context.Context, dest net.Destination, streamSettings *internet.Me
 
 		}
 	}()
+
+	if httpClient.isH3 {
+		gotConn.Close()
+	}
 
 	// we want to block Dial until we know the remote address of the server,
 	// for logging purposes

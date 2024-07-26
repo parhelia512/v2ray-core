@@ -289,7 +289,6 @@ func (c *MeekConfig) Build() (proto.Message, error) {
 }
 
 type Hysteria2ConfigCongestion struct {
-	Type     string `json:"type"`
 	UpMbps   uint64 `json:"upMbps"`
 	DownMbps uint64 `json:"downMbps"`
 }
@@ -312,7 +311,6 @@ func (c *Hysteria2Config) Build() (proto.Message, error) {
 	return &hysteria2.Config{
 		Password: c.Password,
 		Congestion: &hysteria2.Congestion{
-			Type:     c.Congestion.Type,
 			DownMbps: c.Congestion.DownMbps,
 			UpMbps:   c.Congestion.UpMbps,
 		},
