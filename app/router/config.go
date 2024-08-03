@@ -124,7 +124,7 @@ func (br *BalancingRule) Build(ohm outbound.Manager, dispatcher routing.Dispatch
 		return &Balancer{
 			selectors: br.OutboundSelector,
 			strategy:  &LeastPingStrategy{config: s},
-			ohm:       ohm,
+			ohm:       ohm, fallbackTag: br.FallbackTag,
 		}, nil
 	case "leastload":
 		i, err := br.StrategySettings.GetInstance()
