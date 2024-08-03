@@ -116,12 +116,13 @@ func NewHyClient(ctx context.Context, dest net.Destination, streamSettings *inte
 
 	config := streamSettings.ProtocolSettings.(*Config)
 	hyConfig := &hyClient.Config{
-		TLSConfig:  *hyTLSConfig,
+
 		Auth:       config.GetPassword(),
+		TLSConfig:  *hyTLSConfig,
 		ServerAddr: serverAddr,
 		BandwidthConfig: hyClient.BandwidthConfig{
-			MaxTx: config.Congestion.UpMbps * 1000 * 1000 / 8,
-			MaxRx: config.Congestion.DownMbps * 1000 * 1000 / 8,
+			MaxTx: config.Congestion.GetUpMbps() * 1000 * 1000 / 8,
+			MaxRx: config.Congestion.GetDownMbps() * 1000 * 1000 / 8,
 		},
 	}
 
@@ -194,7 +195,6 @@ func GetHyClient(ctx context.Context, dest net.Destination, streamSettings *inte
 }
 
 func CheckHyClientHealthy(client hyClient.Client) bool {
-	// TODO: Clean idle connections
 	quicConn := client.GetQuicConn()
 	if quicConn == nil {
 		return false

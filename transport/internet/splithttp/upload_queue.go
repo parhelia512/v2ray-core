@@ -6,6 +6,7 @@ package splithttp
 import (
 	"container/heap"
 	"io"
+	"sync"
 )
 
 type Packet struct {
@@ -13,16 +14,17 @@ type Packet struct {
 	Seq     uint64
 }
 
-type UploadQueue struct {
-	pushedPackets chan Packet
-	heap          uploadHeap
-	nextSeq       uint64
-	closed        bool
-	maxPackets    int
+type uploadQueue struct {
+	pushedPackets   chan Packet
+	writeCloseMutex sync.Mutex
+	heap            uploadHeap
+	nextSeq         uint64
+	closed          bool
+	maxPackets      int32
 }
 
-func NewUploadQueue(maxPackets int) *UploadQueue {
-	return &UploadQueue{
+func NewUploadQueue(maxPackets int32) *uploadQueue {
+	return &uploadQueue{
 		pushedPackets: make(chan Packet, maxPackets),
 		heap:          uploadHeap{},
 		nextSeq:       0,
@@ -31,7 +33,10 @@ func NewUploadQueue(maxPackets int) *UploadQueue {
 	}
 }
 
-func (h *UploadQueue) Push(p Packet) error {
+func (h *uploadQueue) Push(p Packet) error {
+	h.writeCloseMutex.Lock()
+	defer h.writeCloseMutex.Unlock()
+
 	if h.closed {
 		return newError("splithttp packet queue closed")
 	}
@@ -40,13 +45,16 @@ func (h *UploadQueue) Push(p Packet) error {
 	return nil
 }
 
-func (h *UploadQueue) Close() error {
+func (h *uploadQueue) Close() error {
+	h.writeCloseMutex.Lock()
+	defer h.writeCloseMutex.Unlock()
+
 	h.closed = true
 	close(h.pushedPackets)
 	return nil
 }
 
-func (h *UploadQueue) Read(b []byte) (int, error) {
+func (h *uploadQueue) Read(b []byte) (int, error) {
 	if h.closed {
 		return 0, io.EOF
 	}
@@ -80,7 +88,7 @@ func (h *UploadQueue) Read(b []byte) (int, error) {
 
 		// misordered packet
 		if packet.Seq > h.nextSeq {
-			if len(h.heap) > h.maxPackets {
+			if len(h.heap) > int(h.maxPackets) {
 				// the "reassembly buffer" is too large, and we want to
 				// constrain memory usage somehow. let's tear down the
 				// connection, and hope the application retries.

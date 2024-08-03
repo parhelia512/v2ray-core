@@ -65,7 +65,7 @@ func (c *ConnWriter) writeTCPHeader() error {
 	for i := range padding {
 		padding[i] = paddingChars[rand.Intn(len(paddingChars))]
 	}
-	addressAndPort := c.Target.Address.String() + ":" + c.Target.Port.String()
+	addressAndPort := c.Target.NetAddr()
 	addressLen := len(addressAndPort)
 
 	buf := make([]byte, quicvarint.Len(uint64(addressLen))+addressLen+quicvarint.Len(uint64(paddingLen))+paddingLen)

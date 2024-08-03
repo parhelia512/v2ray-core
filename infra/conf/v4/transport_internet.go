@@ -324,11 +324,10 @@ func (c *Hysteria2Config) Build() (proto.Message, error) {
 }
 
 type SplitHTTPConfig struct {
-	Host                 string            `json:"host"`
-	Path                 string            `json:"path"`
-	Headers              map[string]string `json:"headers"`
-	MaxConcurrentUploads int32             `json:"maxConcurrentUploads"`
-	MaxUploadSize        int32             `json:"maxUploadSize"`
+	Host        string            `json:"host"`
+	Path        string            `json:"path"`
+	Headers     map[string]string `json:"headers"`
+	NoSSEHeader bool              `json:"noSSEHeader"`
 }
 
 // Build implements Buildable.
@@ -341,14 +340,12 @@ func (c *SplitHTTPConfig) Build() (proto.Message, error) {
 	} else if c.Host == "" && c.Headers["Host"] != "" {
 		c.Host = c.Headers["Host"]
 	}
-	config := &splithttp.Config{
-		Path:                 c.Path,
-		Host:                 c.Host,
-		Header:               c.Headers,
-		MaxConcurrentUploads: c.MaxConcurrentUploads,
-		MaxUploadSize:        c.MaxUploadSize,
-	}
-	return config, nil
+	return &splithttp.Config{
+		Path:        c.Path,
+		Host:        c.Host,
+		Header:      c.Headers,
+		NoSSEHeader: c.NoSSEHeader,
+	}, nil
 }
 
 type TransportProtocol string

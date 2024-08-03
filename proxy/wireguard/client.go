@@ -78,7 +78,7 @@ func (h *Handler) processWireGuard(ctx context.Context, dialer internet.Dialer) 
 	}
 
 	// bind := conn.NewStdNetBind() // TODO: conn.Bind wrapper for dialer
-	bind := &netBindClient{
+	h.bind = &netBindClient{
 		netBind: netBind{
 			dns: h.dns,
 			dnsOption: dns.IPOption{
@@ -93,15 +93,14 @@ func (h *Handler) processWireGuard(ctx context.Context, dialer internet.Dialer) 
 	}
 	defer func() {
 		if err != nil {
-			_ = bind.Close()
+			_ = h.bind.Close()
 		}
 	}()
 
-	h.net, err = h.makeVirtualTun(bind)
+	h.net, err = h.makeVirtualTun()
 	if err != nil {
 		return newError("failed to create virtual tun interface").Base(err)
 	}
-	h.bind = bind
 	return nil
 }
 
@@ -198,16 +197,16 @@ func (h *Handler) Process(ctx context.Context, link *transport.Link, dialer inte
 }
 
 // creates a tun interface on netstack given a configuration
-func (h *Handler) makeVirtualTun(bind *netBindClient) (Tunnel, error) {
+func (h *Handler) makeVirtualTun() (Tunnel, error) {
 	t, err := CreateTun(h.endpoints, int(h.conf.Mtu))
 	if err != nil {
 		return nil, err
 	}
 
-	bind.dnsOption.IPv4Enable = h.hasIPv4
-	bind.dnsOption.IPv6Enable = h.hasIPv6
+	h.bind.dnsOption.IPv4Enable = h.hasIPv4
+	h.bind.dnsOption.IPv6Enable = h.hasIPv6
 
-	if err = t.BuildDevice(h.createIPCRequest(h.conf), bind); err != nil {
+	if err = t.BuildDevice(h.createIPCRequest(), h.bind); err != nil {
 		_ = t.Close()
 		return nil, err
 	}
@@ -250,12 +249,12 @@ func parseEndpoints(conf *DeviceConfig) ([]netip.Addr, bool, bool, error) {
 }
 
 // serialize the config into an IPC request
-func (h *Handler) createIPCRequest(conf *DeviceConfig) string {
+func (h *Handler) createIPCRequest() string {
 	var request strings.Builder
 
-	request.WriteString(fmt.Sprintf("private_key=%s\n", conf.SecretKey))
+	request.WriteString(fmt.Sprintf("private_key=%s\n", h.conf.SecretKey))
 
-	for _, peer := range conf.Peers {
+	for _, peer := range h.conf.Peers {
 		if peer.PublicKey != "" {
 			request.WriteString(fmt.Sprintf("public_key=%s\n", peer.PublicKey))
 		}

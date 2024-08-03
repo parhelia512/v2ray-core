@@ -2,8 +2,10 @@ package splithttp
 
 import (
 	"context"
+	"crypto/rand"
 	gotls "crypto/tls"
 	"io"
+	"math/big"
 	"net/http"
 	"strconv"
 	"strings"
@@ -25,6 +27,7 @@ import (
 )
 
 type requestHandler struct {
+	config    *Config
 	host      string
 	path      string
 	ln        *Listener
@@ -33,7 +36,7 @@ type requestHandler struct {
 }
 
 type httpSession struct {
-	uploadQueue *UploadQueue
+	uploadQueue *uploadQueue
 	// for as long as the GET request is not opened by the client, this will be
 	// open ("undone"), and the session may be expired within a certain TTL.
 	// after the client connects, this becomes "done" and the session lives as
@@ -73,7 +76,7 @@ func (h *requestHandler) upsertSession(sessionId string) *httpSession {
 	}
 
 	s := &httpSession{
-		uploadQueue:      NewUploadQueue(int(2 * h.ln.config.GetNormalizedMaxConcurrentUploads())),
+		uploadQueue:      NewUploadQueue(scMaxConcurrentPosts),
 		isFullyConnected: done.New(),
 	}
 
@@ -83,7 +86,7 @@ func (h *requestHandler) upsertSession(sessionId string) *httpSession {
 }
 
 func (h *requestHandler) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
-	if len(h.host) > 0 && request.Host != h.host {
+	if len(h.host) > 0 && IsValidHTTPHost(request.Host, h.host) {
 		newError("failed to validate host, request:", request.Host, ", config:", h.host).WriteToLog()
 		writer.WriteHeader(http.StatusNotFound)
 		return
@@ -134,6 +137,7 @@ func (h *requestHandler) ServeHTTP(writer http.ResponseWriter, request *http.Req
 		}
 
 		payload, err := io.ReadAll(request.Body)
+
 		if err != nil {
 			newError("failed to upload").Base(err).WriteToLog()
 			writer.WriteHeader(http.StatusInternalServerError)
@@ -172,13 +176,20 @@ func (h *requestHandler) ServeHTTP(writer http.ResponseWriter, request *http.Req
 
 		// magic header instructs nginx + apache to not buffer response body
 		writer.Header().Set("X-Accel-Buffering", "no")
-		// magic header to make the HTTP middle box consider this as SSE to disable buffer
-		writer.Header().Set("Content-Type", "text/event-stream")
+		if !h.config.NoSSEHeader {
+			// magic header to make the HTTP middle box consider this as SSE to disable buffer
+			writer.Header().Set("Content-Type", "text/event-stream")
+		}
 
 		writer.WriteHeader(http.StatusOK)
 		// send a chunk immediately to enable CDN streaming.
 		// many CDN buffer the response headers until the origin starts sending
 		// the body, with no way to turn it off.
+		bigInt, _ := rand.Int(rand.Reader, big.NewInt(int64(scMaxResponseOkPadding-scMinResponseOkPadding)))
+		padding := scMinResponseOkPadding + int(bigInt.Int64())
+		for i := 0; i < padding; i++ {
+			writer.Write([]byte("o"))
+		}
 		writer.Write([]byte("ok"))
 		responseFlusher.Flush()
 
@@ -198,7 +209,6 @@ func (h *requestHandler) ServeHTTP(writer http.ResponseWriter, request *http.Req
 
 		// "A ResponseWriter may not be used after [Handler.ServeHTTP] has returned."
 		<-downloadDone.Wait()
-
 	} else {
 		writer.WriteHeader(http.StatusMethodNotAllowed)
 	}
@@ -256,8 +266,9 @@ func ListenSH(ctx context.Context, address net.Address, port net.Port, streamSet
 	var listener net.Listener
 	var err error
 	handler := &requestHandler{
+		config:    shSettings,
 		host:      shSettings.Host,
-		path:      shSettings.GetNormalizedPath(),
+		path:      shSettings.GetNormalizedPath("", false),
 		ln:        l,
 		sessionMu: &sync.Mutex{},
 		sessions:  sync.Map{},

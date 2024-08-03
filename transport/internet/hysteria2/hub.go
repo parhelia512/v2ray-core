@@ -93,14 +93,14 @@ func Listen(ctx context.Context, address net.Address, port net.Port, streamSetti
 	hyConfig := &hyServer.Config{
 		Conn:                  rawConn,
 		TLSConfig:             *hyTLSConfig,
-		Authenticator:         &Authenticator{Password: config.GetPassword()},
-		IgnoreClientBandwidth: config.GetIgnoreClientBandwidth(),
 		DisableUDP:            !config.GetUseUdpExtension(),
+		Authenticator:         &Authenticator{Password: config.GetPassword()},
 		StreamHijacker:        listener.StreamHijacker, // acceptStreams
 		UdpSessionHijacker:    listener.UDPHijacker,    // acceptUDPSession
+		IgnoreClientBandwidth: config.GetIgnoreClientBandwidth(),
 		BandwidthConfig: hyServer.BandwidthConfig{
-			MaxTx: config.Congestion.UpMbps * 1000 * 1000 / 8,
-			MaxRx: config.Congestion.DownMbps * 1000 * 1000 / 8,
+			MaxTx: config.Congestion.GetUpMbps() * 1000 * 1000 / 8,
+			MaxRx: config.Congestion.GetDownMbps() * 1000 * 1000 / 8,
 		},
 	}
 	if config.Obfs != nil && config.Obfs.Type == "salamander" {
