@@ -125,4 +125,12 @@ message SocketConfig {
 
 
   MPTCPState mptcp = 15;
+
+  message Fragment {
+    string packets = 1;
+    string length = 2;
+    string interval = 3;
+  }
+
+  Fragment fragment = 99;
 }
