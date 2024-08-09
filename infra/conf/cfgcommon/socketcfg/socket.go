@@ -7,17 +7,24 @@ import (
 )
 
 type SocketConfig struct {
-	Mark                 uint32 `json:"mark"`
-	TFO                  *bool  `json:"tcpFastOpen"`
-	TProxy               string `json:"tproxy"`
-	AcceptProxyProtocol  bool   `json:"acceptProxyProtocol"`
-	TCPKeepAliveInterval int32  `json:"tcpKeepAliveInterval"`
-	TCPKeepAliveIdle     int32  `json:"tcpKeepAliveIdle"`
-	TFOQueueLength       uint32 `json:"tcpFastOpenQueueLength"`
-	BindToDevice         string `json:"bindToDevice"`
-	RxBufSize            uint64 `json:"rxBufSize"`
-	TxBufSize            uint64 `json:"txBufSize"`
-	ForceBufSize         bool   `json:"forceBufSize"`
+	Mark                 uint32    `json:"mark"`
+	TFO                  *bool     `json:"tcpFastOpen"`
+	TProxy               string    `json:"tproxy"`
+	AcceptProxyProtocol  bool      `json:"acceptProxyProtocol"`
+	TCPKeepAliveInterval int32     `json:"tcpKeepAliveInterval"`
+	TCPKeepAliveIdle     int32     `json:"tcpKeepAliveIdle"`
+	TFOQueueLength       uint32    `json:"tcpFastOpenQueueLength"`
+	BindToDevice         string    `json:"bindToDevice"`
+	RxBufSize            uint64    `json:"rxBufSize"`
+	TxBufSize            uint64    `json:"txBufSize"`
+	ForceBufSize         bool      `json:"forceBufSize"`
+	Fragment             *Fragment `json:"fragment"`
+}
+
+type Fragment struct {
+	Packets  string `json:"packets"`
+	Length   string `json:"length"`
+	Interval string `json:"interval"`
 }
 
 // Build implements Buildable.
@@ -46,7 +53,7 @@ func (c *SocketConfig) Build() (*internet.SocketConfig, error) {
 		tproxy = internet.SocketConfig_Off
 	}
 
-	return &internet.SocketConfig{
+	config := &internet.SocketConfig{
 		Mark:                 c.Mark,
 		Tfo:                  tfoSettings,
 		TfoQueueLength:       tfoQueueLength,
@@ -58,5 +65,14 @@ func (c *SocketConfig) Build() (*internet.SocketConfig, error) {
 		TxBufSize:            int64(c.TxBufSize),
 		ForceBufSize:         c.ForceBufSize,
 		BindToDevice:         c.BindToDevice,
-	}, nil
+	}
+
+	if c.Fragment != nil {
+		config.Fragment = new(internet.SocketConfig_Fragment)
+		config.Fragment.Packets = c.Fragment.Packets
+		config.Fragment.Length = c.Fragment.Length
+		config.Fragment.Interval = c.Fragment.Interval
+	}
+
+	return config, nil
 }
