@@ -95,7 +95,11 @@ func DialSystem(ctx context.Context, dest net.Destination, sockopt *SocketConfig
 		newError("dialing to ", dest, " resolved from ", originalAddr).WriteToLog(session.ExportIDToError(ctx))
 	}
 
-	return effectiveSystemDialer.Dial(ctx, src, dest, sockopt)
+	conn, err := effectiveSystemDialer.Dial(ctx, src, dest, sockopt)
+	if err == nil && conn != nil && dest.Network == net.Network_TCP && sockopt != nil && sockopt.Fragment != nil {
+		return NewFragmentConn(conn, sockopt.Fragment.Packets, sockopt.Fragment.Length, sockopt.Fragment.Interval)
+	}
+	return conn, err
 }
 
 func DialTaggedOutbound(ctx context.Context, dest net.Destination, tag string) (net.Conn, error) {
