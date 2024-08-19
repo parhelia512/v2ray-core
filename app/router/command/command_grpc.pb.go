@@ -9,8 +9,8 @@ import (
 
 // This is a compile-time assertion to ensure that this generated file
 // is compatible with the grpc package it is being compiled against.
-// Requires gRPC-Go v1.62.0 or later.
-const _ = grpc.SupportPackageIsVersion8
+// Requires gRPC-Go v1.64.0 or later.
+const _ = grpc.SupportPackageIsVersion9
 
 const (
 	RoutingService_SubscribeRoutingStats_FullMethodName  = "/v2ray.core.app.router.command.RoutingService/SubscribeRoutingStats"
@@ -23,7 +23,7 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type RoutingServiceClient interface {
-	SubscribeRoutingStats(ctx context.Context, in *SubscribeRoutingStatsRequest, opts ...grpc.CallOption) (RoutingService_SubscribeRoutingStatsClient, error)
+	SubscribeRoutingStats(ctx context.Context, in *SubscribeRoutingStatsRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[RoutingContext], error)
 	TestRoute(ctx context.Context, in *TestRouteRequest, opts ...grpc.CallOption) (*RoutingContext, error)
 	GetBalancerInfo(ctx context.Context, in *GetBalancerInfoRequest, opts ...grpc.CallOption) (*GetBalancerInfoResponse, error)
 	OverrideBalancerTarget(ctx context.Context, in *OverrideBalancerTargetRequest, opts ...grpc.CallOption) (*OverrideBalancerTargetResponse, error)
@@ -37,13 +37,13 @@ func NewRoutingServiceClient(cc grpc.ClientConnInterface) RoutingServiceClient {
 	return &routingServiceClient{cc}
 }
 
-func (c *routingServiceClient) SubscribeRoutingStats(ctx context.Context, in *SubscribeRoutingStatsRequest, opts ...grpc.CallOption) (RoutingService_SubscribeRoutingStatsClient, error) {
+func (c *routingServiceClient) SubscribeRoutingStats(ctx context.Context, in *SubscribeRoutingStatsRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[RoutingContext], error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	stream, err := c.cc.NewStream(ctx, &RoutingService_ServiceDesc.Streams[0], RoutingService_SubscribeRoutingStats_FullMethodName, cOpts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &routingServiceSubscribeRoutingStatsClient{ClientStream: stream}
+	x := &grpc.GenericClientStream[SubscribeRoutingStatsRequest, RoutingContext]{ClientStream: stream}
 	if err := x.ClientStream.SendMsg(in); err != nil {
 		return nil, err
 	}
@@ -53,22 +53,8 @@ func (c *routingServiceClient) SubscribeRoutingStats(ctx context.Context, in *Su
 	return x, nil
 }
 
-type RoutingService_SubscribeRoutingStatsClient interface {
-	Recv() (*RoutingContext, error)
-	grpc.ClientStream
-}
-
-type routingServiceSubscribeRoutingStatsClient struct {
-	grpc.ClientStream
-}
-
-func (x *routingServiceSubscribeRoutingStatsClient) Recv() (*RoutingContext, error) {
-	m := new(RoutingContext)
-	if err := x.ClientStream.RecvMsg(m); err != nil {
-		return nil, err
-	}
-	return m, nil
-}
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type RoutingService_SubscribeRoutingStatsClient = grpc.ServerStreamingClient[RoutingContext]
 
 func (c *routingServiceClient) TestRoute(ctx context.Context, in *TestRouteRequest, opts ...grpc.CallOption) (*RoutingContext, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
@@ -102,20 +88,23 @@ func (c *routingServiceClient) OverrideBalancerTarget(ctx context.Context, in *O
 
 // RoutingServiceServer is the server API for RoutingService service.
 // All implementations must embed UnimplementedRoutingServiceServer
-// for forward compatibility
+// for forward compatibility.
 type RoutingServiceServer interface {
-	SubscribeRoutingStats(*SubscribeRoutingStatsRequest, RoutingService_SubscribeRoutingStatsServer) error
+	SubscribeRoutingStats(*SubscribeRoutingStatsRequest, grpc.ServerStreamingServer[RoutingContext]) error
 	TestRoute(context.Context, *TestRouteRequest) (*RoutingContext, error)
 	GetBalancerInfo(context.Context, *GetBalancerInfoRequest) (*GetBalancerInfoResponse, error)
 	OverrideBalancerTarget(context.Context, *OverrideBalancerTargetRequest) (*OverrideBalancerTargetResponse, error)
 	mustEmbedUnimplementedRoutingServiceServer()
 }
 
-// UnimplementedRoutingServiceServer must be embedded to have forward compatible implementations.
-type UnimplementedRoutingServiceServer struct {
-}
+// UnimplementedRoutingServiceServer must be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedRoutingServiceServer struct{}
 
-func (UnimplementedRoutingServiceServer) SubscribeRoutingStats(*SubscribeRoutingStatsRequest, RoutingService_SubscribeRoutingStatsServer) error {
+func (UnimplementedRoutingServiceServer) SubscribeRoutingStats(*SubscribeRoutingStatsRequest, grpc.ServerStreamingServer[RoutingContext]) error {
 	return status.Errorf(codes.Unimplemented, "method SubscribeRoutingStats not implemented")
 }
 func (UnimplementedRoutingServiceServer) TestRoute(context.Context, *TestRouteRequest) (*RoutingContext, error) {
@@ -128,6 +117,7 @@ func (UnimplementedRoutingServiceServer) OverrideBalancerTarget(context.Context,
 	return nil, status.Errorf(codes.Unimplemented, "method OverrideBalancerTarget not implemented")
 }
 func (UnimplementedRoutingServiceServer) mustEmbedUnimplementedRoutingServiceServer() {}
+func (UnimplementedRoutingServiceServer) testEmbeddedByValue()                        {}
 
 // UnsafeRoutingServiceServer may be embedded to opt out of forward compatibility for this service.
 // Use of this interface is not recommended, as added methods to RoutingServiceServer will
@@ -137,6 +127,13 @@ type UnsafeRoutingServiceServer interface {
 }
 
 func RegisterRoutingServiceServer(s grpc.ServiceRegistrar, srv RoutingServiceServer) {
+	// If the following call pancis, it indicates UnimplementedRoutingServiceServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
 	s.RegisterService(&RoutingService_ServiceDesc, srv)
 }
 
@@ -145,21 +142,11 @@ func _RoutingService_SubscribeRoutingStats_Handler(srv interface{}, stream grpc.
 	if err := stream.RecvMsg(m); err != nil {
 		return err
 	}
-	return srv.(RoutingServiceServer).SubscribeRoutingStats(m, &routingServiceSubscribeRoutingStatsServer{ServerStream: stream})
+	return srv.(RoutingServiceServer).SubscribeRoutingStats(m, &grpc.GenericServerStream[SubscribeRoutingStatsRequest, RoutingContext]{ServerStream: stream})
 }
 
-type RoutingService_SubscribeRoutingStatsServer interface {
-	Send(*RoutingContext) error
-	grpc.ServerStream
-}
-
-type routingServiceSubscribeRoutingStatsServer struct {
-	grpc.ServerStream
-}
-
-func (x *routingServiceSubscribeRoutingStatsServer) Send(m *RoutingContext) error {
-	return x.ServerStream.SendMsg(m)
-}
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type RoutingService_SubscribeRoutingStatsServer = grpc.ServerStreamingServer[RoutingContext]
 
 func _RoutingService_TestRoute_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(TestRouteRequest)

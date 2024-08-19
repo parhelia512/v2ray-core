@@ -95,39 +95,11 @@ func DialSystem(ctx context.Context, dest net.Destination, sockopt *SocketConfig
 		newError("dialing to ", dest, " resolved from ", originalAddr).WriteToLog(session.ExportIDToError(ctx))
 	}
 
-	return effectiveSystemDialer.Dial(ctx, src, dest, sockopt)
-}
-
-// SagerNet: private
-func DialSystemDNS(ctx context.Context, dest net.Destination, sockopt *SocketConfig) (net.Conn, error) {
-	outbound := session.OutboundFromContext(ctx)
-
-	var src net.Address
-	if outbound != nil {
-		src = outbound.Gateway
+	conn, err := effectiveSystemDialer.Dial(ctx, src, dest, sockopt)
+	if err == nil && conn != nil && dest.Network == net.Network_TCP && sockopt != nil && sockopt.Fragment != nil {
+		return NewFragmentConn(conn, sockopt.Fragment.Packets, sockopt.Fragment.Length, sockopt.Fragment.Interval)
 	}
-
-	if transportLayerOutgoingTag := session.GetTransportLayerProxyTagFromContext(ctx); transportLayerOutgoingTag != "" {
-		return DialTaggedOutbound(ctx, dest, transportLayerOutgoingTag)
-	}
-
-	originalAddr := dest.Address
-	if outbound != nil && outbound.Resolver != nil && dest.Address.Family().IsDomain() {
-		if addr := outbound.Resolver(ctx, dest.Address.Domain()); addr != nil {
-			dest.Address = addr
-		}
-	}
-
-	switch {
-	case src != nil && dest.Address != originalAddr:
-		newError("dialing to ", dest, " resolved from ", originalAddr, " via ", src).WriteToLog(session.ExportIDToError(ctx))
-	case src != nil:
-		newError("dialing to ", dest, " via ", src).WriteToLog(session.ExportIDToError(ctx))
-	case dest.Address != originalAddr:
-		newError("dialing to ", dest, " resolved from ", originalAddr).WriteToLog(session.ExportIDToError(ctx))
-	}
-
-	return effectiveSystemDNSDialer.Dial(ctx, src, dest, sockopt)
+	return conn, err
 }
 
 func DialTaggedOutbound(ctx context.Context, dest net.Destination, tag string) (net.Conn, error) {

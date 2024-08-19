@@ -1,7 +1,7 @@
 ## Notes
-This branch includes patches used in https://github.com/dyhkwong/SagerNet and https://github.com/dyhkwong/LibSagerNetCore.
+This branch includes patches used in https://github.com/dyhkwong/Exclave and https://github.com/dyhkwong/LibSagerNetCore.
 
-Some junk but popular functions are included as well.
+Some "popular protocols" are included as well.
 
 ## License
 

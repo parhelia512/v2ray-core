@@ -146,19 +146,17 @@ func (h *Handler) Process(ctx context.Context, link *transport.Link, dialer inte
 	timer := signal.CancelAfterInactivity(ctx, cancel, sessionPolicy.Timeouts.ConnectionIdle)
 
 	packetEncoding := packetaddr.PacketAddrType_None
-	if command == protocol.RequestCommandUDP && target.Port > 0 {
-		switch h.packetEncoding {
-		case packetaddr.PacketAddrType_Packet:
+	if command == protocol.RequestCommandUDP && request.Port > 0 {
+		switch {
+		case h.packetEncoding == packetaddr.PacketAddrType_Packet && request.Address.Family().IsIP():
 			packetEncoding = h.packetEncoding
 			request.Address = net.DomainAddress(packetaddr.SeqPacketMagicAddress)
 			request.Port = 0
-		case packetaddr.PacketAddrType_XUDP:
-			if request.Port != 53 && request.Port != 443 {
-				packetEncoding = h.packetEncoding
-				request.Command = protocol.RequestCommandMux
-				request.Address = net.DomainAddress("v1.mux.cool")
-				request.Port = 0
-			}
+		case h.packetEncoding == packetaddr.PacketAddrType_XUDP && request.Port != 53 && request.Port != 443:
+			packetEncoding = h.packetEncoding
+			request.Command = protocol.RequestCommandMux
+			request.Address = net.DomainAddress("v1.mux.cool")
+			request.Port = 0
 		}
 	}
 

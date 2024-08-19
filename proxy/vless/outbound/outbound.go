@@ -189,15 +189,15 @@ func (h *Handler) Process(ctx context.Context, link *transport.Link, dialer inte
 	trafficState := encoding.NewTrafficState(account.ID.Bytes())
 
 	packetEncoding := packetaddr.PacketAddrType_None
-	if command == protocol.RequestCommandUDP && target.Port > 0 {
+	if command == protocol.RequestCommandUDP && request.Port > 0 {
 		switch {
 		case requestAddons.Flow == vless.XRV, h.packetEncoding == packetaddr.PacketAddrType_XUDP && request.Port != 53 && request.Port != 443:
-			packetEncoding = packetaddr.PacketAddrType_XUDP
+			packetEncoding = h.packetEncoding
 			request.Command = protocol.RequestCommandMux
 			request.Address = net.DomainAddress("v1.mux.cool")
 			request.Port = 0
-		case h.packetEncoding == packetaddr.PacketAddrType_Packet:
-			packetEncoding = packetaddr.PacketAddrType_Packet
+		case h.packetEncoding == packetaddr.PacketAddrType_Packet && request.Address.Family().IsIP():
+			packetEncoding = h.packetEncoding
 			request.Address = net.DomainAddress(packetaddr.SeqPacketMagicAddress)
 			request.Port = 0
 		}

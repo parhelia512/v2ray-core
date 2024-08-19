@@ -109,4 +109,12 @@ message SocketConfig {
   int64 rx_buf_size = 12;
   int64 tx_buf_size = 13;
   bool force_buf_size = 14;
+
+  message Fragment {
+    string packets = 1;
+    string length = 2;
+    string interval = 3;
+  }
+
+  Fragment fragment = 99;
 }

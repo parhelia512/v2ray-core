@@ -10,10 +10,10 @@ import (
 	"golang.zx2c4.com/wireguard/conn"
 	"golang.zx2c4.com/wireguard/device"
 	"golang.zx2c4.com/wireguard/tun"
-	"golang.zx2c4.com/wireguard/tun/netstack"
 
 	"github.com/v2fly/v2ray-core/v5/common/log"
 	"github.com/v2fly/v2ray-core/v5/common/net"
+	"github.com/v2fly/v2ray-core/v5/proxy/wireguard/netstack"
 )
 
 type Tunnel interface {
@@ -100,7 +100,7 @@ func (g *wgNet) DialUDPAddrPort(laddr, raddr netip.AddrPort) (net.Conn, error) {
 
 func CreateTun(localAddresses []netip.Addr, mtu int) (Tunnel, error) {
 	out := &wgNet{}
-	tun, n, err := netstack.CreateNetTUN(localAddresses, nil, mtu)
+	tun, n, err := netstack.CreateNetTUN(localAddresses, mtu)
 	if err != nil {
 		return nil, err
 	}

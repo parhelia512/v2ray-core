@@ -5,18 +5,13 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/database64128/tfo-go/v2"
-
 	"github.com/v2fly/v2ray-core/v5/common/net"
 	"github.com/v2fly/v2ray-core/v5/common/session"
 	"github.com/v2fly/v2ray-core/v5/features/dns"
 	"github.com/v2fly/v2ray-core/v5/features/dns/localdns"
 )
 
-var (
-	effectiveSystemDialer    SystemDialer = &DefaultSystemDialer{}
-	effectiveSystemDNSDialer SystemDialer = &DefaultSystemDialer{}
-)
+var effectiveSystemDialer SystemDialer = &DefaultSystemDialer{}
 
 type SystemDialer interface {
 	Dial(ctx context.Context, source net.Address, destination net.Destination, sockopt *SocketConfig) (net.Conn, error)
@@ -123,12 +118,6 @@ func (d *DefaultSystemDialer) Dial(ctx context.Context, src net.Address, dest ne
 		}
 	}
 
-	if sockopt != nil && sockopt.Tfo == SocketConfig_Enable {
-		tfoDialer := &tfo.Dialer{
-			Dialer: *dialer,
-		}
-		return DialTFOContext(tfoDialer, ctx, dest.Network.SystemString(), dest.NetAddr())
-	}
 	return dialer.DialContext(ctx, dest.Network.SystemString(), dest.NetAddr())
 }
 
@@ -217,14 +206,6 @@ func UseAlternativeSystemDialer(dialer SystemDialer) {
 		dialer = &DefaultSystemDialer{}
 	}
 	effectiveSystemDialer = dialer
-}
-
-// SagerNet private
-func UseAlternativeSystemDNSDialer(dialer SystemDialer) {
-	if dialer == nil {
-		dialer = &DefaultSystemDialer{}
-	}
-	effectiveSystemDNSDialer = dialer
 }
 
 // RegisterDialerController adds a controller to the effective system dialer.

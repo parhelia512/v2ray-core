@@ -1,6 +1,8 @@
 package splithttp
 
 import (
+	"crypto/rand"
+	"math/big"
 	"net/http"
 	"strings"
 
@@ -8,11 +10,11 @@ import (
 )
 
 const (
-	scMaxEachPostBytes     = 1000000
-	scMaxConcurrentPosts   = 100
-	scMinPostsIntervalMs   = 30
-	scMinResponseOkPadding = 100
-	scMaxResponseOkPadding = 1000
+	scMaxEachPostBytes   = 1000000
+	scMaxConcurrentPosts = 100
+	scMinPostsIntervalMs = 30
+	scMinXPaddingBytes   = 100
+	scMaxXPaddingBytes   = 1000
 )
 
 func IsValidHTTPHost(request string, config string) bool {
@@ -25,22 +27,40 @@ func IsValidHTTPHost(request string, config string) bool {
 	return r == c
 }
 
-func (c *Config) GetNormalizedPath(addPath string, addQuery bool) string {
+func (c *Config) GetNormalizedPath() string {
 	pathAndQuery := strings.SplitN(c.Path, "?", 2)
 	path := pathAndQuery[0]
-	query := ""
-	if len(pathAndQuery) > 1 && addQuery {
-		query = "?" + pathAndQuery[1]
-	}
 
 	if path == "" || path[0] != '/' {
 		path = "/" + path
 	}
+
 	if path[len(path)-1] != '/' {
 		path = path + "/"
 	}
 
-	return path + addPath + query
+	return path
+}
+
+func (c *Config) GetNormalizedQuery() string {
+	pathAndQuery := strings.SplitN(c.Path, "?", 2)
+	query := ""
+
+	if len(pathAndQuery) > 1 {
+		query = pathAndQuery[1]
+	}
+
+	if query != "" {
+		query += "&"
+	}
+
+	bigInt, _ := rand.Int(rand.Reader, big.NewInt(int64(scMaxXPaddingBytes-scMinXPaddingBytes)))
+	paddingLen := scMinXPaddingBytes + int(bigInt.Int64())
+	if paddingLen > 0 {
+		query += "x_padding=" + strings.Repeat("0", int(paddingLen))
+	}
+
+	return query
 }
 
 func (c *Config) GetRequestHeader() http.Header {
@@ -48,5 +68,14 @@ func (c *Config) GetRequestHeader() http.Header {
 	for k, v := range c.Header {
 		header.Add(k, v)
 	}
+
 	return header
+}
+
+func (c *Config) WriteResponseHeader(writer http.ResponseWriter) {
+	bigInt, _ := rand.Int(rand.Reader, big.NewInt(int64(scMaxXPaddingBytes-scMinXPaddingBytes)))
+	paddingLen := scMinXPaddingBytes + int(bigInt.Int64())
+	if paddingLen > 0 {
+		writer.Header().Set("X-Padding", strings.Repeat("0", int(paddingLen)))
+	}
 }

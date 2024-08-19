@@ -9,8 +9,8 @@ import (
 
 // This is a compile-time assertion to ensure that this generated file
 // is compatible with the grpc package it is being compiled against.
-// Requires gRPC-Go v1.62.0 or later.
-const _ = grpc.SupportPackageIsVersion8
+// Requires gRPC-Go v1.64.0 or later.
+const _ = grpc.SupportPackageIsVersion9
 
 const (
 	HandlerService_AddInbound_FullMethodName     = "/v2ray.core.app.proxyman.command.HandlerService/AddInbound"
@@ -103,7 +103,7 @@ func (c *handlerServiceClient) AlterOutbound(ctx context.Context, in *AlterOutbo
 
 // HandlerServiceServer is the server API for HandlerService service.
 // All implementations must embed UnimplementedHandlerServiceServer
-// for forward compatibility
+// for forward compatibility.
 type HandlerServiceServer interface {
 	AddInbound(context.Context, *AddInboundRequest) (*AddInboundResponse, error)
 	RemoveInbound(context.Context, *RemoveInboundRequest) (*RemoveInboundResponse, error)
@@ -114,9 +114,12 @@ type HandlerServiceServer interface {
 	mustEmbedUnimplementedHandlerServiceServer()
 }
 
-// UnimplementedHandlerServiceServer must be embedded to have forward compatible implementations.
-type UnimplementedHandlerServiceServer struct {
-}
+// UnimplementedHandlerServiceServer must be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedHandlerServiceServer struct{}
 
 func (UnimplementedHandlerServiceServer) AddInbound(context.Context, *AddInboundRequest) (*AddInboundResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method AddInbound not implemented")
@@ -137,6 +140,7 @@ func (UnimplementedHandlerServiceServer) AlterOutbound(context.Context, *AlterOu
 	return nil, status.Errorf(codes.Unimplemented, "method AlterOutbound not implemented")
 }
 func (UnimplementedHandlerServiceServer) mustEmbedUnimplementedHandlerServiceServer() {}
+func (UnimplementedHandlerServiceServer) testEmbeddedByValue()                        {}
 
 // UnsafeHandlerServiceServer may be embedded to opt out of forward compatibility for this service.
 // Use of this interface is not recommended, as added methods to HandlerServiceServer will
@@ -146,6 +150,13 @@ type UnsafeHandlerServiceServer interface {
 }
 
 func RegisterHandlerServiceServer(s grpc.ServiceRegistrar, srv HandlerServiceServer) {
+	// If the following call pancis, it indicates UnimplementedHandlerServiceServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
 	s.RegisterService(&HandlerService_ServiceDesc, srv)
 }
 

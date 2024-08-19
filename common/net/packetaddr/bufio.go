@@ -24,6 +24,10 @@ func (r *BufReader) ReadMultiBuffer() (buf.MultiBuffer, error) {
 			if endpoint == nil {
 				endpoint = &r.dest
 			}
+			if endpoint.Address.Family().IsDomain() {
+				buffer.Release()
+				return nil, newError("PacketAddr does not support domain name").AtError()
+			}
 			packet, err := AttachAddressToPacket(buffer, &net.UDPAddr{
 				IP:   endpoint.Address.IP(),
 				Port: int(endpoint.Port),
@@ -90,6 +94,10 @@ func (w *BufWriter) WriteMultiBuffer(mb buf.MultiBuffer) error {
 			dest := &w.dest
 			if buffer.Endpoint != nil {
 				dest = buffer.Endpoint
+			}
+			if dest.Address.Family().IsDomain() {
+				buffer.Release()
+				return newError("PacketAddr does not support domain name").AtError()
 			}
 			packet, err := AttachAddressToPacket(buffer, &net.UDPAddr{
 				IP:   dest.Address.IP(),

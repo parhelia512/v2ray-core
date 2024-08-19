@@ -30,7 +30,7 @@ func (s *SystemDispatcher) Close() error {
 }
 
 func (s *SystemDispatcher) Dispatch(ctx context.Context, dest net.Destination) (*transport.Link, error) {
-	conn, err := internet.DialSystemDNS(ctx, dest, nil)
+	conn, err := internet.DialSystem(ctx, dest, nil)
 	if err != nil {
 		return nil, err
 	}

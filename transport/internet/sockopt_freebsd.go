@@ -131,6 +131,17 @@ func applyOutboundSocketOptions(network string, address string, fd uintptr, conf
 	}
 
 	if isTCPSocket(network) {
+		switch config.Tfo {
+		case SocketConfig_Enable:
+			if err := syscall.SetsockoptInt(int(fd), syscall.IPPROTO_TCP, unix.TCP_FASTOPEN, 1); err != nil {
+				return newError("failed to set TCP_FASTOPEN_CONNECT=1").Base(err)
+			}
+		case SocketConfig_Disable:
+			if err := syscall.SetsockoptInt(int(fd), syscall.IPPROTO_TCP, unix.TCP_FASTOPEN, 0); err != nil {
+				return newError("failed to set TCP_FASTOPEN_CONNECT=0").Base(err)
+			}
+		}
+
 		if config.TcpKeepAliveIdle > 0 {
 			if err := syscall.SetsockoptInt(int(fd), syscall.IPPROTO_TCP, syscall.TCP_KEEPIDLE, int(config.TcpKeepAliveIdle)); err != nil {
 				return newError("failed to set TCP_KEEPIDLE").Base(err)
@@ -183,6 +194,16 @@ func applyInboundSocketOptions(network string, _ string, fd uintptr, config *Soc
 		}
 	}
 	if isTCPSocket(network) {
+		switch config.Tfo {
+		case SocketConfig_Enable:
+			if err := syscall.SetsockoptInt(int(fd), syscall.IPPROTO_TCP, unix.TCP_FASTOPEN, 1); err != nil {
+				return newError("failed to set TCP_FASTOPEN=1").Base(err)
+			}
+		case SocketConfig_Disable:
+			if err := syscall.SetsockoptInt(int(fd), syscall.IPPROTO_TCP, unix.TCP_FASTOPEN, 0); err != nil {
+				return newError("failed to set TCP_FASTOPEN=0").Base(err)
+			}
+		}
 		if config.TcpKeepAliveIdle > 0 {
 			if err := syscall.SetsockoptInt(int(fd), syscall.IPPROTO_TCP, syscall.TCP_KEEPIDLE, int(config.TcpKeepAliveIdle)); err != nil {
 				return newError("failed to set TCP_KEEPIDLE").Base(err)
