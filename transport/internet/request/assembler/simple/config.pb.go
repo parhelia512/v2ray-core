@@ -222,7 +222,7 @@ func file_transport_internet_request_assembler_simple_config_proto_rawDescGZIP()
 }
 
 var file_transport_internet_request_assembler_simple_config_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
-var file_transport_internet_request_assembler_simple_config_proto_goTypes = []interface{}{
+var file_transport_internet_request_assembler_simple_config_proto_goTypes = []any{
 	(*ClientConfig)(nil), // 0: v2ray.core.transport.internet.request.assembler.simple.ClientConfig
 	(*ServerConfig)(nil), // 1: v2ray.core.transport.internet.request.assembler.simple.ServerConfig
 }
@@ -240,7 +240,7 @@ func file_transport_internet_request_assembler_simple_config_proto_init() {
 		return
 	}
 	if !protoimpl.UnsafeEnabled {
-		file_transport_internet_request_assembler_simple_config_proto_msgTypes[0].Exporter = func(v interface{}, i int) interface{} {
+		file_transport_internet_request_assembler_simple_config_proto_msgTypes[0].Exporter = func(v any, i int) any {
 			switch v := v.(*ClientConfig); i {
 			case 0:
 				return &v.state
@@ -252,7 +252,7 @@ func file_transport_internet_request_assembler_simple_config_proto_init() {
 				return nil
 			}
 		}
-		file_transport_internet_request_assembler_simple_config_proto_msgTypes[1].Exporter = func(v interface{}, i int) interface{} {
+		file_transport_internet_request_assembler_simple_config_proto_msgTypes[1].Exporter = func(v any, i int) any {
 			switch v := v.(*ServerConfig); i {
 			case 0:
 				return &v.state

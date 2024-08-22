@@ -6,6 +6,7 @@ toolchain go1.21.4
 
 require (
 	github.com/adrg/xdg v0.4.0
+	github.com/golang-collections/go-datastructures v0.0.0-20150211160725-59788d5eb259
 	github.com/golang/mock v1.6.0
 	github.com/golang/protobuf v1.5.4
 	github.com/google/go-cmp v0.6.0
@@ -15,6 +16,7 @@ require (
 	github.com/lunixbochs/struc v0.0.0-20200707160740-784aaebc1d40
 	github.com/miekg/dns v1.1.59
 	github.com/mustafaturan/bus v1.0.2
+	github.com/pion/dtls/v2 v2.2.7
 	github.com/pion/transport/v2 v2.2.5
 	github.com/pires/go-proxyproto v0.7.0
 	github.com/quic-go/quic-go v0.43.0
@@ -56,7 +58,6 @@ require (
 	github.com/mustafaturan/monoton v1.0.0 // indirect
 	github.com/onsi/ginkgo/v2 v2.10.0 // indirect
 	github.com/patrickmn/go-cache v2.1.0+incompatible // indirect
-	github.com/pion/dtls/v2 v2.2.7 // indirect
 	github.com/pion/logging v0.2.2 // indirect
 	github.com/pion/randutil v0.1.0 // indirect
 	github.com/pion/sctp v1.8.7 // indirect

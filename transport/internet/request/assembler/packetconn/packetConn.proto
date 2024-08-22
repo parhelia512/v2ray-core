@@ -1,0 +1,28 @@
+syntax = "proto3";
+
+package v2ray.core.transport.internet.request.assembler.packetconn;
+option csharp_namespace = "V2Ray.Core.Transport.Internet.Request.Assembler.Packetconn";
+option go_package = "github.com/v2fly/v2ray-core/v4/transport/internet/request/assembler/packetconn";
+option java_package = "com.v2ray.core.transport.internet.request.assembler.packetconn";
+option java_multiple_files = true;
+
+import "common/serial/typed_message.proto";
+
+message ClientConfig {
+  v2ray.core.common.serial.TypedMessage underlying_transport_setting = 1;
+  string underlying_transport_name = 2;
+
+  int32 max_write_delay = 3;
+  int32 max_request_size = 4;
+  int32 polling_interval_initial = 5;
+}
+
+message ServerConfig {
+  v2ray.core.common.serial.TypedMessage underlying_transport_setting = 1;
+  string underlying_transport_name = 2;
+
+  int32 max_write_size = 3;
+  int32 max_write_duration_ms = 4;
+  int32 max_simultaneous_write_connection = 5;
+  int32 packet_writing_buffer = 6;
+}

@@ -5,6 +5,7 @@ package request
 
 import (
 	"context"
+	"io"
 
 	"github.com/v2fly/v2ray-core/v4/common"
 )
@@ -38,4 +39,13 @@ type Request struct {
 
 type Response struct {
 	Data []byte
+}
+
+type OptionSupportsStreamingResponse interface {
+	RoundTripperOption
+	GetResponseWriter() io.Writer
+}
+
+type OptionSupportsStreamingResponseExtensionFlusher interface {
+	Flush()
 }
