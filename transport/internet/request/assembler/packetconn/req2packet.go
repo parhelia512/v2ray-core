@@ -105,6 +105,7 @@ copyFromChan:
 	waitTimer.Stop()
 	go func() {
 		reader, writer := io.Pipe()
+                defer writer.Close()
 		streamingRespOpt := &pipedStreamingRespOption{writer}
 		go func() {
 			for {
