@@ -19,6 +19,8 @@ enum TransportProtocol {
   Gun = 7;
   Meek = 8;
   HTTPUpgrade = 9;
+  DTLS = 10;
+  Request = 11;
 }
 
 message TransportConfig {

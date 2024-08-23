@@ -42,6 +42,10 @@ func transportProtocolToString(protocol TransportProtocol) string {
 		return "meek"
 	case TransportProtocol_HTTPUpgrade:
 		return "httpupgrade"
+	case TransportProtocol_DTLS:
+		return "dtls"
+	case TransportProtocol_Request:
+		return "request"
 	default:
 		return unknownProtocol
 	}

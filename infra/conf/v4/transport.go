@@ -17,6 +17,8 @@ type TransportConfig struct {
 	GRPCConfig        *GunConfig          `json:"grpcSettings"`
 	MeekConfig        *MeekConfig         `json:"meekSettings"`
 	HTTPUpgradeConfig *HTTPUpgradeConfig  `json:"httpupgradeSettings"`
+	DTLSConfig        *DTLSConfig         `json:"dtlsSettings"`
+	RequestConfig     *RequestConfig      `json:"requestSettings"`
 }
 
 // Build implements Buildable.
@@ -122,6 +124,28 @@ func (c *TransportConfig) Build() (*transport.Config, error) {
 		config.TransportSettings = append(config.TransportSettings, &internet.TransportConfig{
 			ProtocolName: "httpupgrade",
 			Settings:     serial.ToTypedMessage(hs),
+		})
+	}
+
+	if c.DTLSConfig != nil {
+		ds, err := c.DTLSConfig.Build()
+		if err != nil {
+			return nil, newError("Failed to build DTLS config.").Base(err)
+		}
+		config.TransportSettings = append(config.TransportSettings, &internet.TransportConfig{
+			ProtocolName: "dtls",
+			Settings:     serial.ToTypedMessage(ds),
+		})
+	}
+
+	if c.RequestConfig != nil {
+		rs, err := c.RequestConfig.Build()
+		if err != nil {
+			return nil, newError("Failed to build Request config.").Base(err)
+		}
+		config.TransportSettings = append(config.TransportSettings, &internet.TransportConfig{
+			ProtocolName: "request",
+			Settings:     serial.ToTypedMessage(rs),
 		})
 	}
 
