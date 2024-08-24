@@ -8,6 +8,7 @@ import (
 	"context"
 	"crypto/rand"
 	"io"
+	"sync"
 	"time"
 
 	"github.com/golang-collections/go-datastructures/queue"
@@ -105,7 +106,7 @@ copyFromChan:
 	waitTimer.Stop()
 	go func() {
 		reader, writer := io.Pipe()
-                defer writer.Close()
+		defer writer.Close()
 		streamingRespOpt := &pipedStreamingRespOption{writer}
 		go func() {
 			for {
@@ -179,7 +180,7 @@ func (r *requestToPacketConnClientSession) Close() error {
 
 func newRequestToPacketConnServer(ctx context.Context, config *ServerConfig) *requestToPacketConnServer {
 	return &requestToPacketConnServer{
-		sessionMap: make(map[string]*requestToPacketConnServerSession),
+		sessionMap: sync.Map{},
 		ctx:        ctx,
 		config:     config,
 	}
@@ -188,7 +189,7 @@ func newRequestToPacketConnServer(ctx context.Context, config *ServerConfig) *re
 type requestToPacketConnServer struct {
 	packetSessionReceiver request.SessionReceiver
 
-	sessionMap map[string]*requestToPacketConnServerSession
+	sessionMap sync.Map
 
 	ctx    context.Context
 	config *ServerConfig
@@ -206,7 +207,15 @@ func (r *requestToPacketConnServer) OnRoundTrip(ctx context.Context, req request
 		return request.Response{}, newError("nil session id")
 	}
 	sessionID := string(SessionID)
-	session, found := r.sessionMap[sessionID]
+	var session *requestToPacketConnServerSession
+	sessionAny, found := r.sessionMap.Load(sessionID)
+	if found {
+		var ok bool
+		session, ok = sessionAny.(*requestToPacketConnServerSession)
+		if !ok {
+			return request.Response{}, newError("failed to cast session")
+		}
+	}
 	if !found {
 		ctxWithFinish, finish := context.WithCancel(ctx)
 		session = &requestToPacketConnServerSession{
@@ -221,8 +230,10 @@ func (r *requestToPacketConnServer) OnRoundTrip(ctx context.Context, req request
 			maxWriteDuration:               int(r.config.MaxWriteDurationMs),
 			maxSimultaneousWriteConnection: int(r.config.MaxSimultaneousWriteConnection),
 		}
-		r.sessionMap[sessionID] = session
-		err = r.packetSessionReceiver.OnNewSession(ctx, session)
+		_, loaded := r.sessionMap.LoadOrStore(sessionID, session)
+		if !loaded {
+			err = r.packetSessionReceiver.OnNewSession(ctx, session)
+		}
 	}
 	if err != nil {
 		return request.Response{}, err
@@ -231,7 +242,7 @@ func (r *requestToPacketConnServer) OnRoundTrip(ctx context.Context, req request
 }
 
 func (r *requestToPacketConnServer) removeSessionID(sessionID []byte) {
-	delete(r.sessionMap, string(sessionID))
+	r.sessionMap.Delete(string(sessionID))
 }
 
 type requestToPacketConnServerSession struct {
