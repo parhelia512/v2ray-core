@@ -18,6 +18,7 @@ type SocketConfig struct {
 	RxBufSize            uint64    `json:"rxBufSize"`
 	TxBufSize            uint64    `json:"txBufSize"`
 	ForceBufSize         bool      `json:"forceBufSize"`
+	MPTCP                *bool     `json:"mptcp"`
 	Fragment             *Fragment `json:"fragment"`
 }
 
@@ -53,6 +54,15 @@ func (c *SocketConfig) Build() (*internet.SocketConfig, error) {
 		tproxy = internet.SocketConfig_Off
 	}
 
+	var mptcpSettings internet.MPTCPState
+	if c.MPTCP != nil {
+		if *c.MPTCP {
+			mptcpSettings = internet.MPTCPState_Enable
+		} else {
+			mptcpSettings = internet.MPTCPState_Disable
+		}
+	}
+
 	config := &internet.SocketConfig{
 		Mark:                 c.Mark,
 		Tfo:                  tfoSettings,
@@ -65,6 +75,7 @@ func (c *SocketConfig) Build() (*internet.SocketConfig, error) {
 		TxBufSize:            int64(c.TxBufSize),
 		ForceBufSize:         c.ForceBufSize,
 		BindToDevice:         c.BindToDevice,
+		Mptcp:                mptcpSettings,
 	}
 
 	if c.Fragment != nil {

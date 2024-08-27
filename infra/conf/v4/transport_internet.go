@@ -14,6 +14,7 @@ import (
 	"github.com/v2fly/v2ray-core/v5/infra/conf/cfgcommon/tlscfg"
 	"github.com/v2fly/v2ray-core/v5/transport/internet"
 	"github.com/v2fly/v2ray-core/v5/transport/internet/domainsocket"
+	"github.com/v2fly/v2ray-core/v5/transport/internet/dtls"
 	httpheader "github.com/v2fly/v2ray-core/v5/transport/internet/headers/http"
 	"github.com/v2fly/v2ray-core/v5/transport/internet/http"
 	"github.com/v2fly/v2ray-core/v5/transport/internet/httpupgrade"
@@ -288,6 +289,29 @@ func (c *MeekConfig) Build() (proto.Message, error) {
 	return &meek.Config{Url: c.URL}, nil
 }
 
+type DTLSConfig struct {
+	Mode                   string `json:"mode"`
+	PSK                    []byte `json:"psk"`
+	MTU                    uint32 `json:"mtu"`
+	ReplayProtectionWindow uint32 `json:"replayProtectionWindow"`
+}
+
+// Build implements Buildable.
+func (c *DTLSConfig) Build() (proto.Message, error) {
+	config := &dtls.Config{
+		Psk:                    c.PSK,
+		Mtu:                    c.MTU,
+		ReplayProtectionWindow: c.ReplayProtectionWindow,
+	}
+	switch strings.ToLower(c.Mode) {
+	case "psk":
+		config.Mode = dtls.DTLSMode_PSK
+	default:
+		return nil, newError("invalid mode: ", c.Mode)
+	}
+	return config, nil
+}
+
 type Hysteria2ConfigCongestion struct {
 	UpMbps   uint64 `json:"upMbps"`
 	DownMbps uint64 `json:"downMbps"`
@@ -369,10 +393,14 @@ func (p TransportProtocol) Build() (string, error) {
 		return "gun", nil
 	case "meek":
 		return "meek", nil
-	case "hy2", "hysteria2":
-		return "hysteria2", nil
 	case "httpupgrade":
 		return "httpupgrade", nil
+	case "dtls":
+		return "dtls", nil
+	case "request":
+		return "request", nil
+	case "hy2", "hysteria2":
+		return "hysteria2", nil
 	case "splithttp":
 		return "splithttp", nil
 	default:
@@ -396,6 +424,8 @@ type StreamConfig struct {
 	GRPCSettings        *GunConfig              `json:"grpcSettings"`
 	MeekSettings        *MeekConfig             `json:"meekSettings"`
 	HTTPUpgradeSettings *HTTPUpgradeConfig      `json:"httpupgradeSettings"`
+	DTLSSettings        *DTLSConfig             `json:"dtlsSettings"`
+	RequestSettings     *RequestConfig          `json:"requestSettings"`
 	Hysteria2Settings   *Hysteria2Config        `json:"hysteria2Settings"`
 	SplitHTTPSettings   *SplitHTTPConfig        `json:"splithttpSettings"`
 	SocketSettings      *socketcfg.SocketConfig `json:"sockopt"`
@@ -564,6 +594,33 @@ func (c *StreamConfig) Build() (*internet.StreamConfig, error) {
 		config.TransportSettings = append(config.TransportSettings, &internet.TransportConfig{
 			ProtocolName: "httpupgrade",
 			Settings:     serial.ToTypedMessage(hs),
+		})
+	}
+	if c.SocketSettings != nil {
+		ss, err := c.SocketSettings.Build()
+		if err != nil {
+			return nil, newError("Failed to build sockopt.").Base(err)
+		}
+		config.SocketSettings = ss
+	}
+	if c.DTLSSettings != nil {
+		ds, err := c.DTLSSettings.Build()
+		if err != nil {
+			return nil, newError("Failed to build DTLS config.").Base(err)
+		}
+		config.TransportSettings = append(config.TransportSettings, &internet.TransportConfig{
+			ProtocolName: "dtls",
+			Settings:     serial.ToTypedMessage(ds),
+		})
+	}
+	if c.RequestSettings != nil {
+		rs, err := c.RequestSettings.Build()
+		if err != nil {
+			return nil, newError("Failed to build Request config.").Base(err)
+		}
+		config.TransportSettings = append(config.TransportSettings, &internet.TransportConfig{
+			ProtocolName: "request",
+			Settings:     serial.ToTypedMessage(rs),
 		})
 	}
 	if c.Hysteria2Settings != nil {

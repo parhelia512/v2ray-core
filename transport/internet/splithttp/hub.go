@@ -213,7 +213,12 @@ func (h *requestHandler) ServeHTTP(writer http.ResponseWriter, request *http.Req
 		h.ln.addConn(internet.Connection(&conn))
 
 		// "A ResponseWriter may not be used after [Handler.ServeHTTP] has returned."
-		<-downloadDone.Wait()
+		select {
+		case <-request.Context().Done():
+		case <-downloadDone.Wait():
+		}
+
+		conn.Close()
 	} else {
 		writer.WriteHeader(http.StatusMethodNotAllowed)
 	}

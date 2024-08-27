@@ -1,10 +1,8 @@
 package splithttp
 
 import (
-	"bytes"
 	"context"
 	gotls "crypto/tls"
-	"io"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -59,8 +57,8 @@ func getHTTPClient(ctx context.Context, dest net.Destination, streamSettings *in
 		tlsConfig = cfg.GetTlsConfig()
 	}
 
-	isH2 := tlsConfig != nil && !(len(tlsConfig.NextProtocol) == 1 && tlsConfig.NextProtocol[0] == "http/1.1")
 	isH3 := tlsConfig != nil && len(tlsConfig.NextProtocol) == 1 && tlsConfig.NextProtocol[0] == "h3"
+	isH2 := !isH3 && tlsConfig != nil && !(len(tlsConfig.NextProtocol) == 1 && tlsConfig.NextProtocol[0] == "http/1.1")
 
 	globalDialerAccess.Lock()
 	defer globalDialerAccess.Unlock()
@@ -95,6 +93,7 @@ func getHTTPClient(ctx context.Context, dest net.Destination, streamSettings *in
 			},
 			TLSClientConfig: tlsConfig.GetTLSConfig(tls.WithDestination(dest)),
 			Dial: func(_ context.Context, addr string, tlsCfg *gotls.Config, cfg *quic.Config) (quic.EarlyConnection, error) {
+				ctx = core.ToBackgroundDetachedContext(ctx)
 				conn, err := internet.DialSystem(ctx, dest, streamSettings.SocketSettings)
 				if err != nil {
 					return nil, err
@@ -157,10 +156,7 @@ func getHTTPClient(ctx context.Context, dest net.Destination, streamSettings *in
 		dialUploadConn: dialContext,
 	}
 
-	if !isH3 {
-		// XTLS/Xray-core@22535d8 introduced h3 dialer reuse but it is broken for trojan, vless, http and vmess zero. Non-zero vmess is ok.
-		globalDialerMap[dialerConf{dest, streamSettings}] = client
-	}
+	globalDialerMap[dialerConf{dest, streamSettings}] = client
 
 	return client
 }
@@ -280,35 +276,7 @@ func Dial(ctx context.Context, dest net.Destination, streamSettings *internet.Me
 		return nil, err
 	}
 
-	lazyDownload := &LazyReader{
-		CreateReader: func() (io.ReadCloser, error) {
-			// skip "ok" response
-			trashHeader := []byte{0, 0}
-			_, err := io.ReadFull(lazyRawDownload, trashHeader)
-			if err != nil {
-				return nil, newError("failed to read initial response").Base(err)
-			}
-
-			if bytes.Equal(trashHeader, []byte("ok")) {
-				return lazyRawDownload, nil
-			}
-
-			// we read some garbage byte that may not have been "ok" at
-			// all. return a reader that replays what we have read so far
-			reader := io.MultiReader(
-				bytes.NewReader(trashHeader),
-				lazyRawDownload,
-			)
-			readCloser := struct {
-				io.Reader
-				io.Closer
-			}{
-				Reader: reader,
-				Closer: lazyRawDownload,
-			}
-			return readCloser, nil
-		},
-	}
+	reader := &stripOkReader{ReadCloser: lazyRawDownload}
 
 	writer := uploadWriter{
 		uploadPipeWriter,
@@ -317,7 +285,7 @@ func Dial(ctx context.Context, dest net.Destination, streamSettings *internet.Me
 
 	conn := &splitConn{
 		writer:     writer,
-		reader:     lazyDownload,
+		reader:     reader,
 		remoteAddr: remoteAddr,
 		localAddr:  localAddr,
 	}

@@ -6,7 +6,6 @@ import (
 	"net"
 	"strconv"
 	"strings"
-	"sync/atomic"
 	"time"
 )
 
@@ -112,10 +111,10 @@ type fragmentConn struct {
 }
 
 func (f *fragmentConn) Write(b []byte) (int, error) {
-	count := atomic.AddUint64(&f.count, 1)
+	f.count++
 
 	if f.packetsFrom == 0 && f.packetsTo == 1 {
-		if count != 1 || len(b) <= 5 || b[0] != 22 {
+		if f.count != 1 || len(b) <= 5 || b[0] != 22 {
 			return f.Conn.Write(b)
 		}
 		recordLen := 5 + ((int(b[3]) << 8) | int(b[4]))
@@ -181,7 +180,7 @@ func (f *fragmentConn) Write(b []byte) (int, error) {
 		}
 	}
 
-	if f.packetsFrom != 0 && (count < f.packetsFrom || count > f.packetsTo) {
+	if f.packetsFrom != 0 && (f.count < f.packetsFrom || f.count > f.packetsTo) {
 		return f.Conn.Write(b)
 	}
 	for from := 0; ; {

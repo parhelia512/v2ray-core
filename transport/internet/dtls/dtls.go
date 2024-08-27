@@ -1,4 +1,4 @@
-package assembly
+package dtls
 
 import (
 	"github.com/v2fly/v2ray-core/v5/common"
@@ -7,7 +7,7 @@ import (
 
 //go:generate go run github.com/v2fly/v2ray-core/v5/common/errors/errorgen
 
-const protocolName = "request"
+const protocolName = "dtls"
 
 func init() {
 	common.Must(internet.RegisterProtocolConfigCreator(protocolName, func() interface{} {

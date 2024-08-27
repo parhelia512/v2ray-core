@@ -7,12 +7,12 @@ import (
 
 type LazyReader struct {
 	readerSync   sync.Mutex
-	CreateReader func() (io.ReadCloser, error)
-	reader       io.ReadCloser
+	CreateReader func() (io.Reader, error)
+	reader       io.Reader
 	readerError  error
 }
 
-func (r *LazyReader) getReader() (io.ReadCloser, error) {
+func (r *LazyReader) getReader() (io.Reader, error) {
 	r.readerSync.Lock()
 	defer r.readerSync.Unlock()
 	if r.reader != nil {
@@ -40,18 +40,4 @@ func (r *LazyReader) Read(b []byte) (int, error) {
 	}
 	n, err := reader.Read(b)
 	return n, err
-}
-
-func (r *LazyReader) Close() error {
-	r.readerSync.Lock()
-	defer r.readerSync.Unlock()
-
-	var err error
-	if r.reader != nil {
-		err = r.reader.Close()
-		r.reader = nil
-		r.readerError = newError("closed reader")
-	}
-
-	return err
 }

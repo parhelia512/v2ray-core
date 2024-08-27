@@ -19,8 +19,10 @@ enum TransportProtocol {
   Gun = 7;
   Meek = 8;
   HTTPUpgrade = 9;
-  Hysteria2 = 10;
-  SplitHTTP = 11;
+  DTLS = 10;
+  Request = 11;
+  Hysteria2 = 12;
+  SplitHTTP = 13;
 }
 
 message TransportConfig {
@@ -57,6 +59,17 @@ message ProxyConfig {
   string tag = 1;
 
   bool transportLayerProxy = 2;
+}
+
+// MPTCP is the state of MPTCP settings.
+// Define it here to avoid conflict with TCPFastOpenState.
+enum MPTCPState {
+  // AsIs is to leave the current MPTCP state as is, unmodified.
+  AsIs = 0;
+  // Enable is for enabling MPTCP explictly.
+  Enable = 1;
+  // Disable is for disabling MPTCP explictly.
+  Disable = 2;
 }
 
 // SocketConfig is options to be applied on network sockets.
@@ -109,6 +122,9 @@ message SocketConfig {
   int64 rx_buf_size = 12;
   int64 tx_buf_size = 13;
   bool force_buf_size = 14;
+
+
+  MPTCPState mptcp = 15;
 
   message Fragment {
     string packets = 1;

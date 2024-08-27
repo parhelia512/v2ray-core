@@ -6,12 +6,14 @@ require (
 	github.com/adrg/xdg v0.5.0
 	github.com/apernet/hysteria/core/v2 v2.5.1
 	github.com/apernet/quic-go v0.46.1-0.20240816230517-268ed2476167
+	github.com/golang-collections/go-datastructures v0.0.0-20150211160725-59788d5eb259
 	github.com/golang/protobuf v1.5.4
 	github.com/google/go-cmp v0.6.0
 	github.com/gorilla/websocket v1.5.3
 	github.com/lunixbochs/struc v0.0.0-20200707160740-784aaebc1d40
 	github.com/miekg/dns v1.1.62
 	github.com/mustafaturan/bus v1.0.2
+	github.com/pion/dtls/v2 v2.2.12
 	github.com/pion/transport/v3 v3.0.7
 	github.com/pires/go-proxyproto v0.7.0
 	github.com/quic-go/quic-go v0.46.0
@@ -34,7 +36,7 @@ require (
 	golang.zx2c4.com/wireguard v0.0.0-20231211153847-12269c276173
 	google.golang.org/grpc v1.65.0
 	google.golang.org/protobuf v1.34.2
-	gvisor.dev/gvisor v0.0.0-20240807080502-4f6f8f8e3eda
+	gvisor.dev/gvisor v0.0.0-20240821232536-d12e3bac488a
 	h12.io/socks v1.0.3
 	lukechampine.com/blake3 v1.3.0
 )
@@ -56,7 +58,6 @@ require (
 	github.com/mustafaturan/monoton v1.0.0 // indirect
 	github.com/onsi/ginkgo/v2 v2.9.5 // indirect
 	github.com/patrickmn/go-cache v2.1.0+incompatible // indirect
-	github.com/pion/dtls/v2 v2.2.8 // indirect
 	github.com/pion/logging v0.2.2 // indirect
 	github.com/pion/sctp v1.7.6 // indirect
 	github.com/pion/transport/v2 v2.2.4 // indirect

@@ -35,6 +35,11 @@ func (s server) Close() error {
 	if err := s.tripper.Close(); err != nil {
 		return newError("failed to close tripper").Base(err)
 	}
+	if runnableAssembler, ok := s.assembler.(common.Runnable); ok {
+		if err := runnableAssembler.Close(); err != nil {
+			return newError("failed to close assembler").Base(err)
+		}
+	}
 	return nil
 }
 
@@ -124,6 +129,12 @@ func listenRequest(ctx context.Context, address net.Address, port net.Port, stre
 
 	if err := serverAssembly.tripper.Start(); err != nil {
 		return nil, newError("failed to start tripper").Base(err)
+	}
+
+	if runnableAssembler, ok := serverAssembly.assembler.(common.Runnable); ok {
+		if err := runnableAssembler.Start(); err != nil {
+			return nil, newError("failed to start assembler").Base(err)
+		}
 	}
 
 	return serverAssembly, nil

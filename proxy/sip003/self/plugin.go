@@ -239,7 +239,7 @@ func (v *Plugin) init(opts Args, pluginArgs []string) (*core.Config, error) {
 			socketConfig.Tfo = internet.SocketConfig_Enable
 		}
 		if *fwmark != 0 {
-			socketConfig.Mark = uint32(int32(*fwmark))
+			socketConfig.Mark = uint32(*fwmark)
 		}
 
 		streamConfig.SocketSettings = socketConfig
