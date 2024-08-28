@@ -119,7 +119,7 @@ func Listen(ctx context.Context, address net.Address, port net.Port, streamSetti
 	}
 
 	tr := quic.Transport{
-		Conn:               conn,
+		Conn:               wrapSysUDPConn(conn),
 		ConnectionIDLength: 12,
 	}
 
