@@ -96,8 +96,16 @@ func DialSystem(ctx context.Context, dest net.Destination, sockopt *SocketConfig
 	}
 
 	conn, err := effectiveSystemDialer.Dial(ctx, src, dest, sockopt)
-	if err == nil && conn != nil && dest.Network == net.Network_TCP && sockopt != nil && sockopt.Fragment != nil {
-		return NewFragmentConn(conn, sockopt.Fragment.Packets, sockopt.Fragment.Length, sockopt.Fragment.Interval)
+	if err == nil && conn != nil {
+		if dest.Network == net.Network_TCP && sockopt != nil && sockopt.Fragment != nil {
+			return NewFragmentConn(conn, sockopt.Fragment.Packets, sockopt.Fragment.Length, sockopt.Fragment.Interval)
+		}
+		if dest.Network == net.Network_UDP && sockopt != nil && sockopt.Noise != nil {
+			if packetConn, ok := conn.(net.PacketConn); ok {
+				return NewNoisePacketConn(packetConn, conn.RemoteAddr(), sockopt.Noise.Packet, sockopt.Noise.Delay)
+			}
+			return NewNoiseConn(conn, sockopt.Noise.Packet, sockopt.Noise.Delay)
+		}
 	}
 	return conn, err
 }
