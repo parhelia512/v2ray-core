@@ -96,8 +96,32 @@ func DialSystem(ctx context.Context, dest net.Destination, sockopt *SocketConfig
 	}
 
 	conn, err := effectiveSystemDialer.Dial(ctx, src, dest, sockopt)
-	if err == nil && conn != nil && dest.Network == net.Network_TCP && sockopt != nil && sockopt.Fragment != nil {
-		return NewFragmentConn(conn, sockopt.Fragment.Packets, sockopt.Fragment.Length, sockopt.Fragment.Interval)
+	if err == nil && conn != nil {
+		if dest.Network == net.Network_TCP && sockopt != nil && sockopt.Fragment != nil {
+			return NewFragmentConn(conn, sockopt.Fragment.Packets, sockopt.Fragment.Length, sockopt.Fragment.Interval)
+		}
+		if dest.Network == net.Network_UDP && sockopt != nil && sockopt.Noise != nil {
+			switch c := conn.(type) {
+			case *PacketConnWrapper:
+				noisePacketConn, err := NewNoisePacketConn(c.Conn, sockopt.Noise.Packet, sockopt.Noise.Delay)
+				if err != nil {
+					return nil, err
+				}
+				c.Conn = noisePacketConn
+				return c, nil
+			case net.PacketConn:
+				noisePacketConn, err := NewNoisePacketConn(c, sockopt.Noise.Packet, sockopt.Noise.Delay)
+				if err != nil {
+					return nil, err
+				}
+				return &PacketConnWrapper{
+					Conn: noisePacketConn,
+					Dest: conn.RemoteAddr(),
+				}, nil
+			default:
+				return NewNoiseConn(conn, sockopt.Noise.Packet, sockopt.Noise.Delay)
+			}
+		}
 	}
 	return conn, err
 }
