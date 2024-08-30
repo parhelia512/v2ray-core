@@ -432,27 +432,33 @@ func (s *QUICNameServer) openConnection(ctx context.Context) (quic.EarlyConnecti
 	quicConfig := &quic.Config{
 		HandshakeIdleTimeout: handshakeIdleTimeout,
 	}
-	var conn net.Conn
+	var rawConn net.Conn
 	var err error
 	if s.dispatcher != nil {
 		link, err := s.dispatcher.Dispatch(ctx, s.destination)
 		if err != nil {
 			return nil, err
 		}
-		conn = cnc.NewConnection(
+		rawConn = cnc.NewConnection(
 			cnc.ConnectionInputMulti(link.Writer),
 			cnc.ConnectionOutputMultiUDP(link.Reader),
 		)
 	} else {
-		conn, err = internet.DialSystem(ctx, s.destination, nil)
+		rawConn, err = internet.DialSystem(ctx, s.destination, nil)
 		if err != nil {
 			return nil, err
 		}
 	}
-	tr := quic.Transport{
-		Conn: NewConnWrapper(conn),
+	tr := quic.Transport{}
+	switch conn := rawConn.(type) {
+	case *internet.PacketConnWrapper:
+		tr.Conn = conn.Conn
+	case net.PacketConn:
+		tr.Conn = conn
+	default:
+		tr.Conn = NewConnWrapper(conn)
 	}
-	return tr.DialEarly(ctx, conn.RemoteAddr(), tlsConfig.GetTLSConfig(tls.WithNextProto(NextProtoDQ)), quicConfig)
+	return tr.DialEarly(ctx, rawConn.RemoteAddr(), tlsConfig.GetTLSConfig(tls.WithNextProto(NextProtoDQ)), quicConfig)
 }
 
 func (s *QUICNameServer) openStream(ctx context.Context) (quic.Stream, error) {

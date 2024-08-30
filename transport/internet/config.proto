@@ -131,6 +131,11 @@ message SocketConfig {
     string length = 2;
     string interval = 3;
   }
+  message Noise {
+    string packet = 1;
+    string delay = 2;
+  }
 
+  Noise noise = 98;
   Fragment fragment = 99;
 }

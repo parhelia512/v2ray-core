@@ -98,17 +98,17 @@ func getHTTPClient(ctx context.Context, dest net.Destination, streamSettings *in
 				if err != nil {
 					return nil, err
 				}
-				var udpConn net.PacketConn
+				var packetConn net.PacketConn
 				switch c := conn.(type) {
-				case *net.UDPConn:
-					udpConn = c
 				case *internet.PacketConnWrapper:
-					udpConn = c.Conn.(*net.UDPConn)
+					packetConn = c.Conn
+				case net.PacketConn:
+					packetConn = c
 				default:
-					udpConn = NewConnWrapper(conn)
+					packetConn = NewConnWrapper(conn)
 				}
 				tr := quic.Transport{
-					Conn: udpConn,
+					Conn: packetConn,
 				}
 				return tr.DialEarly(ctx, conn.RemoteAddr(), tlsCfg, cfg)
 			},

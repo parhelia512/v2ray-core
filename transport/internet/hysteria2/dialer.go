@@ -131,16 +131,14 @@ func NewHyClient(ctx context.Context, dest net.Destination, streamSettings *inte
 			if err != nil {
 				return nil, newError("failed to dial to dest: ", err).AtWarning().Base(err)
 			}
-			var udpConn net.PacketConn
 			switch conn := rawConn.(type) {
-			case *net.UDPConn:
-				udpConn = conn
 			case *internet.PacketConnWrapper:
-				udpConn = conn.Conn.(*net.UDPConn)
+				return conn.Conn, nil
+			case net.PacketConn:
+				return conn, nil
 			default:
-				udpConn = NewConnWrapper(conn)
+				return NewConnWrapper(conn), nil
 			}
-			return udpConn, nil
 		},
 	}
 	if config.Obfs != nil && config.Obfs.Type == "salamander" {

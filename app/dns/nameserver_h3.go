@@ -47,14 +47,20 @@ func NewH3NameServer(url *url.URL, dispatcher routing.Dispatcher) (*DoHNameServe
 				if err != nil {
 					return nil, err
 				}
-				conn := cnc.NewConnection(
+				rawConn := cnc.NewConnection(
 					cnc.ConnectionInputMulti(link.Writer),
 					cnc.ConnectionOutputMultiUDP(link.Reader),
 				)
-				tr := quic.Transport{
-					Conn: NewConnWrapper(conn),
+				tr := quic.Transport{}
+				switch conn := rawConn.(type) {
+				case *internet.PacketConnWrapper:
+					tr.Conn = conn.Conn
+				case net.PacketConn:
+					tr.Conn = conn
+				default:
+					tr.Conn = NewConnWrapper(conn)
 				}
-				return tr.DialEarly(ctx, conn.RemoteAddr(), tlsCfg, cfg)
+				return tr.DialEarly(ctx, rawConn.RemoteAddr(), tlsCfg, cfg)
 			},
 		},
 	}
@@ -73,14 +79,20 @@ func NewH3LocalNameServer(url *url.URL) *DoHNameServer {
 				if err != nil {
 					return nil, err
 				}
-				conn, err := internet.DialSystem(ctx, dest, nil)
+				rawConn, err := internet.DialSystem(ctx, dest, nil)
 				if err != nil {
 					return nil, err
 				}
-				tr := quic.Transport{
-					Conn: NewConnWrapper(conn),
+				tr := quic.Transport{}
+				switch conn := rawConn.(type) {
+				case *internet.PacketConnWrapper:
+					tr.Conn = conn.Conn
+				case net.PacketConn:
+					tr.Conn = conn
+				default:
+					tr.Conn = NewConnWrapper(conn)
 				}
-				return tr.DialEarly(ctx, conn.RemoteAddr(), tlsCfg, cfg)
+				return tr.DialEarly(ctx, rawConn.RemoteAddr(), tlsCfg, cfg)
 			},
 		},
 	}

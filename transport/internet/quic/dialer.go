@@ -159,26 +159,37 @@ func (s *clientConnections) openConnection(ctx context.Context, destAddr net.Add
 		KeepAlivePeriod:      time.Second * 15,
 	}
 
-	var udpConn *net.UDPConn
+	var packetConn net.PacketConn
 	switch conn := rawConn.(type) {
 	case *net.UDPConn:
-		udpConn = conn
+		packetConn = conn
 	case *internet.PacketConnWrapper:
-		udpConn = conn.Conn.(*net.UDPConn)
+		if c, ok := conn.Conn.(*net.UDPConn); ok {
+			packetConn = c
+		} else {
+			packetConn = conn.Conn
+		}
+	case net.PacketConn:
+		packetConn = conn
 	default:
 		rawConn.Close()
-		return nil, newError("QUIC with sockopt is unsupported").AtWarning()
+		return nil, newError("neither a *net.UDPConn nor a net.PacketConn").AtWarning()
 	}
 
-	sysConn, err := wrapSysConn(udpConn, streamSettings.ProtocolSettings.(*Config))
+	sysConn, err := wrapSysConn(packetConn, streamSettings.ProtocolSettings.(*Config))
 	if err != nil {
 		rawConn.Close()
 		return nil, err
 	}
 
 	tr := quic.Transport{
-		Conn:               sysConn,
 		ConnectionIDLength: 12,
+	}
+
+	if _, ok := packetConn.(*net.UDPConn); ok {
+		tr.Conn = wrapSysUDPConn(sysConn)
+	} else {
+		tr.Conn = sysConn
 	}
 
 	tlsConfig := tls.ConfigFromStreamSettings(streamSettings)

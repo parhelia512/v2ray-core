@@ -20,12 +20,18 @@ type SocketConfig struct {
 	ForceBufSize         bool      `json:"forceBufSize"`
 	MPTCP                *bool     `json:"mptcp"`
 	Fragment             *Fragment `json:"fragment"`
+	Noise                *Noise    `json:"noise"`
 }
 
 type Fragment struct {
 	Packets  string `json:"packets"`
 	Length   string `json:"length"`
 	Interval string `json:"interval"`
+}
+
+type Noise struct {
+	Packet string `json:"packet"`
+	Delay  string `json:"delay"`
 }
 
 // Build implements Buildable.
@@ -83,6 +89,12 @@ func (c *SocketConfig) Build() (*internet.SocketConfig, error) {
 		config.Fragment.Packets = c.Fragment.Packets
 		config.Fragment.Length = c.Fragment.Length
 		config.Fragment.Interval = c.Fragment.Interval
+	}
+
+	if c.Noise != nil {
+		config.Noise = new(internet.SocketConfig_Noise)
+		config.Noise.Packet = c.Noise.Packet
+		config.Noise.Delay = c.Noise.Delay
 	}
 
 	return config, nil
