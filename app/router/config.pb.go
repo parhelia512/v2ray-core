@@ -1384,7 +1384,7 @@ func file_app_router_config_proto_rawDescGZIP() []byte {
 
 var file_app_router_config_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
 var file_app_router_config_proto_msgTypes = make([]protoimpl.MessageInfo, 14)
-var file_app_router_config_proto_goTypes = []interface{}{
+var file_app_router_config_proto_goTypes = []any{
 	(Domain_Type)(0),                // 0: v2ray.core.app.router.Domain.Type
 	(Config_DomainStrategy)(0),      // 1: v2ray.core.app.router.Config.DomainStrategy
 	(*Domain)(nil),                  // 2: v2ray.core.app.router.Domain
@@ -1442,7 +1442,7 @@ func file_app_router_config_proto_init() {
 		return
 	}
 	if !protoimpl.UnsafeEnabled {
-		file_app_router_config_proto_msgTypes[0].Exporter = func(v interface{}, i int) interface{} {
+		file_app_router_config_proto_msgTypes[0].Exporter = func(v any, i int) any {
 			switch v := v.(*Domain); i {
 			case 0:
 				return &v.state
@@ -1454,7 +1454,7 @@ func file_app_router_config_proto_init() {
 				return nil
 			}
 		}
-		file_app_router_config_proto_msgTypes[1].Exporter = func(v interface{}, i int) interface{} {
+		file_app_router_config_proto_msgTypes[1].Exporter = func(v any, i int) any {
 			switch v := v.(*CIDR); i {
 			case 0:
 				return &v.state
@@ -1466,7 +1466,7 @@ func file_app_router_config_proto_init() {
 				return nil
 			}
 		}
-		file_app_router_config_proto_msgTypes[2].Exporter = func(v interface{}, i int) interface{} {
+		file_app_router_config_proto_msgTypes[2].Exporter = func(v any, i int) any {
 			switch v := v.(*GeoIP); i {
 			case 0:
 				return &v.state
@@ -1478,7 +1478,7 @@ func file_app_router_config_proto_init() {
 				return nil
 			}
 		}
-		file_app_router_config_proto_msgTypes[3].Exporter = func(v interface{}, i int) interface{} {
+		file_app_router_config_proto_msgTypes[3].Exporter = func(v any, i int) any {
 			switch v := v.(*GeoIPList); i {
 			case 0:
 				return &v.state
@@ -1490,7 +1490,7 @@ func file_app_router_config_proto_init() {
 				return nil
 			}
 		}
-		file_app_router_config_proto_msgTypes[4].Exporter = func(v interface{}, i int) interface{} {
+		file_app_router_config_proto_msgTypes[4].Exporter = func(v any, i int) any {
 			switch v := v.(*GeoSite); i {
 			case 0:
 				return &v.state
@@ -1502,7 +1502,7 @@ func file_app_router_config_proto_init() {
 				return nil
 			}
 		}
-		file_app_router_config_proto_msgTypes[5].Exporter = func(v interface{}, i int) interface{} {
+		file_app_router_config_proto_msgTypes[5].Exporter = func(v any, i int) any {
 			switch v := v.(*GeoSiteList); i {
 			case 0:
 				return &v.state
@@ -1514,7 +1514,7 @@ func file_app_router_config_proto_init() {
 				return nil
 			}
 		}
-		file_app_router_config_proto_msgTypes[6].Exporter = func(v interface{}, i int) interface{} {
+		file_app_router_config_proto_msgTypes[6].Exporter = func(v any, i int) any {
 			switch v := v.(*RoutingRule); i {
 			case 0:
 				return &v.state
@@ -1526,7 +1526,7 @@ func file_app_router_config_proto_init() {
 				return nil
 			}
 		}
-		file_app_router_config_proto_msgTypes[7].Exporter = func(v interface{}, i int) interface{} {
+		file_app_router_config_proto_msgTypes[7].Exporter = func(v any, i int) any {
 			switch v := v.(*BalancingRule); i {
 			case 0:
 				return &v.state
@@ -1538,7 +1538,7 @@ func file_app_router_config_proto_init() {
 				return nil
 			}
 		}
-		file_app_router_config_proto_msgTypes[8].Exporter = func(v interface{}, i int) interface{} {
+		file_app_router_config_proto_msgTypes[8].Exporter = func(v any, i int) any {
 			switch v := v.(*StrategyWeight); i {
 			case 0:
 				return &v.state
@@ -1550,7 +1550,7 @@ func file_app_router_config_proto_init() {
 				return nil
 			}
 		}
-		file_app_router_config_proto_msgTypes[9].Exporter = func(v interface{}, i int) interface{} {
+		file_app_router_config_proto_msgTypes[9].Exporter = func(v any, i int) any {
 			switch v := v.(*StrategyRandomConfig); i {
 			case 0:
 				return &v.state
@@ -1562,7 +1562,7 @@ func file_app_router_config_proto_init() {
 				return nil
 			}
 		}
-		file_app_router_config_proto_msgTypes[10].Exporter = func(v interface{}, i int) interface{} {
+		file_app_router_config_proto_msgTypes[10].Exporter = func(v any, i int) any {
 			switch v := v.(*StrategyLeastPingConfig); i {
 			case 0:
 				return &v.state
@@ -1574,7 +1574,7 @@ func file_app_router_config_proto_init() {
 				return nil
 			}
 		}
-		file_app_router_config_proto_msgTypes[11].Exporter = func(v interface{}, i int) interface{} {
+		file_app_router_config_proto_msgTypes[11].Exporter = func(v any, i int) any {
 			switch v := v.(*StrategyLeastLoadConfig); i {
 			case 0:
 				return &v.state
@@ -1586,7 +1586,7 @@ func file_app_router_config_proto_init() {
 				return nil
 			}
 		}
-		file_app_router_config_proto_msgTypes[12].Exporter = func(v interface{}, i int) interface{} {
+		file_app_router_config_proto_msgTypes[12].Exporter = func(v any, i int) any {
 			switch v := v.(*Config); i {
 			case 0:
 				return &v.state
@@ -1598,7 +1598,7 @@ func file_app_router_config_proto_init() {
 				return nil
 			}
 		}
-		file_app_router_config_proto_msgTypes[13].Exporter = func(v interface{}, i int) interface{} {
+		file_app_router_config_proto_msgTypes[13].Exporter = func(v any, i int) any {
 			switch v := v.(*Domain_Attribute); i {
 			case 0:
 				return &v.state
@@ -1611,11 +1611,11 @@ func file_app_router_config_proto_init() {
 			}
 		}
 	}
-	file_app_router_config_proto_msgTypes[6].OneofWrappers = []interface{}{
+	file_app_router_config_proto_msgTypes[6].OneofWrappers = []any{
 		(*RoutingRule_Tag)(nil),
 		(*RoutingRule_BalancingTag)(nil),
 	}
-	file_app_router_config_proto_msgTypes[13].OneofWrappers = []interface{}{
+	file_app_router_config_proto_msgTypes[13].OneofWrappers = []any{
 		(*Domain_Attribute_BoolValue)(nil),
 		(*Domain_Attribute_IntValue)(nil),
 	}
