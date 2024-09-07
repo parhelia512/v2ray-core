@@ -19,7 +19,6 @@ import (
 type ConnWriter struct {
 	io.Writer
 	Target        net.Destination
-	Account       *MemoryAccount
 	TCPHeaderSent bool
 }
 

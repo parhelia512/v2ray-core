@@ -9,13 +9,8 @@ option java_multiple_files = true;
 import "common/protocol/user.proto";
 import "common/protocol/server_spec.proto";
 
-message OBFS {
-  string type = 1;
-  string password = 2;
-}
 
 message Account {
-  OBFS obfs = 1;
 }
 
 message ClientConfig {
@@ -23,5 +18,4 @@ message ClientConfig {
 }
 
 message ServerConfig {
-  repeated v2ray.core.common.protocol.User users = 1;
 }
