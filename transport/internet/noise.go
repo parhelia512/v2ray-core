@@ -83,14 +83,13 @@ func newNoiseConfig(packet, delayString string) ([]byte, int64, error) {
 	return noise, delay, nil
 }
 
-func NewNoisePacketConn(conn net.PacketConn, dest net.Addr, packet, delayString string) (*noisePacketConn, error) {
+func NewNoisePacketConn(conn net.PacketConn, packet, delayString string) (net.PacketConn, error) {
 	noise, delay, err := newNoiseConfig(packet, delayString)
 	if err != nil {
 		return nil, err
 	}
 	return &noisePacketConn{
 		PacketConn: conn,
-		dest:       dest,
 		firstWrite: true,
 		noise:      noise,
 		delay:      delay,
@@ -99,7 +98,6 @@ func NewNoisePacketConn(conn net.PacketConn, dest net.Addr, packet, delayString 
 
 type noisePacketConn struct {
 	net.PacketConn
-	dest       net.Addr
 	firstWrite bool
 	noise      []byte
 	delay      int64
@@ -114,19 +112,6 @@ func (c *noisePacketConn) WriteTo(b []byte, addr net.Addr) (int, error) {
 		}
 	}
 	return c.PacketConn.WriteTo(b, addr)
-}
-
-func (c *noisePacketConn) Write(b []byte) (int, error) {
-	return c.WriteTo(b, c.dest)
-}
-
-func (c *noisePacketConn) Read(b []byte) (int, error) {
-	n, _, err := c.PacketConn.ReadFrom(b)
-	return n, err
-}
-
-func (c *noisePacketConn) RemoteAddr() net.Addr {
-	return c.dest
 }
 
 func NewNoiseConn(conn net.Conn, packet, delayString string) (net.Conn, error) {

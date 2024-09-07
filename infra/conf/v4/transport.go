@@ -7,20 +7,14 @@ import (
 )
 
 type TransportConfig struct {
-	TCPConfig         *TCPConfig          `json:"tcpSettings"`
-	KCPConfig         *KCPConfig          `json:"kcpSettings"`
-	WSConfig          *WebSocketConfig    `json:"wsSettings"`
-	HTTPConfig        *HTTPConfig         `json:"httpSettings"`
-	DSConfig          *DomainSocketConfig `json:"dsSettings"`
-	QUICConfig        *QUICConfig         `json:"quicSettings"`
-	GunConfig         *GunConfig          `json:"gunSettings"`
-	GRPCConfig        *GunConfig          `json:"grpcSettings"`
-	MeekConfig        *MeekConfig         `json:"meekSettings"`
-	HTTPUpgradeConfig *HTTPUpgradeConfig  `json:"httpupgradeSettings"`
-	DTLSConfig        *DTLSConfig         `json:"dtlsSettings"`
-	RequestConfig     *RequestConfig      `json:"requestSettings"`
-	Hysteria2Config   *Hysteria2Config    `json:"hysteria2Settings"`
-	SplitHTTPConfig   *SplitHTTPConfig    `json:"splithttpSettings"`
+	TCPConfig  *TCPConfig          `json:"tcpSettings"`
+	KCPConfig  *KCPConfig          `json:"kcpSettings"`
+	WSConfig   *WebSocketConfig    `json:"wsSettings"`
+	HTTPConfig *HTTPConfig         `json:"httpSettings"`
+	DSConfig   *DomainSocketConfig `json:"dsSettings"`
+	QUICConfig *QUICConfig         `json:"quicSettings"`
+	GunConfig  *GunConfig          `json:"gunSettings"`
+	GRPCConfig *GunConfig          `json:"grpcSettings"`
 }
 
 // Build implements Buildable.
@@ -104,72 +98,6 @@ func (c *TransportConfig) Build() (*global.Config, error) {
 		config.TransportSettings = append(config.TransportSettings, &internet.TransportConfig{
 			ProtocolName: "gun",
 			Settings:     serial.ToTypedMessage(gs),
-		})
-	}
-
-	if c.MeekConfig != nil {
-		ms, err := c.MeekConfig.Build()
-		if err != nil {
-			return nil, newError("Failed to build Meek config.").Base(err)
-		}
-		config.TransportSettings = append(config.TransportSettings, &internet.TransportConfig{
-			ProtocolName: "meek",
-			Settings:     serial.ToTypedMessage(ms),
-		})
-	}
-
-	if c.HTTPUpgradeConfig != nil {
-		hs, err := c.HTTPUpgradeConfig.Build()
-		if err != nil {
-			return nil, newError("Failed to build HTTPUpgrade config.").Base(err)
-		}
-		config.TransportSettings = append(config.TransportSettings, &internet.TransportConfig{
-			ProtocolName: "httpupgrade",
-			Settings:     serial.ToTypedMessage(hs),
-		})
-	}
-
-	if c.DTLSConfig != nil {
-		ds, err := c.DTLSConfig.Build()
-		if err != nil {
-			return nil, newError("Failed to build DTLS config.").Base(err)
-		}
-		config.TransportSettings = append(config.TransportSettings, &internet.TransportConfig{
-			ProtocolName: "dtls",
-			Settings:     serial.ToTypedMessage(ds),
-		})
-	}
-
-	if c.RequestConfig != nil {
-		rs, err := c.RequestConfig.Build()
-		if err != nil {
-			return nil, newError("Failed to build Request config.").Base(err)
-		}
-		config.TransportSettings = append(config.TransportSettings, &internet.TransportConfig{
-			ProtocolName: "request",
-			Settings:     serial.ToTypedMessage(rs),
-		})
-	}
-
-	if c.Hysteria2Config != nil {
-		hs, err := c.Hysteria2Config.Build()
-		if err != nil {
-			return nil, newError("Failed to build Hysteria2 config.").Base(err)
-		}
-		config.TransportSettings = append(config.TransportSettings, &internet.TransportConfig{
-			ProtocolName: "hysteria2",
-			Settings:     serial.ToTypedMessage(hs),
-		})
-	}
-
-	if c.SplitHTTPConfig != nil {
-		hs, err := c.SplitHTTPConfig.Build()
-		if err != nil {
-			return nil, newError("Failed to build SplitHTTP config.").Base(err)
-		}
-		config.TransportSettings = append(config.TransportSettings, &internet.TransportConfig{
-			ProtocolName: "splithttp",
-			Settings:     serial.ToTypedMessage(hs),
 		})
 	}
 

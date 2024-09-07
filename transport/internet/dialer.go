@@ -101,10 +101,26 @@ func DialSystem(ctx context.Context, dest net.Destination, sockopt *SocketConfig
 			return NewFragmentConn(conn, sockopt.Fragment.Packets, sockopt.Fragment.Length, sockopt.Fragment.Interval)
 		}
 		if dest.Network == net.Network_UDP && sockopt != nil && sockopt.Noise != nil {
-			if packetConn, ok := conn.(net.PacketConn); ok {
-				return NewNoisePacketConn(packetConn, conn.RemoteAddr(), sockopt.Noise.Packet, sockopt.Noise.Delay)
+			switch c := conn.(type) {
+			case *PacketConnWrapper:
+				noisePacketConn, err := NewNoisePacketConn(c.Conn, sockopt.Noise.Packet, sockopt.Noise.Delay)
+				if err != nil {
+					return nil, err
+				}
+				c.Conn = noisePacketConn
+				return c, nil
+			case net.PacketConn:
+				noisePacketConn, err := NewNoisePacketConn(c, sockopt.Noise.Packet, sockopt.Noise.Delay)
+				if err != nil {
+					return nil, err
+				}
+				return &PacketConnWrapper{
+					Conn: noisePacketConn,
+					Dest: conn.RemoteAddr(),
+				}, nil
+			default:
+				return NewNoiseConn(conn, sockopt.Noise.Packet, sockopt.Noise.Delay)
 			}
-			return NewNoiseConn(conn, sockopt.Noise.Packet, sockopt.Noise.Delay)
 		}
 	}
 	return conn, err

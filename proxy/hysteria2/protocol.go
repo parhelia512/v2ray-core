@@ -138,7 +138,6 @@ func (w *PacketWriter) writePacket(payload []byte, dest net.Destination) (int, e
 // ConnReader is TCP Connection Reader Wrapper
 type ConnReader struct {
 	io.Reader
-	Target net.Destination
 }
 
 // Read implements io.Reader
@@ -150,7 +149,10 @@ func (c *ConnReader) Read(p []byte) (int, error) {
 func (c *ConnReader) ReadMultiBuffer() (buf.MultiBuffer, error) {
 	b := buf.New()
 	_, err := b.ReadFrom(c)
-	return buf.MultiBuffer{b}, err
+	if err != nil {
+		return nil, err
+	}
+	return buf.MultiBuffer{b}, nil
 }
 
 // PacketPayload combines udp payload and destination
@@ -168,10 +170,10 @@ type PacketReader struct {
 // ReadMultiBuffer implements buf.Reader
 func (r *PacketReader) ReadMultiBuffer() (buf.MultiBuffer, error) {
 	p, err := r.ReadMultiBufferWithMetadata()
-	if p != nil {
-		return p.Buffer, err
+	if err != nil {
+		return nil, err
 	}
-	return nil, err
+	return p.Buffer, nil
 }
 
 // ReadMultiBufferWithMetadata reads udp packet with destination
@@ -183,27 +185,4 @@ func (r *PacketReader) ReadMultiBufferWithMetadata() (*PacketPayload, error) {
 	b := buf.FromBytes(data)
 	b.Endpoint = dest
 	return &PacketPayload{Target: *dest, Buffer: buf.MultiBuffer{b}}, nil
-}
-
-type PacketConnectionReader struct {
-	reader  *PacketReader
-	payload *PacketPayload
-}
-
-func (r *PacketConnectionReader) ReadFrom(p []byte) (n int, addr net.Addr, err error) {
-	if r.payload == nil || r.payload.Buffer.IsEmpty() {
-		r.payload, err = r.reader.ReadMultiBufferWithMetadata()
-		if err != nil {
-			return
-		}
-	}
-
-	addr = &net.UDPAddr{
-		IP:   r.payload.Target.Address.IP(),
-		Port: int(r.payload.Target.Port),
-	}
-
-	r.payload.Buffer, n = buf.SplitFirstBytes(r.payload.Buffer, p)
-
-	return
 }

@@ -15,14 +15,6 @@ enum TransportProtocol {
   WebSocket = 3;
   HTTP = 4;
   DomainSocket = 5;
-  QUIC = 6;
-  Gun = 7;
-  Meek = 8;
-  HTTPUpgrade = 9;
-  DTLS = 10;
-  Request = 11;
-  Hysteria2 = 12;
-  SplitHTTP = 13;
 }
 
 message TransportConfig {

@@ -14,9 +14,9 @@ var (
 	DialUDP         = net.DialUDP
 	DialUnix        = net.DialUnix
 	FileConn        = net.FileConn
+	FileListener    = net.FileListener
 	InterfaceAddrs  = net.InterfaceAddrs
 	Listen          = net.Listen
-	ListenPacket    = net.ListenPacket
 	ListenTCP       = net.ListenTCP
 	ListenUDP       = net.ListenUDP
 	ListenUnix      = net.ListenUnix

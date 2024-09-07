@@ -167,7 +167,7 @@ func CloseHyClient(dest net.Destination, streamSettings *internet.MemoryStreamCo
 		delete(RunningClient, dialerConf{dest, streamSettings})
 		return client.Close()
 	}
-	return nil
+	return newError("CloseHyClient: not found")
 }
 
 func GetHyClient(ctx context.Context, dest net.Destination, streamSettings *internet.MemoryStreamConfig) (hyClient.Client, error) {
@@ -209,7 +209,6 @@ func Dial(ctx context.Context, dest net.Destination, streamSettings *internet.Me
 
 	client, err := GetHyClient(ctx, dest, streamSettings)
 	if err != nil {
-		CloseHyClient(dest, streamSettings)
 		return nil, err
 	}
 
@@ -223,7 +222,6 @@ func Dial(ctx context.Context, dest net.Destination, streamSettings *internet.Me
 	network := net.Network_TCP
 	if outbound != nil {
 		network = outbound.Target.Network
-		conn.Target = outbound.Target
 	}
 
 	if network == net.Network_UDP && config.GetUseUdpExtension() { // only hysteria2 can use udpExtension
@@ -247,7 +245,11 @@ func Dial(ctx context.Context, dest net.Destination, streamSettings *internet.Me
 	frameSize := quicvarint.Len(FrameTypeTCPRequest)
 	buf := make([]byte, frameSize)
 	hyProtocol.VarintPut(buf, FrameTypeTCPRequest)
-	conn.stream.Write(buf)
+	_, err = conn.stream.Write(buf)
+	if err != nil {
+		CloseHyClient(dest, streamSettings)
+		return nil, err
+	}
 	return conn, nil
 }
 

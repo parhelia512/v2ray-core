@@ -9,8 +9,6 @@ import (
 	"github.com/v2fly/v2ray-core/v5/common/buf"
 	"github.com/v2fly/v2ray-core/v5/common/net"
 	"github.com/v2fly/v2ray-core/v5/common/protocol"
-	"github.com/v2fly/v2ray-core/v5/features/inbound"
-	"github.com/v2fly/v2ray-core/v5/proxy"
 )
 
 const (
@@ -42,12 +40,10 @@ var addrParser = protocol.NewAddressParser(
 )
 
 type ServerSession struct {
-	config         *ServerConfig
-	address        net.Address
-	port           net.Port
-	clientAddress  net.Address
-	inboundManager inbound.Manager
-	inbound        proxy.Inbound
+	config        *ServerConfig
+	address       net.Address
+	port          net.Port
+	clientAddress net.Address
 }
 
 func (s *ServerSession) handshake4(cmd byte, reader io.Reader, writer io.Writer) (*protocol.RequestHeader, error) {
@@ -205,29 +201,6 @@ func (s *ServerSession) handshake5(nMethod byte, reader io.Reader, writer io.Wri
 		} else {
 			// For non-localhost clients use inbound listening address
 			responseAddress = s.address
-		}
-		if s.config.RandomUdpPort && s.inboundManager != nil && s.inbound != nil {
-			conn, err := net.ListenPacket("udp", responseAddress.String()+":0")
-			if err != nil {
-				return nil, err
-			}
-			responsePort = net.Port(conn.LocalAddr().(*net.UDPAddr).Port)
-			if err := conn.Close(); err != nil {
-				return nil, err
-			}
-			if im, ok := s.inboundManager.(inbound.GetHandlerByInbound); ok {
-				handler, err := im.GetHandlerByInbound(s.inbound)
-				if err != nil {
-					return nil, err
-				}
-				h, ok := handler.(inbound.AddUDPWorker)
-				if !ok {
-					return nil, newError("invalid handler")
-				}
-				if err := h.AddUDPWorker(responsePort); err != nil {
-					return nil, err
-				}
-			}
 		}
 	}
 	if err := writeSocks5Response(writer, statusSuccess, responseAddress, responsePort); err != nil {

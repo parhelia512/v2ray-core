@@ -15,7 +15,6 @@ func init() {
 			AuthType:       socks.AuthType_NO_AUTH,
 			Address:        simplifiedServer.Address,
 			UdpEnabled:     simplifiedServer.UdpEnabled,
-			RandomUdpPort:  simplifiedServer.RandomUdpPort,
 			PacketEncoding: simplifiedServer.PacketEncoding,
 		}
 		return common.CreateObject(ctx, fullServer)

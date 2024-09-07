@@ -223,8 +223,8 @@ func NewPacketReader(conn net.Conn, dest net.Destination, addrPort *addrPort) bu
 	if c, ok := iConn.(net.PacketConn); ok {
 		return &PacketReader{
 			packetConn: c,
-			dest:       dest,
 			counter:    counter,
+			dest:       dest,
 			addrPort:   addrPort,
 		}
 	}
@@ -233,8 +233,8 @@ func NewPacketReader(conn net.Conn, dest net.Destination, addrPort *addrPort) bu
 
 type PacketReader struct {
 	packetConn net.PacketConn
-	dest       net.Destination
 	counter    stats.Counter
+	dest       net.Destination
 	addrPort   *addrPort
 }
 
@@ -276,9 +276,8 @@ func NewPacketWriter(ctx context.Context, h *Handler, conn net.Conn, dest net.De
 			ctx:        ctx,
 			handler:    h,
 			packetConn: c,
-			dest:       dest,
 			counter:    counter,
-			conn:       iConn,
+			dest:       dest,
 			addrPort:   addrPort,
 		}
 	}
@@ -289,9 +288,8 @@ type PacketWriter struct {
 	ctx        context.Context
 	handler    *Handler
 	packetConn net.PacketConn
-	dest       net.Destination
 	counter    stats.Counter
-	conn       net.Conn
+	dest       net.Destination
 	addrPort   *addrPort
 }
 
@@ -300,40 +298,42 @@ func (w *PacketWriter) WriteMultiBuffer(mb buf.MultiBuffer) error {
 		if b == nil {
 			continue
 		}
-		var n int
-		var err error
+		var originalDest net.Destination
+		var dest net.Destination
 		if b.Endpoint != nil {
-			endpoint := *b.Endpoint
-			if w.handler.config.useIP() && b.Endpoint.Address.Family().IsDomain() {
-				ip := w.handler.resolveIP(w.ctx, b.Endpoint.Address.Domain(), nil)
-				if ip != nil {
-					b.Endpoint.Address = ip
-				}
-			}
-			if b.Endpoint.Address.Family().IsDomain() {
-				// SagerNet private
-				ips, err := localdns.New().LookupIP(b.Endpoint.Address.Domain())
-				if err != nil {
-					return err
-				}
-				if len(ips) == 0 {
-					return dns.ErrEmptyResponse
-				}
-				b.Endpoint.Address = net.IPAddress(ips[0])
-			}
-			destAddr, _ := net.ResolveUDPAddr("udp", b.Endpoint.NetAddr())
-			if destAddr == nil {
-				b.Release()
-				continue
-			}
-			if w.dest.Address.Family().IsDomain() && w.dest.Address == endpoint.Address && !w.addrPort.Addr.IsValid() {
-				w.addrPort.Addr = destAddr.AddrPort().Addr()
-				w.addrPort.Port = net.Port(destAddr.Port)
-			}
-			n, err = w.packetConn.WriteTo(b.Bytes(), destAddr)
+			originalDest = *b.Endpoint
+			dest = *b.Endpoint
 		} else {
-			n, err = w.conn.Write(b.Bytes())
+			originalDest = w.dest
+			dest = w.dest
 		}
+		if w.handler.config.useIP() && dest.Address.Family().IsDomain() {
+			ip := w.handler.resolveIP(w.ctx, dest.Address.Domain(), nil)
+			if ip != nil {
+				dest.Address = ip
+			}
+		}
+		if dest.Address.Family().IsDomain() {
+			// SagerNet private
+			ips, err := localdns.New().LookupIP(dest.Address.Domain())
+			if err != nil {
+				return err
+			}
+			if len(ips) == 0 {
+				return dns.ErrEmptyResponse
+			}
+			dest.Address = net.IPAddress(ips[0])
+		}
+		destAddr, _ := net.ResolveUDPAddr("udp", dest.NetAddr())
+		if destAddr == nil {
+			b.Release()
+			continue
+		}
+		if w.dest.Address.Family().IsDomain() && w.dest.Address == originalDest.Address && !w.addrPort.Addr.IsValid() {
+			w.addrPort.Addr = destAddr.AddrPort().Addr()
+			w.addrPort.Port = net.Port(destAddr.Port)
+		}
+		n, err := w.packetConn.WriteTo(b.Bytes(), destAddr)
 		b.Release()
 		if err != nil {
 			buf.ReleaseMulti(mb)
