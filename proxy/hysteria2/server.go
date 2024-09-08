@@ -16,7 +16,6 @@ import (
 	"github.com/v2fly/v2ray-core/v4/common/errors"
 	"github.com/v2fly/v2ray-core/v4/common/log"
 	"github.com/v2fly/v2ray-core/v4/common/net"
-	"github.com/v2fly/v2ray-core/v4/common/net/packetaddr"
 	udp_proto "github.com/v2fly/v2ray-core/v4/common/protocol/udp"
 	"github.com/v2fly/v2ray-core/v4/common/session"
 	"github.com/v2fly/v2ray-core/v4/common/signal"
@@ -36,8 +35,7 @@ func init() {
 
 // Server is an inbound connection handler that handles messages in protocol.
 type Server struct {
-	policyManager  policy.Manager
-	packetEncoding packetaddr.PacketAddrType
+	policyManager policy.Manager
 }
 
 // NewServer creates a new inbound handler.
@@ -174,12 +172,6 @@ func (s *Server) handleConnection(ctx context.Context, sessionPolicy policy.Sess
 
 func (s *Server) handleUDPPayload(ctx context.Context, clientReader *PacketReader, clientWriter *PacketWriter, dispatcher routing.Dispatcher) error { // {{{
 	udpDispatcherConstructor := udp.NewSplitDispatcher
-	switch s.packetEncoding {
-	case packetaddr.PacketAddrType_None:
-	case packetaddr.PacketAddrType_Packet:
-		packetAddrDispatcherFactory := udp.NewPacketAddrDispatcherCreator(ctx)
-		udpDispatcherConstructor = packetAddrDispatcherFactory.NewPacketAddrDispatcher
-	}
 
 	udpServer := udpDispatcherConstructor(dispatcher, func(ctx context.Context, packet *udp_proto.Packet) {
 		if err := clientWriter.WriteMultiBufferWithMetadata(buf.MultiBuffer{packet.Payload}, packet.Source); err != nil {
@@ -188,7 +180,6 @@ func (s *Server) handleUDPPayload(ctx context.Context, clientReader *PacketReade
 	})
 
 	inbound := session.InboundFromContext(ctx)
-	// user := inbound.User
 
 	for {
 		select {
@@ -216,4 +207,4 @@ func (s *Server) handleUDPPayload(ctx context.Context, clientReader *PacketReade
 			}
 		}
 	}
-} // }}}
+}
