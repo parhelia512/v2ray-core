@@ -20,7 +20,6 @@ const (
 type ConnWriter struct {
 	io.Writer
 	Target        net.Destination
-	Account       *MemoryAccount
 	TCPHeaderSent bool
 }
 
@@ -59,6 +58,10 @@ func (c *ConnWriter) WriteTCPHeader() error {
 	return nil
 }
 
+func QuicLen(s int) int {
+	return int(quicvarint.Len(uint64(s)))
+}
+
 func (c *ConnWriter) writeTCPHeader() error {
 	c.TCPHeaderSent = true
 
@@ -69,12 +72,12 @@ func (c *ConnWriter) writeTCPHeader() error {
 	}
 	addressAndPort := c.Target.NetAddr()
 	addressLen := len(addressAndPort)
-
-	if quicvarint.Len(uint64(addressLen))+addressLen > hyProtocol.MaxAddressLength {
-		return newError("invalid header length")
+	if addressLen > hyProtocol.MaxAddressLength {
+		return newError("address length too large: ", addressLen)
 	}
+	size := QuicLen(addressLen) + addressLen + QuicLen(paddingLen) + paddingLen
 
-	buf := make([]byte, quicvarint.Len(uint64(addressLen))+addressLen+quicvarint.Len(uint64(paddingLen))+paddingLen)
+	buf := make([]byte, size)
 	i := hyProtocol.VarintPut(buf, uint64(addressLen))
 	i += copy(buf[i:], addressAndPort)
 	i += hyProtocol.VarintPut(buf[i:], uint64(paddingLen))
@@ -138,6 +141,7 @@ func (w *PacketWriter) writePacket(payload []byte, dest net.Destination) (int, e
 // ConnReader is TCP Connection Reader Wrapper
 type ConnReader struct {
 	io.Reader
+	Target net.Destination
 }
 
 // Read implements io.Reader
@@ -170,10 +174,10 @@ type PacketReader struct {
 // ReadMultiBuffer implements buf.Reader
 func (r *PacketReader) ReadMultiBuffer() (buf.MultiBuffer, error) {
 	p, err := r.ReadMultiBufferWithMetadata()
-	if err != nil {
-		return nil, err
+	if p != nil {
+		return p.Buffer, err
 	}
-	return p.Buffer, nil
+	return nil, err
 }
 
 // ReadMultiBufferWithMetadata reads udp packet with destination
@@ -185,4 +189,27 @@ func (r *PacketReader) ReadMultiBufferWithMetadata() (*PacketPayload, error) {
 	b := buf.FromBytes(data)
 	b.Endpoint = dest
 	return &PacketPayload{Target: *dest, Buffer: buf.MultiBuffer{b}}, nil
+}
+
+type PacketConnectionReader struct {
+	reader  *PacketReader
+	payload *PacketPayload
+}
+
+func (r *PacketConnectionReader) ReadFrom(p []byte) (n int, addr net.Addr, err error) {
+	if r.payload == nil || r.payload.Buffer.IsEmpty() {
+		r.payload, err = r.reader.ReadMultiBufferWithMetadata()
+		if err != nil {
+			return
+		}
+	}
+
+	addr = &net.UDPAddr{
+		IP:   r.payload.Target.Address.IP(),
+		Port: int(r.payload.Target.Port),
+	}
+
+	r.payload.Buffer, n = buf.SplitFirstBytes(r.payload.Buffer, p)
+
+	return
 }

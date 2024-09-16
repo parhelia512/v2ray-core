@@ -9,6 +9,8 @@ option java_multiple_files = true;
 import "common/protoext/extensions.proto";
 
 message Congestion{
+  string type = 1;
+
   uint64 up_mbps = 2;
   uint64 down_mbps = 3;
 }
@@ -22,9 +24,9 @@ message Config {
   option (v2ray.core.common.protoext.message_opt).type = "transport";
   option (v2ray.core.common.protoext.message_opt).short_name = "hysteria2";
 
-  string password = 1;
-  Congestion congestion = 2;
-  bool ignore_client_bandwidth = 3;
-  bool use_udp_extension = 4;
-  OBFS obfs = 5;
+  string password = 3;
+  Congestion congestion = 4;
+  bool ignore_client_bandwidth = 5;
+  bool use_udp_extension = 6;
+  OBFS obfs = 7;
 }

@@ -11,7 +11,6 @@ import (
 	"github.com/v2fly/v2ray-core/v5/app/dispatcher"
 	"github.com/v2fly/v2ray-core/v5/app/proxyman"
 	"github.com/v2fly/v2ray-core/v5/app/stats"
-	"github.com/v2fly/v2ray-core/v5/common/net"
 	"github.com/v2fly/v2ray-core/v5/common/serial"
 	"github.com/v2fly/v2ray-core/v5/features"
 	"github.com/v2fly/v2ray-core/v5/infra/conf/cfgcommon"
@@ -22,7 +21,6 @@ import (
 	"github.com/v2fly/v2ray-core/v5/infra/conf/synthetic/dns"
 	"github.com/v2fly/v2ray-core/v5/infra/conf/synthetic/log"
 	"github.com/v2fly/v2ray-core/v5/infra/conf/synthetic/router"
-	"github.com/v2fly/v2ray-core/v5/transport/internet"
 )
 
 var (
@@ -34,12 +32,12 @@ var (
 		"vless":                  func() interface{} { return new(VLessInboundConfig) },
 		"vmess":                  func() interface{} { return new(VMessInboundConfig) },
 		"trojan":                 func() interface{} { return new(TrojanServerConfig) },
+		"hysteria2":              func() interface{} { return new(Hysteria2ServerConfig) },
 		"vliteu":                 func() interface{} { return new(VLiteUDPInboundConfig) },
 		"shadowsocks-2022":       func() interface{} { return new(Shadowsocks2022ServerConfig) },
 		"shadowsocks-2022-multi": func() interface{} { return new(Shadowsocks2022MultiUserServerConfig) },
 		"shadowsocks-2022-relay": func() interface{} { return new(Shadowsocks2022RelayServerConfig) },
 		"mixed":                  func() interface{} { return new(MixedServerConfig) },
-		"hysteria2":              func() interface{} { return new(Hysteria2ServerConfig) },
 	}, "protocol", "settings")
 
 	outboundConfigLoader = loader.NewJSONConfigLoader(loader.ConfigCreatorCache{
@@ -52,12 +50,12 @@ var (
 		"vless":            func() interface{} { return new(VLessOutboundConfig) },
 		"vmess":            func() interface{} { return new(VMessOutboundConfig) },
 		"trojan":           func() interface{} { return new(TrojanClientConfig) },
+		"hysteria2":        func() interface{} { return new(Hysteria2ClientConfig) },
 		"dns":              func() interface{} { return new(DNSOutboundConfig) },
 		"loopback":         func() interface{} { return new(LoopbackConfig) },
 		"vliteu":           func() interface{} { return new(VLiteUDPOutboundConfig) },
 		"shadowsocks2022":  func() interface{} { return new(Shadowsocks2022Config) },
 		"shadowsocks-2022": func() interface{} { return new(Shadowsocks2022ClientConfig) },
-		"hysteria2":        func() interface{} { return new(Hysteria2ClientConfig) },
 		"wireguard":        func() interface{} { return new(WireGuardClientConfig) },
 	}, "protocol", "settings")
 )
@@ -202,29 +200,8 @@ func (c *InboundDetourConfig) Build() (*core.InboundHandlerConfig, error) {
 	if err != nil {
 		return nil, newError("failed to load inbound detour config.").Base(err)
 	}
-	if content, ok := rawConfig.(*DokodemoConfig); ok && content.Redirect {
-		receiverSettings.ReceiveOriginalDestination = true
-		if receiverSettings.StreamSettings == nil {
-			receiverSettings.StreamSettings = &internet.StreamConfig{}
-		}
-		if receiverSettings.StreamSettings.SocketSettings == nil {
-			receiverSettings.StreamSettings.SocketSettings = &internet.SocketConfig{}
-		}
-		receiverSettings.StreamSettings.SocketSettings.ReceiveOriginalDestAddress = true
-		if receiverSettings.StreamSettings.SocketSettings.Tproxy == internet.SocketConfig_Off {
-			receiverSettings.StreamSettings.SocketSettings.Tproxy = internet.SocketConfig_Redirect
-		}
-	}
-	if content, ok := rawConfig.(*SocksServerConfig); ok && content.UDP &&
-		(receiverSettings.Listen.AsAddress() == net.AnyIP || receiverSettings.Listen.AsAddress() == net.AnyIPv6) {
-		receiverSettings.ReceiveOriginalDestination = true
-		if receiverSettings.StreamSettings == nil {
-			receiverSettings.StreamSettings = &internet.StreamConfig{}
-		}
-		if receiverSettings.StreamSettings.SocketSettings == nil {
-			receiverSettings.StreamSettings.SocketSettings = &internet.SocketConfig{}
-		}
-		receiverSettings.StreamSettings.SocketSettings.ReceiveOriginalDestAddress = true
+	if dokodemoConfig, ok := rawConfig.(*DokodemoConfig); ok {
+		receiverSettings.ReceiveOriginalDestination = dokodemoConfig.Redirect
 	}
 	ts, err := rawConfig.(cfgcommon.Buildable).Build()
 	if err != nil {

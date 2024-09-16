@@ -42,11 +42,11 @@ func GetFingerprint(name string) (fingerprint *utls.ClientHelloID) {
 
 var PresetFingerprints = map[string]*utls.ClientHelloID{
 	// Recommended preset options in GUI clients
-	"chrome":  &utls.HelloChrome_Auto,
-	"firefox": &utls.HelloFirefox_Auto,
-	"safari":  &utls.HelloSafari_Auto,
-	"ios":     &utls.HelloIOS_Auto,
-	// "android":    &utls.HelloAndroid_11_OkHttp,
+	"chrome":     &utls.HelloChrome_Auto,
+	"firefox":    &utls.HelloFirefox_Auto,
+	"safari":     &utls.HelloSafari_Auto,
+	"ios":        &utls.HelloIOS_Auto,
+	"android":    &utls.HelloAndroid_11_OkHttp,
 	"edge":       &utls.HelloEdge_Auto,
 	"360":        &utls.Hello360_Auto,
 	"qq":         &utls.HelloQQ_Auto,
@@ -72,4 +72,31 @@ var ModernFingerprints = map[string]*utls.ClientHelloID{
 	"hellosafari_16_0":        &utls.HelloSafari_16_0,
 	"hello360_11_0":           &utls.Hello360_11_0,
 	"helloqq_11_1":            &utls.HelloQQ_11_1,
+}
+
+var OtherFingerprints = map[string]*utls.ClientHelloID{
+	// Golang, randomized, auto, and fingerprints that are too old
+	"hellogolang":            &utls.HelloGolang,
+	"hellorandomized":        &utls.HelloRandomized,
+	"hellorandomizedalpn":    &utls.HelloRandomizedALPN,
+	"hellorandomizednoalpn":  &utls.HelloRandomizedNoALPN,
+	"hellofirefox_auto":      &utls.HelloFirefox_Auto,
+	"hellofirefox_55":        &utls.HelloFirefox_55,
+	"hellofirefox_56":        &utls.HelloFirefox_56,
+	"hellofirefox_63":        &utls.HelloFirefox_63,
+	"hellofirefox_65":        &utls.HelloFirefox_65,
+	"hellochrome_auto":       &utls.HelloChrome_Auto,
+	"hellochrome_58":         &utls.HelloChrome_58,
+	"hellochrome_62":         &utls.HelloChrome_62,
+	"hellochrome_70":         &utls.HelloChrome_70,
+	"hellochrome_72":         &utls.HelloChrome_72,
+	"helloios_auto":          &utls.HelloIOS_Auto,
+	"helloios_11_1":          &utls.HelloIOS_11_1,
+	"helloios_12_1":          &utls.HelloIOS_12_1,
+	"helloandroid_11_okhttp": &utls.HelloAndroid_11_OkHttp,
+	"helloedge_auto":         &utls.HelloEdge_Auto,
+	"hellosafari_auto":       &utls.HelloSafari_Auto,
+	"hello360_auto":          &utls.Hello360_Auto,
+	"hello360_7_5":           &utls.Hello360_7_5,
+	"helloqq_auto":           &utls.HelloQQ_Auto,
 }

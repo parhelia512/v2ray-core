@@ -8,10 +8,8 @@ import (
 
 	core "github.com/v2fly/v2ray-core/v5"
 	"github.com/v2fly/v2ray-core/v5/app/proxyman"
-	"github.com/v2fly/v2ray-core/v5/common/net"
 	"github.com/v2fly/v2ray-core/v5/common/serial"
 	"github.com/v2fly/v2ray-core/v5/proxy/dokodemo"
-	"github.com/v2fly/v2ray-core/v5/proxy/socks"
 	"github.com/v2fly/v2ray-core/v5/transport/internet"
 )
 
@@ -72,42 +70,11 @@ func (c InboundConfig) BuildV5(ctx context.Context) (proto.Message, error) {
 		return nil, newError("unable to load inbound protocol config").Base(err)
 	}
 
-	if content, ok := inboundConfigPack.(*dokodemo.SimplifiedConfig); ok && content.FollowRedirect {
-		receiverSettings.ReceiveOriginalDestination = true
-		if receiverSettings.StreamSettings == nil {
-			receiverSettings.StreamSettings = &internet.StreamConfig{}
-		}
-		if receiverSettings.StreamSettings.SocketSettings == nil {
-			receiverSettings.StreamSettings.SocketSettings = &internet.SocketConfig{}
-		}
-		receiverSettings.StreamSettings.SocketSettings.ReceiveOriginalDestAddress = true
-		if receiverSettings.StreamSettings.SocketSettings.Tproxy == internet.SocketConfig_Off {
-			receiverSettings.StreamSettings.SocketSettings.Tproxy = internet.SocketConfig_Redirect
-		}
+	if content, ok := inboundConfigPack.(*dokodemo.SimplifiedConfig); ok {
+		receiverSettings.ReceiveOriginalDestination = content.FollowRedirect
 	}
-	if content, ok := inboundConfigPack.(*dokodemo.Config); ok && content.FollowRedirect {
-		receiverSettings.ReceiveOriginalDestination = true
-		if receiverSettings.StreamSettings == nil {
-			receiverSettings.StreamSettings = &internet.StreamConfig{}
-		}
-		if receiverSettings.StreamSettings.SocketSettings == nil {
-			receiverSettings.StreamSettings.SocketSettings = &internet.SocketConfig{}
-		}
-		receiverSettings.StreamSettings.SocketSettings.ReceiveOriginalDestAddress = true
-		if receiverSettings.StreamSettings.SocketSettings.Tproxy == internet.SocketConfig_Off {
-			receiverSettings.StreamSettings.SocketSettings.Tproxy = internet.SocketConfig_Redirect
-		}
-	}
-	if content, ok := inboundConfigPack.(*socks.ServerConfig); ok && content.UdpEnabled &&
-		(receiverSettings.Listen.AsAddress() == net.AnyIP || receiverSettings.Listen.AsAddress() == net.AnyIPv6) {
-		receiverSettings.ReceiveOriginalDestination = true
-		if receiverSettings.StreamSettings == nil {
-			receiverSettings.StreamSettings = &internet.StreamConfig{}
-		}
-		if receiverSettings.StreamSettings.SocketSettings == nil {
-			receiverSettings.StreamSettings.SocketSettings = &internet.SocketConfig{}
-		}
-		receiverSettings.StreamSettings.SocketSettings.ReceiveOriginalDestAddress = true
+	if content, ok := inboundConfigPack.(*dokodemo.Config); ok {
+		receiverSettings.ReceiveOriginalDestination = content.FollowRedirect
 	}
 
 	return &core.InboundHandlerConfig{

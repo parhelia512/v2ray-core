@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/v2fly/v2ray-core/v5/common/net"
-	"github.com/v2fly/v2ray-core/v5/common/net/packetaddr"
 	"github.com/v2fly/v2ray-core/v5/common/protocol"
 )
 
@@ -247,20 +246,5 @@ type UidList []uint32 // nolint: stylecheck
 func (l UidList) Build() *net.UidList {
 	return &net.UidList{
 		Uid: l,
-	}
-}
-
-type PacketAddrType string
-
-func (v PacketAddrType) Build() packetaddr.PacketAddrType {
-	switch strings.ToLower(string(v)) {
-	case "none":
-		return packetaddr.PacketAddrType_None
-	case "packet":
-		return packetaddr.PacketAddrType_Packet
-	case "xudp":
-		return packetaddr.PacketAddrType_XUDP
-	default:
-		return packetaddr.PacketAddrType_None
 	}
 }

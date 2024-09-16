@@ -1,8 +1,11 @@
 package v4
 
 import (
+	"strings"
+
 	"github.com/golang/protobuf/proto"
 
+	"github.com/v2fly/v2ray-core/v5/common/net/packetaddr"
 	"github.com/v2fly/v2ray-core/v5/infra/conf/cfgcommon"
 	"github.com/v2fly/v2ray-core/v5/proxy/mixed"
 )
@@ -20,14 +23,14 @@ func (v *MixedAccount) Build() *mixed.Account {
 }
 
 type MixedServerConfig struct {
-	AuthMethod     string                   `json:"auth"`
-	Accounts       []*MixedAccount          `json:"accounts"`
-	UDP            bool                     `json:"udp"`
-	Host           *cfgcommon.Address       `json:"ip"`
-	Timeout        uint32                   `json:"timeout"`
-	UserLevel      uint32                   `json:"userLevel"`
-	Transparent    bool                     `json:"allowTransparent"`
-	PacketEncoding cfgcommon.PacketAddrType `json:"packetEncoding"`
+	AuthMethod     string             `json:"auth"`
+	Accounts       []*MixedAccount    `json:"accounts"`
+	UDP            bool               `json:"udp"`
+	Host           *cfgcommon.Address `json:"ip"`
+	Timeout        uint32             `json:"timeout"`
+	UserLevel      uint32             `json:"userLevel"`
+	Transparent    bool               `json:"allowTransparent"`
+	PacketEncoding string             `json:"packetEncoding"`
 }
 
 func (v *MixedServerConfig) Build() (proto.Message, error) {
@@ -55,6 +58,13 @@ func (v *MixedServerConfig) Build() (proto.Message, error) {
 	config.Timeout = v.Timeout
 	config.UserLevel = v.UserLevel
 	config.AllowTransparent = v.Transparent
-	config.PacketEncoding = v.PacketEncoding.Build()
+
+	switch strings.ToLower(v.PacketEncoding) {
+	case "packet":
+		config.PacketEncoding = packetaddr.PacketAddrType_Packet
+	case "", "none":
+		config.PacketEncoding = packetaddr.PacketAddrType_None
+	}
+
 	return config, nil
 }

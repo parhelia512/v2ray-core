@@ -36,7 +36,7 @@ type IPRecord struct {
 }
 
 func (r *IPRecord) getIPs() ([]net.Address, error) {
-	if r == nil || r.Expire.Before(time.Now()) {
+	if r == nil || r.TTL > 0 && r.Expire.Before(time.Now()) {
 		return nil, errRecordNotFound
 	}
 	if r.RCode != dnsmessage.RCodeSuccess {
@@ -46,13 +46,7 @@ func (r *IPRecord) getIPs() ([]net.Address, error) {
 }
 
 func (r *IPRecord) getIPsAndTTL() ([]net.Address, uint32, time.Time, error) {
-	if r != nil && r.TTL == 0 {
-		// workaround zero ttl
-		ips, expireAt := r.IP, r.Expire
-		r = nil
-		return ips, 0, expireAt, nil
-	}
-	if r == nil || r.Expire.Before(time.Now()) {
+	if r == nil || r.TTL > 0 && r.Expire.Before(time.Now()) {
 		return nil, 0, time.Time{}, errRecordNotFound
 	}
 	if r.RCode != dnsmessage.RCodeSuccess {
@@ -195,8 +189,8 @@ func parseResponse(payload []byte) (*IPRecord, error) {
 	ipRecord := &IPRecord{
 		ReqID:  h.ID,
 		RCode:  h.RCode,
-		Expire: now.Add(time.Second * 600),
-		TTL:    600,
+		Expire: now,
+		TTL:    0,
 	}
 
 L:
@@ -209,9 +203,8 @@ L:
 			break
 		}
 
-		// keeps ttl preferred
-		ipRecord.Expire = now.Add(time.Duration(ah.TTL) * time.Second)
 		ipRecord.TTL = ah.TTL
+		ipRecord.Expire = now.Add(time.Duration(ipRecord.TTL) * time.Second)
 
 		switch ah.Type {
 		case dnsmessage.TypeA:
@@ -234,6 +227,16 @@ L:
 				break L
 			}
 			continue
+		}
+	}
+
+	// SOA record TTL for NXDomain
+	if h.RCode == dnsmessage.RCodeNameError {
+		if ah, err := parser.AuthorityHeader(); err == nil && ah.Type == dnsmessage.TypeSOA {
+			if ans, err := parser.SOAResource(); err == nil {
+				ipRecord.TTL = min(ah.TTL, ans.MinTTL)
+				ipRecord.Expire = now.Add(time.Duration(ipRecord.TTL) * time.Second)
+			}
 		}
 	}
 

@@ -3,6 +3,7 @@ package dns
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"fmt"
 	"io"
 	"net/http"
@@ -47,7 +48,7 @@ func NewDoHNameServer(url *url.URL, dispatcher routing.Dispatcher) (*DoHNameServ
 		IdleConnTimeout:     90 * time.Second,
 		TLSHandshakeTimeout: 30 * time.Second,
 		ForceAttemptHTTP2:   true,
-		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+		DialTLSContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
 			dispatcherCtx := context.Background()
 
 			dest, err := net.ParseDestination(network + ":" + addr)
@@ -70,11 +71,23 @@ func NewDoHNameServer(url *url.URL, dispatcher routing.Dispatcher) (*DoHNameServ
 			if cr, ok := link.Reader.(common.Closable); ok {
 				cc = append(cc, cr)
 			}
-			return cnc.NewConnection(
+			conn := cnc.NewConnection(
 				cnc.ConnectionInputMulti(link.Writer),
 				cnc.ConnectionOutputMulti(link.Reader),
 				cnc.ConnectionOnClose(cc),
-			), nil
+			)
+			return tls.Client(conn, &tls.Config{
+				ServerName: func() string {
+					switch dest.Address.Family() {
+					case net.AddressFamilyIPv4, net.AddressFamilyIPv6:
+						return dest.Address.IP().String()
+					case net.AddressFamilyDomain:
+						return dest.Address.Domain()
+					default:
+						panic("unknown address family")
+					}
+				}(),
+			}), nil
 		},
 	}
 	dispatchedClient := &http.Client{
@@ -299,8 +312,13 @@ func (s *DoHNameServer) findIPsForDomain(domain string, option dns_feature.IPOpt
 	var ttl uint32
 	var expireAt time.Time
 	var err, lastErr error
+	updated := false
 	if option.IPv4Enable {
 		a, ttl, expireAt, err = record.A.getIPsAndTTL()
+		if ttl == 0 {
+			record.A = nil
+			updated = true
+		}
 		if err != nil {
 			lastErr = err
 		}
@@ -309,10 +327,20 @@ func (s *DoHNameServer) findIPsForDomain(domain string, option dns_feature.IPOpt
 
 	if option.IPv6Enable {
 		aaaa, ttl, expireAt, err = record.AAAA.getIPsAndTTL()
+		if ttl == 0 {
+			record.AAAA = nil
+			updated = true
+		}
 		if err != nil {
 			lastErr = err
 		}
 		ips = append(ips, aaaa...)
+	}
+
+	if updated {
+		s.Lock()
+		s.ips[domain] = record
+		s.Unlock()
 	}
 
 	if len(ips) > 0 {

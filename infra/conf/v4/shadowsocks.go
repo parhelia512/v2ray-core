@@ -5,6 +5,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 
+	"github.com/v2fly/v2ray-core/v5/common/net/packetaddr"
 	"github.com/v2fly/v2ray-core/v5/common/protocol"
 	"github.com/v2fly/v2ray-core/v5/common/serial"
 	"github.com/v2fly/v2ray-core/v5/infra/conf/cfgcommon"
@@ -28,10 +29,10 @@ type ShadowsocksServerConfig struct {
 	Email          string                   `json:"email"`
 	NetworkList    *cfgcommon.NetworkList   `json:"network"`
 	IVCheck        bool                     `json:"ivCheck"`
+	PacketEncoding string                   `json:"packetEncoding"`
 	Plugin         string                   `json:"plugin"`
 	PluginOpts     string                   `json:"pluginOpts"`
 	PluginArgs     *cfgcommon.StringList    `json:"pluginArgs"`
-	PacketEncoding cfgcommon.PacketAddrType `json:"packetEncoding"`
 	Clients        []*ShadowsocksUserConfig `json:"clients"`
 	Users          []*ShadowsocksUserConfig `json:"users"`
 }
@@ -118,7 +119,13 @@ func (v *ShadowsocksServerConfig) Build() (proto.Message, error) {
 		Account: serial.ToTypedMessage(account),
 	}
 
-	config.PacketEncoding = v.PacketEncoding.Build()
+	switch strings.ToLower(v.PacketEncoding) {
+	case "packet":
+		config.PacketEncoding = packetaddr.PacketAddrType_Packet
+	case "", "none":
+		config.PacketEncoding = packetaddr.PacketAddrType_None
+	}
+
 	config.Plugin = v.Plugin
 	config.PluginOpts = v.PluginOpts
 	if v.PluginArgs != nil && len(*v.PluginArgs) > 0 {

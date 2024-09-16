@@ -48,23 +48,25 @@ func applyOutboundSocketOptions(network string, address string, fd uintptr, conf
 		if err != nil {
 			return newError("failed to get interface ", config.BindToDevice).Base(err)
 		}
+		var bytes [4]byte
+		binary.BigEndian.PutUint32(bytes[:], uint32(iface.Index))
+		index := *(*uint32)(unsafe.Pointer(&bytes[0]))
 		host, _, err := net.SplitHostPort(address)
 		if err != nil {
 			return err
 		}
-		switch v2net.ParseAddress(host).Family() {
-		case v2net.AddressFamilyIPv4:
-			var bytes [4]byte
-			binary.BigEndian.PutUint32(bytes[:], uint32(iface.Index))
-			index := *(*uint32)(unsafe.Pointer(&bytes[0]))
-			// DWORD in network byte order
-			if err := windows.SetsockoptInt(windows.Handle(fd), windows.IPPROTO_IP, IP_UNICAST_IF, int(index)); err != nil {
-				return newError("failed to set IP_UNICAST_IF", err)
-			}
-		case v2net.AddressFamilyIPv6:
-			// DWORD in host byte order
+		addr := v2net.ParseAddress(host)
+		switch {
+		case host == "", addr.Family().IsIP() && addr.IP().IsUnspecified():
+			_ = windows.SetsockoptInt(windows.Handle(fd), windows.IPPROTO_IPV6, IPV6_UNICAST_IF, iface.Index)
+			_ = windows.SetsockoptInt(windows.Handle(fd), windows.IPPROTO_IP, IP_UNICAST_IF, int(index))
+		case addr.Family().IsIPv6():
 			if err := windows.SetsockoptInt(windows.Handle(fd), windows.IPPROTO_IPV6, IPV6_UNICAST_IF, iface.Index); err != nil {
 				return newError("failed to set IPV6_UNICAST_IF", err)
+			}
+		case addr.Family().IsIPv4():
+			if err := windows.SetsockoptInt(windows.Handle(fd), windows.IPPROTO_IP, IP_UNICAST_IF, int(index)); err != nil {
+				return newError("failed to set IP_UNICAST_IF", err)
 			}
 		}
 	}
@@ -101,22 +103,23 @@ func applyInboundSocketOptions(network string, address string, fd uintptr, confi
 		if err != nil {
 			return newError("failed to get interface ", config.BindToDevice).Base(err)
 		}
+		var bytes [4]byte
+		binary.BigEndian.PutUint32(bytes[:], uint32(iface.Index))
+		index := *(*uint32)(unsafe.Pointer(&bytes[0]))
 		host, _, err := net.SplitHostPort(address)
 		if err != nil {
 			return err
 		}
 		addr := v2net.ParseAddress(host)
 		switch {
-		case addr.Family().IsIP() && addr.IP().IsUnspecified(), addr.Family().IsIPv6():
-			// DWORD in host byte order
+		case host == "", addr.Family().IsIP() && addr.IP().IsUnspecified():
+			_ = windows.SetsockoptInt(windows.Handle(fd), windows.IPPROTO_IPV6, IPV6_UNICAST_IF, iface.Index)
+			_ = windows.SetsockoptInt(windows.Handle(fd), windows.IPPROTO_IP, IP_UNICAST_IF, int(index))
+		case addr.Family().IsIPv6():
 			if err := windows.SetsockoptInt(windows.Handle(fd), windows.IPPROTO_IPV6, IPV6_UNICAST_IF, iface.Index); err != nil {
 				return newError("failed to set IPV6_UNICAST_IF", err)
 			}
 		case addr.Family().IsIPv4():
-			var bytes [4]byte
-			binary.BigEndian.PutUint32(bytes[:], uint32(iface.Index))
-			index := *(*uint32)(unsafe.Pointer(&bytes[0]))
-			// DWORD in network byte order
 			if err := windows.SetsockoptInt(windows.Handle(fd), windows.IPPROTO_IP, IP_UNICAST_IF, int(index)); err != nil {
 				return newError("failed to set IP_UNICAST_IF", err)
 			}

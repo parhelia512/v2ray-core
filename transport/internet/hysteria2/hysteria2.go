@@ -8,8 +8,7 @@ import (
 //go:generate go run github.com/v2fly/v2ray-core/v5/common/errors/errorgen
 
 const (
-	protocolName   = "hysteria2"
-	internalDomain = "hysteria2.internal.v2fly.org"
+	protocolName = "hysteria2"
 )
 
 func init() {

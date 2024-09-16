@@ -18,21 +18,59 @@ import (
 	"github.com/v2fly/v2ray-core/v5/transport/internet/tls"
 )
 
-const (
-	FrameTypeTCPRequest = 0x401
-)
-
 type dialerConf struct {
 	net.Destination
 	*internet.MemoryStreamConfig
 }
 
-var (
-	RunningClient map[dialerConf](hyClient.Client)
-	ClientMutex   sync.Mutex
-)
+var RunningClient map[dialerConf](hyClient.Client)
+var ClientMutex sync.Mutex
+var MBps uint64 = 1000000 / 8 // MByte
+
+func GetClientTLSConfig(streamSettings *internet.MemoryStreamConfig) (*hyClient.TLSConfig, error) {
+	config := tls.ConfigFromStreamSettings(streamSettings)
+	if config == nil {
+		return nil, newError(Hy2MustNeedTLS)
+	}
+	tlsConfig := config.GetTLSConfig()
+
+	return &hyClient.TLSConfig{
+		RootCAs:               tlsConfig.RootCAs,
+		ServerName:            tlsConfig.ServerName,
+		InsecureSkipVerify:    tlsConfig.InsecureSkipVerify,
+		VerifyPeerCertificate: tlsConfig.VerifyPeerCertificate,
+	}, nil
+}
+
+func ResolveAddress(dest net.Destination) (net.Addr, error) {
+	var destAddr *net.UDPAddr
+	if dest.Address.Family().IsIP() {
+		destAddr = &net.UDPAddr{
+			IP:   dest.Address.IP(),
+			Port: int(dest.Port),
+		}
+	} else {
+		// SagerNet private
+		ips, err := localdns.New().LookupIP(dest.Address.Domain())
+		if err != nil {
+			return nil, err
+		}
+		if len(ips) == 0 {
+			return nil, dns.ErrEmptyResponse
+		}
+		dest.Address = net.IPAddress(ips[0])
+		addr, err := net.ResolveUDPAddr("udp", dest.NetAddr())
+		if err != nil {
+			return nil, err
+		}
+		destAddr = addr
+	}
+	return destAddr, nil
+}
 
 type connFactory struct {
+	hyClient.ConnFactory
+
 	NewFunc    func(addr net.Addr) (net.PacketConn, error)
 	Obfuscator Obfuscator
 }
@@ -76,53 +114,22 @@ func NewConnWrapper(conn net.Conn) net.PacketConn {
 }
 
 func NewHyClient(ctx context.Context, dest net.Destination, streamSettings *internet.MemoryStreamConfig) (hyClient.Client, error) {
-	tlsSettings := tls.ConfigFromStreamSettings(streamSettings)
-	if tlsSettings == nil {
-		tlsSettings = &tls.Config{
-			ServerName:    internalDomain,
-			AllowInsecure: true,
-		}
-	}
-	tlsConfig := tlsSettings.GetTLSConfig(tls.WithDestination(dest))
-	hyTLSConfig := &hyClient.TLSConfig{
-		ServerName:            tlsConfig.ServerName,
-		InsecureSkipVerify:    tlsConfig.InsecureSkipVerify,
-		VerifyPeerCertificate: tlsConfig.VerifyPeerCertificate,
-		RootCAs:               tlsConfig.RootCAs,
+	tlsConfig, err := GetClientTLSConfig(streamSettings)
+	if err != nil {
+		return nil, err
 	}
 
-	var serverAddr *net.UDPAddr
-	if dest.Address.Family().IsIP() {
-		serverAddr = &net.UDPAddr{
-			IP:   dest.Address.IP(),
-			Port: int(dest.Port),
-		}
-	} else {
-		// SagerNet private
-		ips, err := localdns.New().LookupIP(dest.Address.Domain())
-		if err != nil {
-			return nil, err
-		}
-		if len(ips) == 0 {
-			return nil, dns.ErrEmptyResponse
-		}
-		dest.Address = net.IPAddress(ips[0])
-		addr, err := net.ResolveUDPAddr("udp", dest.NetAddr())
-		if err != nil {
-			return nil, err
-		}
-		serverAddr = addr
+	serverAddr, err := ResolveAddress(dest)
+	if err != nil {
+		return nil, err
 	}
 
 	config := streamSettings.ProtocolSettings.(*Config)
 	hyConfig := &hyClient.Config{
-		Auth:       config.GetPassword(),
-		TLSConfig:  *hyTLSConfig,
-		ServerAddr: serverAddr,
-		BandwidthConfig: hyClient.BandwidthConfig{
-			MaxTx: config.Congestion.GetUpMbps() * 1000 * 1000 / 8,
-			MaxRx: config.Congestion.GetDownMbps() * 1000 * 1000 / 8,
-		},
+		Auth:            config.GetPassword(),
+		TLSConfig:       *tlsConfig,
+		ServerAddr:      serverAddr,
+		BandwidthConfig: hyClient.BandwidthConfig{MaxTx: config.Congestion.GetUpMbps() * MBps, MaxRx: config.GetCongestion().GetDownMbps() * MBps},
 	}
 
 	connFactory := &connFactory{
@@ -167,14 +174,16 @@ func CloseHyClient(dest net.Destination, streamSettings *internet.MemoryStreamCo
 		delete(RunningClient, dialerConf{dest, streamSettings})
 		return client.Close()
 	}
-	return newError("CloseHyClient: not found")
+	return nil
 }
 
 func GetHyClient(ctx context.Context, dest net.Destination, streamSettings *internet.MemoryStreamConfig) (hyClient.Client, error) {
+	var err error
+	var client hyClient.Client
+
 	ClientMutex.Lock()
 	client, found := RunningClient[dialerConf{dest, streamSettings}]
 	ClientMutex.Unlock()
-	var err error
 	if !found || !CheckHyClientHealthy(client) {
 		if found {
 			// retry
@@ -209,6 +218,7 @@ func Dial(ctx context.Context, dest net.Destination, streamSettings *internet.Me
 
 	client, err := GetHyClient(ctx, dest, streamSettings)
 	if err != nil {
+		CloseHyClient(dest, streamSettings)
 		return nil, err
 	}
 
@@ -242,9 +252,9 @@ func Dial(ctx context.Context, dest net.Destination, streamSettings *internet.Me
 	}
 
 	// write TCP frame type
-	frameSize := quicvarint.Len(FrameTypeTCPRequest)
+	frameSize := int(quicvarint.Len(hyProtocol.FrameTypeTCPRequest))
 	buf := make([]byte, frameSize)
-	hyProtocol.VarintPut(buf, FrameTypeTCPRequest)
+	hyProtocol.VarintPut(buf, hyProtocol.FrameTypeTCPRequest)
 	_, err = conn.stream.Write(buf)
 	if err != nil {
 		CloseHyClient(dest, streamSettings)

@@ -11,6 +11,7 @@ import (
 	"github.com/v2fly/v2ray-core/v5/common"
 	"github.com/v2fly/v2ray-core/v5/common/buf"
 	"github.com/v2fly/v2ray-core/v5/common/net"
+	"github.com/v2fly/v2ray-core/v5/common/net/packetaddr"
 	"github.com/v2fly/v2ray-core/v5/common/retry"
 	"github.com/v2fly/v2ray-core/v5/common/session"
 	"github.com/v2fly/v2ray-core/v5/common/signal"
@@ -157,6 +158,11 @@ func (h *Handler) Process(ctx context.Context, link *transport.Link, dialer inte
 	ctx, cancel := context.WithCancel(ctx)
 	timer := signal.CancelAfterInactivity(ctx, cancel, plcy.Timeouts.ConnectionIdle)
 
+	isPacketAddr := false
+	if _, err := packetaddr.ToPacketAddrConn(link, destination); err == nil {
+		isPacketAddr = true
+	}
+
 	addrPort := &addrPort{}
 
 	requestDone := func() error {
@@ -166,7 +172,7 @@ func (h *Handler) Process(ctx context.Context, link *transport.Link, dialer inte
 		switch {
 		case destination.Network == net.Network_TCP:
 			writer = buf.NewWriter(conn)
-		case redirect.Address != nil, redirect.Port != 0:
+		case redirect.Address != nil, redirect.Port != 0, isPacketAddr:
 			writer = &buf.SequentialWriter{Writer: conn}
 		default:
 			writer = NewPacketWriter(ctx, h, conn, destination, addrPort)
@@ -186,7 +192,7 @@ func (h *Handler) Process(ctx context.Context, link *transport.Link, dialer inte
 		switch {
 		case destination.Network == net.Network_TCP && h.config.ProtocolReplacement == ProtocolReplacement_IDENTITY:
 			reader = buf.NewReader(conn)
-		case redirect.Address != nil, redirect.Port != 0:
+		case redirect.Address != nil, redirect.Port != 0, isPacketAddr:
 			reader = &buf.PacketReader{Reader: conn}
 		default:
 			reader = NewPacketReader(conn, destination, addrPort)

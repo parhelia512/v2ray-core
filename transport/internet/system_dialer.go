@@ -74,7 +74,7 @@ func (d *DefaultSystemDialer) Dial(ctx context.Context, src net.Address, dest ne
 		if sockopt != nil {
 			if rawConn, err := packetConn.(*net.UDPConn).SyscallConn(); err == nil {
 				rawConn.Control(func(fd uintptr) {
-					if err := applyOutboundSocketOptions("udp", dest.NetAddr(), fd, sockopt); err != nil {
+					if err := applyOutboundSocketOptions(srcAddr.Network(), srcAddr.String(), fd, sockopt); err != nil {
 						newError("failed to apply socket options").Base(err).WriteToLog(session.ExportIDToError(ctx))
 					}
 				})

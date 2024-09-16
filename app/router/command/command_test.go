@@ -83,7 +83,13 @@ func TestServiceSubscribeRoutingStats(t *testing.T) {
 	// Client goroutine
 	go func() {
 		defer lis.Close()
-		conn, err := grpc.DialContext(context.Background(), "bufnet", grpc.WithContextDialer(bufDialer), grpc.WithTransportCredentials(insecure.NewCredentials()))
+		conn, err := grpc.DialContext(
+			context.Background(),
+			"bufnet",
+			grpc.WithContextDialer(bufDialer),
+			grpc.WithTransportCredentials(insecure.NewCredentials()),
+		)
+
 		if err != nil {
 			errCh <- err
 			return
@@ -340,7 +346,11 @@ func TestSerivceTestRoute(t *testing.T) {
 	// Client goroutine
 	go func() {
 		defer lis.Close()
-		conn, err := grpc.DialContext(context.Background(), "bufnet", grpc.WithContextDialer(bufDialer), grpc.WithTransportCredentials(insecure.NewCredentials()))
+		conn, err := grpc.DialContext(
+			context.Background(),
+			"bufnet", grpc.WithContextDialer(bufDialer),
+			grpc.WithTransportCredentials(insecure.NewCredentials()),
+		)
 		if err != nil {
 			errCh <- err
 		}

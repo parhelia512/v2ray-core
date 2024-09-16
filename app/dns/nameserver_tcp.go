@@ -278,8 +278,13 @@ func (s *TCPNameServer) findIPsForDomain(domain string, option dns_feature.IPOpt
 	var ttl uint32
 	var expireAt time.Time
 	var err, lastErr error
+	updated := false
 	if option.IPv4Enable {
 		a, ttl, expireAt, err = record.A.getIPsAndTTL()
+		if ttl == 0 {
+			record.A = nil
+			updated = true
+		}
 		if err != nil {
 			lastErr = err
 		}
@@ -288,10 +293,20 @@ func (s *TCPNameServer) findIPsForDomain(domain string, option dns_feature.IPOpt
 
 	if option.IPv6Enable {
 		aaaa, ttl, expireAt, err = record.AAAA.getIPsAndTTL()
+		if ttl == 0 {
+			record.AAAA = nil
+			updated = true
+		}
 		if err != nil {
 			lastErr = err
 		}
 		ips = append(ips, aaaa...)
+	}
+
+	if updated {
+		s.Lock()
+		s.ips[domain] = record
+		s.Unlock()
 	}
 
 	if len(ips) > 0 {

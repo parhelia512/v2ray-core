@@ -9,7 +9,6 @@ import (
 
 	"github.com/v2fly/v2ray-core/v5/common"
 	"github.com/v2fly/v2ray-core/v5/common/net"
-	"github.com/v2fly/v2ray-core/v5/common/protocol/tls/cert"
 	"github.com/v2fly/v2ray-core/v5/transport/internet"
 	"github.com/v2fly/v2ray-core/v5/transport/internet/tls"
 )
@@ -33,6 +32,7 @@ func (l *Listener) Close() error {
 
 func (l *Listener) StreamHijacker(ft http3.FrameType, conn quic.Connection, stream quic.Stream, err error) (bool, error) {
 	// err always == nil
+
 	tcpConn := &HyConn{
 		stream: stream,
 		local:  conn.LocalAddr(),
@@ -42,7 +42,7 @@ func (l *Listener) StreamHijacker(ft http3.FrameType, conn quic.Connection, stre
 	return true, nil
 }
 
-func (l *Listener) UDPHijacker(entry *hyServer.UdpSessionEntry, originalAddr string) {
+func (l *Listener) UdpHijacker(entry *hyServer.UdpSessionEntry, originalAddr string) {
 	addr, err := net.ResolveUDPAddr("udp", originalAddr)
 	if err != nil {
 		return
@@ -59,6 +59,11 @@ func (l *Listener) UDPHijacker(entry *hyServer.UdpSessionEntry, originalAddr str
 
 // Listen creates a new Listener based on configurations.
 func Listen(ctx context.Context, address net.Address, port net.Port, streamSettings *internet.MemoryStreamConfig, handler internet.ConnHandler) (internet.Listener, error) {
+	tlsConfig, err := GetServerTLSConfig(streamSettings)
+	if err != nil {
+		return nil, err
+	}
+
 	if address.Family().IsDomain() {
 		return nil, nil
 	}
@@ -78,30 +83,15 @@ func Listen(ctx context.Context, address net.Address, port net.Port, streamSetti
 		addConn: handler,
 	}
 
-	tlsSettings := tls.ConfigFromStreamSettings(streamSettings)
-	if tlsSettings == nil {
-		tlsSettings = &tls.Config{
-			Certificate: []*tls.Certificate{tls.ParseCertificate(cert.MustGenerate(nil, cert.DNSNames(internalDomain), cert.CommonName(internalDomain)))},
-		}
-	}
-	tlsConfig := tlsSettings.GetTLSConfig()
-	hyTLSConfig := &hyServer.TLSConfig{
-		Certificates:   tlsConfig.Certificates,
-		GetCertificate: tlsConfig.GetCertificate,
-	}
-
 	hyConfig := &hyServer.Config{
 		Conn:                  rawConn,
-		TLSConfig:             *hyTLSConfig,
+		TLSConfig:             *tlsConfig,
 		DisableUDP:            !config.GetUseUdpExtension(),
 		Authenticator:         &Authenticator{Password: config.GetPassword()},
 		StreamHijacker:        listener.StreamHijacker, // acceptStreams
-		UdpSessionHijacker:    listener.UDPHijacker,    // acceptUDPSession
+		BandwidthConfig:       hyServer.BandwidthConfig{MaxTx: config.Congestion.GetUpMbps() * MBps, MaxRx: config.GetCongestion().GetDownMbps() * MBps},
+		UdpSessionHijacker:    listener.UdpHijacker, // acceptUDPSession
 		IgnoreClientBandwidth: config.GetIgnoreClientBandwidth(),
-		BandwidthConfig: hyServer.BandwidthConfig{
-			MaxTx: config.Congestion.GetUpMbps() * 1000 * 1000 / 8,
-			MaxRx: config.Congestion.GetDownMbps() * 1000 * 1000 / 8,
-		},
 	}
 	if config.Obfs != nil && config.Obfs.Type == "salamander" {
 		ob, err := NewSalamanderObfuscator([]byte(config.Obfs.Password))
@@ -118,6 +108,16 @@ func Listen(ctx context.Context, address net.Address, port net.Port, streamSetti
 	listener.hyServer = hyServer
 	go hyServer.Serve()
 	return listener, nil
+}
+
+func GetServerTLSConfig(streamSettings *internet.MemoryStreamConfig) (*hyServer.TLSConfig, error) {
+	config := tls.ConfigFromStreamSettings(streamSettings)
+	if config == nil {
+		return nil, newError(Hy2MustNeedTLS)
+	}
+	tlsConfig := config.GetTLSConfig()
+
+	return &hyServer.TLSConfig{Certificates: tlsConfig.Certificates, GetCertificate: tlsConfig.GetCertificate}, nil
 }
 
 type Authenticator struct {

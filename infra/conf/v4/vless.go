@@ -11,6 +11,7 @@ import (
 	"github.com/golang/protobuf/proto"
 
 	"github.com/v2fly/v2ray-core/v5/common/net"
+	"github.com/v2fly/v2ray-core/v5/common/net/packetaddr"
 	"github.com/v2fly/v2ray-core/v5/common/protocol"
 	"github.com/v2fly/v2ray-core/v5/common/serial"
 	"github.com/v2fly/v2ray-core/v5/infra/conf/cfgcommon"
@@ -128,8 +129,8 @@ type VLessOutboundVnext struct {
 }
 
 type VLessOutboundConfig struct {
-	Vnext          []*VLessOutboundVnext    `json:"vnext"`
-	PacketEncoding cfgcommon.PacketAddrType `json:"packetEncoding"`
+	Vnext          []*VLessOutboundVnext `json:"vnext"`
+	PacketEncoding string                `json:"packetEncoding"`
 }
 
 // Build implements Buildable
@@ -171,7 +172,15 @@ func (c *VLessOutboundConfig) Build() (proto.Message, error) {
 		}
 		config.Vnext[idx] = spec
 	}
-	config.PacketEncoding = c.PacketEncoding.Build()
+
+	switch strings.ToLower(c.PacketEncoding) {
+	case "packet":
+		config.PacketEncoding = packetaddr.PacketAddrType_Packet
+	case "xudp":
+		config.PacketEncoding = packetaddr.PacketAddrType_XUDP
+	case "", "none":
+		config.PacketEncoding = packetaddr.PacketAddrType_None
+	}
 
 	return config, nil
 }

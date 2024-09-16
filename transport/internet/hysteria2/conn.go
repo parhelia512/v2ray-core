@@ -11,7 +11,8 @@ import (
 	"github.com/v2fly/v2ray-core/v5/common/net"
 )
 
-const CanNotUseUDPExtension = "Only hysteria2 proxy protocol can use udpExtension."
+const CanNotUseUdpExtension = "Only hysteria2 proxy protocol can use udpExtension."
+const Hy2MustNeedTLS = "Hysteria2 based on QUIC that requires TLS."
 
 type HyConn struct {
 	IsUDPExtension   bool
@@ -43,7 +44,7 @@ func (c *HyConn) Write(b []byte) (int, error) {
 
 func (c *HyConn) WritePacket(b []byte, dest net.Destination) (int, error) {
 	if !c.IsUDPExtension {
-		return 0, newError(CanNotUseUDPExtension)
+		return 0, newError(CanNotUseUdpExtension)
 	}
 
 	if c.IsServer {
@@ -63,7 +64,7 @@ func (c *HyConn) WritePacket(b []byte, dest net.Destination) (int, error) {
 
 func (c *HyConn) ReadPacket() (int, []byte, *net.Destination, error) {
 	if !c.IsUDPExtension {
-		return 0, nil, nil, newError(CanNotUseUDPExtension)
+		return 0, nil, nil, newError(CanNotUseUdpExtension)
 	}
 
 	if c.IsServer {
@@ -85,7 +86,7 @@ func (c *HyConn) ReadPacket() (int, []byte, *net.Destination, error) {
 func (c *HyConn) Close() error {
 	if c.IsUDPExtension {
 		if !c.IsServer && c.ClientUDPSession == nil || (c.IsServer && c.ServerUDPSession == nil) {
-			return newError(CanNotUseUDPExtension)
+			return newError(CanNotUseUdpExtension)
 		}
 		if c.IsServer {
 			c.ServerUDPSession.Close()

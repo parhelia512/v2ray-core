@@ -142,6 +142,42 @@ func (c *TCPConfig) Build() (proto.Message, error) {
 	return config, nil
 }
 
+type Hy2ConfigCongestion struct {
+	Type     string `json:"type"`
+	UpMbps   uint64 `json:"up_mbps"`
+	DownMbps uint64 `json:"down_mbps"`
+}
+
+type Hyteria2ConfigOBFS struct {
+	Type     string `json:"type"`
+	Password string `json:"password"`
+}
+
+type Hy2Config struct {
+	Password              string              `json:"password"`
+	Congestion            Hy2ConfigCongestion `json:"congestion"`
+	UseUdpExtension       bool                `json:"use_udp_extension"`
+	IgnoreClientBandwidth bool                `json:"ignore_client_bandwidth"`
+	OBFS                  Hyteria2ConfigOBFS  `json:"obfs"`
+}
+
+// Build implements Buildable.
+func (c *Hy2Config) Build() (proto.Message, error) {
+	return &hysteria2.Config{Password: c.Password,
+		Congestion: &hysteria2.Congestion{
+			Type:     c.Congestion.Type,
+			DownMbps: c.Congestion.DownMbps,
+			UpMbps:   c.Congestion.UpMbps,
+		},
+		UseUdpExtension:       c.UseUdpExtension,
+		IgnoreClientBandwidth: c.IgnoreClientBandwidth,
+		Obfs: &hysteria2.OBFS{
+			Type:     c.OBFS.Type,
+			Password: c.OBFS.Password,
+		},
+	}, nil
+}
+
 type WebSocketConfig struct {
 	Path                 string            `json:"path"`
 	Headers              map[string]string `json:"headers"`
@@ -312,41 +348,6 @@ func (c *DTLSConfig) Build() (proto.Message, error) {
 	return config, nil
 }
 
-type Hysteria2ConfigCongestion struct {
-	UpMbps   uint64 `json:"upMbps"`
-	DownMbps uint64 `json:"downMbps"`
-}
-
-type Hyteria2ConfigOBFS struct {
-	Type     string `json:"type"`
-	Password string `json:"password"`
-}
-
-type Hysteria2Config struct {
-	Password              string                    `json:"password"`
-	Congestion            Hysteria2ConfigCongestion `json:"congestion"`
-	IgnoreClientBandwidth bool                      `json:"ignoreClientBandwidth"`
-	UseUDPExtension       bool                      `json:"useUDPExtension"`
-	OBFS                  Hyteria2ConfigOBFS        `json:"obfs"`
-}
-
-// Build implements Buildable.
-func (c *Hysteria2Config) Build() (proto.Message, error) {
-	return &hysteria2.Config{
-		Password: c.Password,
-		Congestion: &hysteria2.Congestion{
-			DownMbps: c.Congestion.DownMbps,
-			UpMbps:   c.Congestion.UpMbps,
-		},
-		IgnoreClientBandwidth: c.IgnoreClientBandwidth,
-		UseUdpExtension:       c.UseUDPExtension,
-		Obfs: &hysteria2.OBFS{
-			Type:     c.OBFS.Type,
-			Password: c.OBFS.Password,
-		},
-	}, nil
-}
-
 type SplitHTTPConfig struct {
 	Host        string            `json:"host"`
 	Path        string            `json:"path"`
@@ -391,6 +392,8 @@ func (p TransportProtocol) Build() (string, error) {
 		return "quic", nil
 	case "gun", "grpc":
 		return "gun", nil
+	case "hy2", "hysteria2":
+		return "hysteria2", nil
 	case "meek":
 		return "meek", nil
 	case "httpupgrade":
@@ -399,8 +402,6 @@ func (p TransportProtocol) Build() (string, error) {
 		return "dtls", nil
 	case "request":
 		return "request", nil
-	case "hy2", "hysteria2":
-		return "hysteria2", nil
 	case "splithttp":
 		return "splithttp", nil
 	default:
@@ -422,11 +423,11 @@ type StreamConfig struct {
 	QUICSettings        *QUICConfig             `json:"quicSettings"`
 	GunSettings         *GunConfig              `json:"gunSettings"`
 	GRPCSettings        *GunConfig              `json:"grpcSettings"`
+	Hy2Settings         *Hy2Config              `json:"hy2Settings"`
 	MeekSettings        *MeekConfig             `json:"meekSettings"`
 	HTTPUpgradeSettings *HTTPUpgradeConfig      `json:"httpupgradeSettings"`
 	DTLSSettings        *DTLSConfig             `json:"dtlsSettings"`
 	RequestSettings     *RequestConfig          `json:"requestSettings"`
-	Hysteria2Settings   *Hysteria2Config        `json:"hysteria2Settings"`
 	SplitHTTPSettings   *SplitHTTPConfig        `json:"splithttpSettings"`
 	SocketSettings      *socketcfg.SocketConfig `json:"sockopt"`
 }
@@ -576,6 +577,16 @@ func (c *StreamConfig) Build() (*internet.StreamConfig, error) {
 			Settings:     serial.ToTypedMessage(gs),
 		})
 	}
+	if c.Hy2Settings != nil {
+		hy2, err := c.Hy2Settings.Build()
+		if err != nil {
+			return nil, newError("Failed to build hy2 config.").Base(err)
+		}
+		config.TransportSettings = append(config.TransportSettings, &internet.TransportConfig{
+			ProtocolName: "hysteria2",
+			Settings:     serial.ToTypedMessage(hy2),
+		})
+	}
 	if c.MeekSettings != nil {
 		ms, err := c.MeekSettings.Build()
 		if err != nil {
@@ -621,16 +632,6 @@ func (c *StreamConfig) Build() (*internet.StreamConfig, error) {
 		config.TransportSettings = append(config.TransportSettings, &internet.TransportConfig{
 			ProtocolName: "request",
 			Settings:     serial.ToTypedMessage(rs),
-		})
-	}
-	if c.Hysteria2Settings != nil {
-		hs, err := c.Hysteria2Settings.Build()
-		if err != nil {
-			return nil, newError("Failed to build Hysteria2 config.").Base(err)
-		}
-		config.TransportSettings = append(config.TransportSettings, &internet.TransportConfig{
-			ProtocolName: "hysteria2",
-			Settings:     serial.ToTypedMessage(hs),
 		})
 	}
 	if c.SplitHTTPSettings != nil {

@@ -16,7 +16,7 @@ require (
 	github.com/pion/dtls/v2 v2.2.12
 	github.com/pion/transport/v3 v3.0.7
 	github.com/pires/go-proxyproto v0.7.0
-	github.com/quic-go/quic-go v0.46.0
+	github.com/quic-go/quic-go v0.47.0
 	github.com/refraction-networking/utls v1.6.7
 	github.com/sagernet/sing v0.4.2
 	github.com/sagernet/sing-shadowsocks v0.2.7
@@ -26,7 +26,7 @@ require (
 	github.com/v2fly/BrowserBridge v0.0.0-20210430233438-0570fc1d7d08
 	github.com/v2fly/ss-bloomring v0.0.0-20210312155135-28617310f63e
 	github.com/xiaokangwang/VLite v0.0.0-20231225174116-75fa4b06e9f2
-	github.com/xtls/reality v0.0.0-20240712055506-48f0b2d5ed6d
+	github.com/xtls/reality v0.0.0-20240909153216-d468813b2352
 	go.uber.org/mock v0.4.0
 	go4.org/netipx v0.0.0-20231129151722-fdeea329fbba
 	golang.org/x/crypto v0.27.0
@@ -34,7 +34,7 @@ require (
 	golang.org/x/sync v0.8.0
 	golang.org/x/sys v0.25.0
 	golang.zx2c4.com/wireguard v0.0.0-20231211153847-12269c276173
-	google.golang.org/grpc v1.66.0
+	google.golang.org/grpc v1.66.2
 	google.golang.org/protobuf v1.34.2
 	gvisor.dev/gvisor v0.0.0-20240826202453-4b05bd999c37
 	h12.io/socks v1.0.3
@@ -63,7 +63,7 @@ require (
 	github.com/pion/transport/v2 v2.2.4 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
-	github.com/quic-go/qpack v0.4.0 // indirect
+	github.com/quic-go/qpack v0.5.1 // indirect
 	github.com/riobard/go-bloom v0.0.0-20200614022211-cdc8013cb5b3 // indirect
 	github.com/secure-io/siv-go v0.0.0-20180922214919-5ff40651e2c4 // indirect
 	github.com/stretchr/objx v0.5.2 // indirect

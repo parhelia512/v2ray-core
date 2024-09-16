@@ -6,6 +6,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 
+	"github.com/v2fly/v2ray-core/v5/common/net/packetaddr"
 	"github.com/v2fly/v2ray-core/v5/common/protocol"
 	"github.com/v2fly/v2ray-core/v5/common/serial"
 	"github.com/v2fly/v2ray-core/v5/infra/conf/cfgcommon"
@@ -124,8 +125,8 @@ type VMessOutboundTarget struct {
 }
 
 type VMessOutboundConfig struct {
-	Receivers      []*VMessOutboundTarget   `json:"vnext"`
-	PacketEncoding cfgcommon.PacketAddrType `json:"packetEncoding"`
+	Receivers      []*VMessOutboundTarget `json:"vnext"`
+	PacketEncoding string                 `json:"packetEncoding"`
 }
 
 // Build implements Buildable
@@ -162,6 +163,15 @@ func (c *VMessOutboundConfig) Build() (proto.Message, error) {
 		serverSpecs[idx] = spec
 	}
 	config.Receiver = serverSpecs
-	config.PacketEncoding = c.PacketEncoding.Build()
+
+	switch strings.ToLower(c.PacketEncoding) {
+	case "packet":
+		config.PacketEncoding = packetaddr.PacketAddrType_Packet
+	case "xudp":
+		config.PacketEncoding = packetaddr.PacketAddrType_XUDP
+	case "", "none":
+		config.PacketEncoding = packetaddr.PacketAddrType_None
+	}
+
 	return config, nil
 }

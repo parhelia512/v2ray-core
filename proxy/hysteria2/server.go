@@ -41,7 +41,8 @@ type Server struct {
 func NewServer(ctx context.Context, config *ServerConfig) (*Server, error) {
 	v := core.MustFromContext(ctx)
 	server := &Server{
-		policyManager: v.GetFeature(policy.ManagerType()).(policy.Manager),
+		policyManager:  v.GetFeature(policy.ManagerType()).(policy.Manager),
+		packetEncoding: config.PacketEncoding,
 	}
 	return server, nil
 }
@@ -57,15 +58,16 @@ func (s *Server) Process(ctx context.Context, network net.Network, conn internet
 
 	iConn := conn
 	if statConn, ok := conn.(*internet.StatCouterConnection); ok {
-		iConn = statConn.Connection
+		iConn = statConn.Connection // will not count the UDP traffic.
 	}
 	hyConn, IsHy2Transport := iConn.(*hyTransport.HyConn)
+
 	if IsHy2Transport && hyConn.IsUDPExtension {
 		network = net.Network_UDP
 	}
 
 	if !IsHy2Transport && network == net.Network_UDP {
-		return newError(hyTransport.CanNotUseUDPExtension)
+		return newError(hyTransport.CanNotUseUdpExtension)
 	}
 
 	sessionPolicy := s.policyManager.ForLevel(0)
