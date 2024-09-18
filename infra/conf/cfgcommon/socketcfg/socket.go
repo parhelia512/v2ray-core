@@ -1,6 +1,8 @@
 package socketcfg
 
 import (
+	"encoding/json"
+	"fmt"
 	"strings"
 
 	"github.com/v2fly/v2ray-core/v5/transport/internet"
@@ -19,19 +21,53 @@ type SocketConfig struct {
 	TxBufSize            uint64    `json:"txBufSize"`
 	ForceBufSize         bool      `json:"forceBufSize"`
 	MPTCP                *bool     `json:"mptcp"`
+	DialerProxy          string    `json:"dialerProxy"`
 	Fragment             *Fragment `json:"fragment"`
-	Noise                *Noise    `json:"noise"`
+	Noises               []*Noise  `json:"noises"`
 }
 
 type Fragment struct {
-	Packets  string `json:"packets"`
-	Length   string `json:"length"`
-	Interval string `json:"interval"`
+	Packets     string `json:"packets"`
+	Length      string `json:"length"`
+	Interval    string `json:"interval"`
+	Host1Header string `json:"host1_header"`
+	Host1Domain string `json:"host1_domain"`
+	Host2Header string `json:"host2_header"`
+	Host2Domain string `json:"host2_domain"`
+}
+
+func (c *Fragment) Build() *internet.SocketConfig_Fragment {
+	return &internet.SocketConfig_Fragment{
+		Packets:     c.Packets,
+		Length:      c.Length,
+		Interval:    c.Interval,
+		Host1Header: c.Host1Header,
+		Host1Domain: c.Host1Domain,
+		Host2Header: c.Host2Header,
+		Host2Domain: c.Host2Domain,
+	}
 }
 
 type Noise struct {
-	Packet string `json:"packet"`
-	Delay  string `json:"delay"`
+	Type   string          `json:"type"`
+	Packet string          `json:"packet"`
+	Delay  json.RawMessage `json:"delay"`
+}
+
+func (c *Noise) Build() *internet.SocketConfig_Noise {
+	var delayStr string
+	var delayInt int32
+	var delay string
+	if err := json.Unmarshal(c.Delay, &delayStr); err == nil {
+		delay = delayStr
+	} else if err := json.Unmarshal(c.Delay, &delayInt); err == nil {
+		delay = fmt.Sprint(delayInt) + "-" + fmt.Sprint(delayInt)
+	}
+	return &internet.SocketConfig_Noise{
+		Type:   c.Type,
+		Packet: c.Packet,
+		Delay:  delay,
+	}
 }
 
 // Build implements Buildable.
@@ -82,19 +118,16 @@ func (c *SocketConfig) Build() (*internet.SocketConfig, error) {
 		ForceBufSize:         c.ForceBufSize,
 		BindToDevice:         c.BindToDevice,
 		Mptcp:                mptcpSettings,
+		DialerProxy:          c.DialerProxy,
 	}
 
 	if c.Fragment != nil {
-		config.Fragment = new(internet.SocketConfig_Fragment)
-		config.Fragment.Packets = c.Fragment.Packets
-		config.Fragment.Length = c.Fragment.Length
-		config.Fragment.Interval = c.Fragment.Interval
+		config.Fragment = c.Fragment.Build()
 	}
-
-	if c.Noise != nil {
-		config.Noise = new(internet.SocketConfig_Noise)
-		config.Noise.Packet = c.Noise.Packet
-		config.Noise.Delay = c.Noise.Delay
+	if c.Noises != nil {
+		for _, noise := range c.Noises {
+			config.Noises = append(config.Noises, noise.Build())
+		}
 	}
 
 	return config, nil

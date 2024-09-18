@@ -10,7 +10,6 @@ import (
 	"sync"
 
 	"github.com/v2fly/v2ray-core/v5/common"
-	"github.com/v2fly/v2ray-core/v5/common/errors"
 	"github.com/v2fly/v2ray-core/v5/common/net"
 	"github.com/v2fly/v2ray-core/v5/common/signal/done"
 )
@@ -28,8 +27,7 @@ type DialerClient interface {
 // implements splithttp.DialerClient in terms of direct network connections
 type DefaultDialerClient struct {
 	transportConfig *Config
-	download        *http.Client
-	upload          *http.Client
+	client          *http.Client
 	isH2            bool
 	isH3            bool
 	// pool of net.Conn, created using dialUploadConn
@@ -78,7 +76,7 @@ func (c *DefaultDialerClient) OpenDownload(ctx context.Context, baseURL string) 
 
 		req.Header = c.transportConfig.GetRequestHeader()
 
-		response, err := c.download.Do(req)
+		response, err := c.client.Do(req)
 		gotConn.Close()
 		if err != nil {
 			newError("failed to send download http request").Base(err).WriteToLog()
@@ -110,7 +108,7 @@ func (c *DefaultDialerClient) OpenDownload(ctx context.Context, baseURL string) 
 		CreateReader: func() (io.Reader, error) {
 			<-gotDownResponse.Wait()
 			if downResponse == nil {
-				return nil, errors.New("downResponse failed")
+				return nil, newError("downResponse failed")
 			}
 			return downResponse, nil
 		},
@@ -136,7 +134,7 @@ func (c *DefaultDialerClient) SendUploadRequest(ctx context.Context, url string,
 	req.Header = c.transportConfig.GetRequestHeader()
 
 	if c.isH2 || c.isH3 {
-		resp, err := c.upload.Do(req)
+		resp, err := c.client.Do(req)
 		if err != nil {
 			return err
 		}
@@ -144,30 +142,46 @@ func (c *DefaultDialerClient) SendUploadRequest(ctx context.Context, url string,
 		defer resp.Body.Close()
 
 		if resp.StatusCode != 200 {
-			return errors.New("bad status code:", resp.Status)
+			return newError("bad status code: ", resp.Status)
 		}
 	} else {
 		// stringify the entire HTTP/1.1 request so it can be
 		// safely retried. if instead req.Write is called multiple
 		// times, the body is already drained after the first
 		// request
-		requestBytes := new(bytes.Buffer)
-		common.Must(req.Write(requestBytes))
+		requestBuff := new(bytes.Buffer)
+		common.Must(req.Write(requestBuff))
 
 		var uploadConn any
+		var h1UploadConn *H1Conn
 
 		for {
 			uploadConn = c.uploadRawPool.Get()
 			newConnection := uploadConn == nil
 			if newConnection {
-				uploadConn, err = c.dialUploadConn(context.WithoutCancel(ctx))
+				newConn, err := c.dialUploadConn(context.WithoutCancel(ctx))
 				if err != nil {
 					return err
 				}
+				h1UploadConn = NewH1Conn(newConn)
+				uploadConn = h1UploadConn
+			} else {
+				h1UploadConn = uploadConn.(*H1Conn)
+
+				// TODO: Replace 0 here with a config value later
+				// Or add some other condition for optimization purposes
+				if h1UploadConn.UnreadedResponsesCount > 0 {
+					resp, err := http.ReadResponse(h1UploadConn.RespBufReader, req)
+					if err != nil {
+						return newError("error while reading response: ", err.Error())
+					}
+					if resp.StatusCode != 200 {
+						return newError("got non-200 error response code: ", resp.StatusCode)
+					}
+				}
 			}
 
-			_, err = uploadConn.(net.Conn).Write(requestBytes.Bytes())
-
+			_, err := h1UploadConn.Write(requestBuff.Bytes())
 			// if the write failed, we try another connection from
 			// the pool, until the write on a new connection fails.
 			// failed writes to a pooled connection are normal when

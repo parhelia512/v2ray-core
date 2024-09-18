@@ -96,21 +96,21 @@ func DialSystem(ctx context.Context, dest net.Destination, sockopt *SocketConfig
 	}
 
 	conn, err := effectiveSystemDialer.Dial(ctx, src, dest, sockopt)
-	if err == nil && conn != nil {
+	if err == nil {
 		if dest.Network == net.Network_TCP && sockopt != nil && sockopt.Fragment != nil {
-			return NewFragmentConn(conn, sockopt.Fragment.Packets, sockopt.Fragment.Length, sockopt.Fragment.Interval)
+			return NewFragmentConn(conn, sockopt.Fragment)
 		}
-		if dest.Network == net.Network_UDP && sockopt != nil && sockopt.Noise != nil {
+		if dest.Network == net.Network_UDP && sockopt != nil && sockopt.Noises != nil {
 			switch c := conn.(type) {
 			case *PacketConnWrapper:
-				noisePacketConn, err := NewNoisePacketConn(c.Conn, sockopt.Noise.Packet, sockopt.Noise.Delay)
+				noisePacketConn, err := NewNoisePacketConn(c.Conn, sockopt.Noises)
 				if err != nil {
 					return nil, err
 				}
 				c.Conn = noisePacketConn
 				return c, nil
 			case net.PacketConn:
-				noisePacketConn, err := NewNoisePacketConn(c, sockopt.Noise.Packet, sockopt.Noise.Delay)
+				noisePacketConn, err := NewNoisePacketConn(c, sockopt.Noises)
 				if err != nil {
 					return nil, err
 				}
@@ -119,7 +119,7 @@ func DialSystem(ctx context.Context, dest net.Destination, sockopt *SocketConfig
 					Dest: conn.RemoteAddr(),
 				}, nil
 			default:
-				return NewNoiseConn(conn, sockopt.Noise.Packet, sockopt.Noise.Delay)
+				return NewNoiseConn(conn, sockopt.Noises)
 			}
 		}
 	}
