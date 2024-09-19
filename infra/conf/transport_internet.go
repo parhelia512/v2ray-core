@@ -412,6 +412,8 @@ type TLSConfig struct {
 	MinVersion                           string                `json:"minVersion"`
 	MaxVersion                           string                `json:"maxVersion"`
 	AllowInsecureIfPinnedPeerCertificate bool                  `json:"allowInsecureIfPinnedPeerCertificate"`
+	ECHConfig                            []byte                `json:"echConfig"`
+	ECHDNSServer                         string                `json:"echDNSServer"`
 	Fingerprint                          string                `json:"fingerprint"`
 }
 
@@ -472,6 +474,9 @@ func (c *TLSConfig) Build() (proto.Message, error) {
 	}
 
 	config.AllowInsecureIfPinnedPeerCertificate = c.AllowInsecureIfPinnedPeerCertificate
+
+	config.EchConfig = c.ECHConfig
+	config.EchDnsServer = c.ECHDNSServer
 
 	return config, nil
 }

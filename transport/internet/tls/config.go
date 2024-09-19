@@ -304,6 +304,14 @@ func (c *Config) GetTLSConfig(opts ...Option) *tls.Config {
 	case Config_TLS1_3:
 		config.MaxVersion = tls.VersionTLS13
 	}
+
+	if len(c.EchConfig) > 0 || len(c.EchDnsServer) > 0 {
+		err = applyECH(c, config)
+		if err != nil {
+			newError("unable to apply ECH Config").AtError().Base(err).WriteToLog()
+		}
+	}
+
 	return config
 }
 
